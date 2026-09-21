@@ -152,3 +152,38 @@ dev 构建（esbuild transpile）产物的 `out/vs/nls.js` 是 NLS 简化版：`
 - `No bundle location found`：是**本地化 bundle（package.nls.json）缺失**的日志噪音，扩展仍正常激活；4 个 minicode 自定义扩展均有此日志。需要消除可给扩展补 `package.nls.json`，不补无功能影响。
 - `minicode-agent-os` 激活失败：`chatContextProvider` API proposal 未在 package.json#enabledApiProposals 声明（需 `--enable-proposed-api minicode.minicode-agent-os` 或补声明）。属 agent-os 扩展，不在本次 minicode-local 范围。
 - `buildRemoteWorkspaceIndex` 首次启动的时序告警：copilot 激活前调用即 not found；属预期降级（有 try/catch），用户可稍后在命令面板手动触发「构建代码库索引」。
+
+---
+
+## 九、2026-09-21 全面体检 + Cursor 方向升级（第二次）
+
+> 方式：4 扩展全量重编译（0 错误）+ 实机启动读取最新会话日志核验。
+> 详细报告：`docs/项目体检与Cursor方向升级报告-2026-09-21.md`；可视化：`docs/minicode-体检仪表盘-2026-09-21.html`。
+
+### 本轮修复（6 项）
+
+1. **`minicode.codebase` 聊天参与者未声明**（功能性缺陷，每次启动刷 `chatParticipant must be declared in package.json` 错误，@codebase 问答不可用）
+   - 修复：`extensions/minicode-agent-os/package.json` 补 `contributes.chatParticipants`（id=minicode.codebase，isSticky，含 /def /refs /deps /dependents 4 个斜杠命令）。
+   - 运行态验证：日志 `[INFO] [CodebaseQuery] Chat participant registered as minicode.codebase`，无报错。
+
+2. **3 个扩展编译产物过期**（solo 8 文件 / skills 1 文件 / agent-os 2 文件 out 落后于 src，运行的是旧代码）
+   - 根因：`scripts/dev-fast.ps1` 的 `Test-MinicodeExtensionsCompiled` 只检查 `out/extension.js` **是否存在**，不检查新旧。
+   - 修复：改为「out 下最新文件 ≥ src 下最新文件」时间戳判定，过期打印 `[stale]` 并触发重编译；全部扩展重建 0 错误。
+
+3. **`product.json` 缺 `tunnelApplicationConfig`** → 启动报 `Missing 'tunnelApplicationConfig' or 'tunnelApplicationName' ... Remote tunneling is not available`，Remote Tunnels 不可用。
+   - 修复：按官方结构补齐（editorWebUrl / extension 元数据 / GitHub+Microsoft 认证作用域）。
+   - 运行态验证：该错误消失；dev 模式走 `cargo run` 构建 tunnel CLI（本机无 Rust 时 `spawn cargo ENOENT`，打包版走预编译二进制不受影响）。
+
+4. **3 个扩展的 `No bundle location found` 噪音**
+   - 修复：4 扩展补 `contributes.localizations`（zh-cn）+ `package.nls.zh-cn.json`。
+   - 运行态验证：exthost 日志不再出现该错误。
+
+5. **项目无版本控制**（无 .git，无法 diff/回滚/看时间线）
+   - 修复：`git init`（safe.directory 例外）+ 补 .gitignore（`.langpack-zh/ .minicode-test/ *.tsbuildinfo electron-out.log`）+ 首次提交 `662b1f05`（约 1.4 万文件）。
+
+6. **`minicode-agent-os` 激活失败遗留项已核销**：当前 package.json 已含 `enabledApiProposals:["chatContextProvider"]`，本次实测 agent-os 正常激活（上次记录的问题已被先前的 product.json 补丁解决）。
+
+### 遗留项（均为上游行为或环境，非本分支缺陷）
+- Agent Host `ENOPRO: vscode-userdata`：与上游 1.128 agentHostMain.ts 逐行一致，属上游原生行为；读取 settings 走容错路径，无功能影响。
+- `spawn cargo ENOENT`：dev 模式 tunnel 需 Rust 工具链（上游逻辑），装 Rust 或使用打包版即可。
+- GitHub 未登录：登录后解锁 Copilot 聊天/补全、远端代码库索引、Remote Tunnels。
