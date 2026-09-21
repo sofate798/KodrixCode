@@ -1,0 +1,104 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Inline Chat & Composer Refinements".
+ *
+ * Polishes the inline chat / composer UI to match Cursor's editing experience:
+ *   - Zone highlighting with subtle animated border
+ *   - Accept/Reject button group with refined styling
+ *   - Diff view integration polish
+ *   - Progress indicator refinements
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Inline Chat Zone — highlighted input area in the editor
+ * ========================================================================== */
+
+/* The inline chat zone gets a card-style container. */
+.style-override .monaco-editor .inline-chat-zone-widget {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	border: 1px solid var(--vscode-editorWidget-border, color-mix(in srgb, var(--vscode-foreground) 12%, transparent));
+	box-shadow: 0 2px 8px color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+	transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.style-override .monaco-editor .inline-chat-zone-widget.focused {
+	border-color: var(--vscode-focusBorder, #6c5ce7);
+	box-shadow: 0 2px 12px color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
+}
+
+/* =============================================================================
+ * Inline Chat Input — refined editor inside zone
+ * ========================================================================== */
+
+.style-override .monaco-editor .inline-chat-zone-widget .monaco-editor {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+/* =============================================================================
+ * Accept / Reject Button Group — styled as connected pills
+ * ========================================================================== */
+
+.style-override .inline-chat-zone-widget .inline-chat-toolbar .monaco-toolbar .monaco-action-bar {
+	gap: 1px;
+}
+
+/* Accept button — green tint. */
+.style-override .inline-chat-zone-widget .inline-chat-accept-button {
+	border-radius: var(--vscode-cornerRadius-small, 4px) 0 0 var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease;
+}
+
+.style-override .inline-chat-zone-widget .inline-chat-accept-button:hover {
+	background-color: color-mix(in srgb, var(--vscode-terminal-ansiGreen, #50c878) 12%, transparent);
+}
+
+/* Discard button — red tint, flat right edge to connect. */
+.style-override .inline-chat-zone-widget .inline-chat-discard-button {
+	border-radius: 0 var(--vscode-cornerRadius-small, 4px) var(--vscode-cornerRadius-small, 4px) 0;
+	transition: background-color 0.1s ease;
+}
+
+.style-override .inline-chat-zone-widget .inline-chat-discard-button:hover {
+	background-color: color-mix(in srgb, var(--vscode-terminal-ansiRed, #ff5555) 12%, transparent);
+}
+
+/* =============================================================================
+ * Inline Diff Preview — subtle background differentiation
+ * ========================================================================== */
+
+.style-override .monaco-editor .inline-chat-diff-zone {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+/* =============================================================================
+ * Chat Editing Overlay — floating overlay above the editor
+ * ========================================================================== */
+
+.style-override .chat-editing-overlay {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+}
+
+/* =============================================================================
+ * Progress / Loading Indicator — refined spinner
+ * ========================================================================== */
+
+.style-override .inline-chat-zone-widget .inline-chat-progress {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+/* =============================================================================
+ * Diff Review — refined file header and change navigation
+ * ========================================================================== */
+
+.style-override .chat-editing-session .diff-review-header {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	padding: 6px 10px;
+}

@@ -1,0 +1,257 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Agent Status & Feedback System".
+ *
+ * Provides real-time visual feedback for Agent states — the core interaction
+ * model of an Agent-First IDE. Every state transition (idle → thinking →
+ * working → done / error) has a distinct colour, animation, and indicator
+ * so the user always knows what the Agent is doing.
+ *
+ * Covers:
+ *   - Agent status pill / badge states (idle, thinking, working, done, error)
+ *   - Agent progress bar with brand-gradient shimmer
+ *   - Agent session item status icons with colour-coded animations
+ *   - File-edit count badges
+ *   - Tool invocation cards (tool use / tool result)
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ * Motion rules are additionally gated behind `.monaco-enable-motion`.
+ */
+
+/* =============================================================================
+ * Agent Status Dot — the live pulse indicator in the status pill.
+ * ========================================================================== */
+
+.style-override .agent-status-pill .agent-status-dot {
+	display: inline-block;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	transition: background-color 0.3s var(--motion-easing-standard, ease);
+}
+
+/* Idle — muted, no pulse. */
+.style-override .agent-status-pill.status-idle .agent-status-dot {
+	background-color: var(--minicode-text-muted, #555555);
+}
+
+/* Thinking — brand colour with gentle pulse (conceptual work). */
+.monaco-enable-motion .style-override .agent-status-pill.status-thinking .agent-status-dot {
+	background-color: var(--minicode-brand-primary, #3994BC);
+	animation: agent-dot-think 1.4s ease-in-out infinite;
+}
+
+@keyframes agent-dot-think {
+	0%, 100% { opacity: 0.4; transform: scale(1);   box-shadow: 0 0 0 0 color-mix(in srgb, var(--minicode-brand-primary) 40%, transparent); }
+	50%      { opacity: 1;   transform: scale(1.3); box-shadow: 0 0 6px 2px color-mix(in srgb, var(--minicode-brand-primary) 25%, transparent); }
+}
+
+/* Working — green colour with active pulse (file ops in progress). */
+.monaco-enable-motion .style-override .agent-status-pill.status-working .agent-status-dot {
+	background-color: var(--minicode-status-success, #73C991);
+	animation: agent-dot-work 0.6s ease-in-out infinite;
+}
+
+@keyframes agent-dot-work {
+	0%, 100% { opacity: 0.6; transform: scale(1); }
+	50%      { opacity: 1;   transform: scale(1.4); }
+}
+
+/* Error — red colour with fast shake. */
+.monaco-enable-motion .style-override .agent-status-pill.status-error .agent-status-dot {
+	background-color: var(--minicode-status-error, #F48771);
+	animation: agent-dot-error 0.3s ease-in-out 3;
+}
+
+@keyframes agent-dot-error {
+	0%, 100% { transform: translateX(0); }
+	25%      { transform: translateX(-3px); }
+	75%      { transform: translateX(3px); }
+}
+
+/* Done — green, steady with a single pop on completion. */
+.monaco-enable-motion .style-override .agent-status-pill.status-done .agent-status-dot {
+	background-color: var(--minicode-status-success, #73C991);
+	animation: agent-dot-done 0.5s var(--motion-easing-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+
+@keyframes agent-dot-done {
+	0%   { transform: scale(1); }
+	50%  { transform: scale(1.6); }
+	100% { transform: scale(1); }
+}
+
+/* =============================================================================
+ * Agent Status Label — text colour matching the dot.
+ * ========================================================================== */
+
+.style-override .agent-status-pill .agent-status-label {
+	transition: color 0.3s var(--motion-easing-standard, ease);
+	font-size: 11px;
+	font-weight: 500;
+}
+
+.style-override .agent-status-pill.status-idle .agent-status-label {
+	color: var(--minicode-text-muted, #555555);
+}
+
+.style-override .agent-status-pill.status-thinking .agent-status-label {
+	color: var(--minicode-brand-primary, #3994BC);
+}
+
+.style-override .agent-status-pill.status-working .agent-status-label {
+	color: var(--minicode-status-success, #73C991);
+}
+
+.style-override .agent-status-pill.status-error .agent-status-label {
+	color: var(--minicode-status-error, #F48771);
+}
+
+.style-override .agent-status-pill.status-done .agent-status-label {
+	color: var(--minicode-status-success, #73C991);
+}
+
+/* =============================================================================
+ * Agent Progress Bar — brand-gradient shimmer across the bottom of the input.
+ * ========================================================================== */
+
+.style-override .agent-status-progress {
+	height: 2px;
+	border-radius: 1px;
+	overflow: hidden;
+	background: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+}
+
+.style-override .agent-status-progress .agent-status-progress-fill {
+	height: 100%;
+	background: linear-gradient(
+		90deg,
+		var(--minicode-brand-primary, #3994BC) 0%,
+		var(--minicode-brand-secondary, #58B3D9) 50%,
+		var(--minicode-brand-primary, #3994BC) 100%
+	);
+	background-size: 200% 100%;
+}
+
+.monaco-enable-motion .style-override .agent-status-progress .agent-status-progress-fill {
+	animation: agent-progress-shimmer 2s linear infinite;
+}
+
+@keyframes agent-progress-shimmer {
+	from { background-position: 200% 0; }
+	to   { background-position: -200% 0; }
+}
+
+/* =============================================================================
+ * Agent Session Items — status-based colour accents.
+ * Covers both chat-panel items (`.agent-session-item`) and agents-window
+ * items (`.session-item`).
+ * ========================================================================== */
+
+.style-override .agent-session-item .agent-session-status-icon,
+.style-override .session-item .session-icon {
+	transition: color 0.3s var(--motion-easing-standard, ease);
+}
+
+.style-override .agent-session-item.status-thinking .agent-session-status-icon,
+.style-override .session-item.status-thinking .session-icon {
+	color: var(--minicode-brand-primary, #3994BC);
+}
+
+.style-override .agent-session-item.status-working .agent-session-status-icon,
+.style-override .session-item.status-working .session-icon {
+	color: var(--minicode-status-info, #58B3D9);
+}
+
+.style-override .agent-session-item.status-completed .agent-session-status-icon,
+.style-override .session-item.status-completed .session-icon {
+	color: var(--minicode-status-success, #73C991);
+}
+
+.monaco-enable-motion .style-override .agent-session-item.status-completed .agent-session-status-icon,
+.monaco-enable-motion .style-override .session-item.status-completed .session-icon {
+	animation: agent-item-done-pop 0.4s var(--motion-easing-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+
+@keyframes agent-item-done-pop {
+	0%   { transform: scale(1); }
+	50%  { transform: scale(1.25); }
+	100% { transform: scale(1); }
+}
+
+.style-override .agent-session-item.status-error .agent-session-status-icon {
+	color: var(--minicode-status-error, #F48771);
+}
+
+/* =============================================================================
+ * File Edit Count Badge — shows number of files touched by the agent.
+ * ========================================================================== */
+
+.style-override .agent-session-item .agent-file-count-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 600;
+	background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+	transition: background-color 0.15s var(--motion-easing-standard, ease);
+}
+
+/* When files were touched: green tint. */
+.style-override .agent-session-item .agent-file-count-badge.has-changes {
+	background: color-mix(in srgb, var(--minicode-status-success, #73C991) 18%, transparent);
+	color: var(--minicode-status-success, #73C991);
+}
+
+/* =============================================================================
+ * Tool Invocation Cards — colour-coded by tool type.
+ * ========================================================================== */
+
+.style-override .interactive-item-container .tool-invocation-part {
+	border-left: 2px solid transparent;
+	transition: border-color 0.2s var(--motion-easing-standard, ease),
+	            background-color 0.12s var(--motion-easing-standard, ease);
+}
+
+/* File read — blue accent. */
+.style-override .interactive-item-container .tool-invocation-part.tool-read {
+	border-left-color: var(--minicode-brand-primary, #3994BC);
+}
+
+/* File write — green accent. */
+.style-override .interactive-item-container .tool-invocation-part.tool-write {
+	border-left-color: var(--minicode-status-success, #73C991);
+}
+
+/* Shell command — yellow accent. */
+.style-override .interactive-item-container .tool-invocation-part.tool-shell {
+	border-left-color: var(--minicode-status-warning, #E5BA7D);
+}
+
+/* Error — red accent. */
+.style-override .interactive-item-container .tool-invocation-part.tool-error {
+	border-left-color: var(--minicode-status-error, #F48771);
+}
+
+/* =============================================================================
+ * Agent Input Border — brand colour "working" gradient when agent is active.
+ * ========================================================================== */
+
+.monaco-enable-motion .style-override .agent-status-pill.status-thinking + .interactive-input-part .chat-input-container,
+.monaco-enable-motion .style-override .agent-status-pill.status-working + .interactive-input-part .chat-input-container {
+	animation: agent-input-border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes agent-input-border-pulse {
+	0%, 100% { border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent); }
+	50%      { border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 50%, transparent); }
+}

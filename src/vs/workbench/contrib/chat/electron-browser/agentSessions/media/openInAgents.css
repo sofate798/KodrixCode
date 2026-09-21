@@ -1,0 +1,135 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* "Open in Agents" titlebar widget — icon-only at rest, expands on hover/focus. */
+.monaco-workbench .open-in-agents-titlebar-widget {
+	display: inline-flex;
+	align-items: center;
+	height: 22px;
+	padding: 0 4px;
+	border-radius: 5px;
+	cursor: pointer;
+	color: var(--vscode-titleBar-activeForeground);
+	-webkit-app-region: no-drag;
+	white-space: nowrap;
+}
+
+.monaco-workbench .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-icon {
+	width: 16px;
+	height: 16px;
+	flex: 0 0 auto;
+	background-image: url('../../../../../../sessions/browser/media/sessions-icon.svg');
+	background-repeat: no-repeat;
+	background-position: center center;
+	background-size: contain;
+	filter: grayscale(1);
+}
+
+.monaco-enable-motion .monaco-workbench .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-icon,
+.monaco-workbench.monaco-enable-motion .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-icon {
+	transition: filter 160ms ease;
+}
+
+.monaco-reduce-motion .monaco-workbench .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-icon,
+.monaco-workbench.monaco-reduce-motion .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-icon {
+	transition-duration: 0ms !important;
+}
+
+.monaco-workbench .open-in-agents-titlebar-widget:hover > .open-in-agents-titlebar-widget-icon,
+.monaco-workbench .open-in-agents-titlebar-widget:focus-visible > .open-in-agents-titlebar-widget-icon {
+	filter: none;
+}
+
+
+.monaco-workbench .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-label {
+	display: inline-block;
+	max-width: 0;
+	opacity: 0;
+	margin-left: 0;
+	color: var(--vscode-foreground);
+	font: inherit;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.monaco-enable-motion .monaco-workbench .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-label,
+.monaco-workbench.monaco-enable-motion .open-in-agents-titlebar-widget > .open-in-agents-titlebar-widget-label {
+	transition: max-width 160ms ease, opacity 160ms ease, margin-left 160ms ease;
+	transition-delay: 200ms;
+}
+
+.monaco-workbench .open-in-agents-titlebar-widget:hover,
+.monaco-workbench .open-in-agents-titlebar-widget:focus-visible {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	outline: none;
+}
+
+.monaco-workbench .open-in-agents-titlebar-widget:hover > .open-in-agents-titlebar-widget-label,
+.monaco-workbench .open-in-agents-titlebar-widget:focus-visible > .open-in-agents-titlebar-widget-label {
+	max-width: 200px;
+	opacity: 1;
+	margin-left: 6px;
+}
+
+.monaco-enable-motion .monaco-workbench .open-in-agents-titlebar-widget:hover > .open-in-agents-titlebar-widget-label,
+.monaco-enable-motion .monaco-workbench .open-in-agents-titlebar-widget:focus-visible > .open-in-agents-titlebar-widget-label,
+.monaco-workbench.monaco-enable-motion .open-in-agents-titlebar-widget:hover > .open-in-agents-titlebar-widget-label,
+.monaco-workbench.monaco-enable-motion .open-in-agents-titlebar-widget:focus-visible > .open-in-agents-titlebar-widget-label {
+	transition-delay: 0ms;
+}
+
+.monaco-workbench .open-in-agents-titlebar-widget:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Cursor-style Agents Window pill in the Chat auxiliary bar header */
+.monaco-workbench .cursor-agents-window-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	padding: 0 12px;
+	margin-left: 4px;
+	border-radius: 999px;
+	border: none;
+	cursor: pointer;
+	-webkit-app-region: no-drag;
+	background-color: #5e548e;
+	color: #ffffff;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 16px;
+	white-space: nowrap;
+}
+
+.monaco-workbench .cursor-agents-window-pill:hover {
+	background-color: #6d6299;
+}
+
+.monaco-workbench .cursor-agents-window-pill:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.monaco-workbench .cursor-agents-window-pill-label {
+	color: inherit;
+}
+
+.monaco-workbench .cursor-agents-window-pill-icon {
+	display: flex;
+	align-items: center;
+	color: inherit;
+	opacity: 0.95;
+}
+
+.monaco-workbench .cursor-agents-window-pill-icon .codicon {
+	font-size: 12px;
+}
+
+/* Keep header icon buttons visually grouped like Cursor (layout / chat / gear / pill) */
+.monaco-workbench .pane-header .actions-container .action-item:has(.cursor-agents-window-pill) {
+	margin-left: 2px;
+}

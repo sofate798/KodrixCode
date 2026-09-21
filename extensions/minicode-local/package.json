@@ -1,0 +1,265 @@
+{
+  "name": "minicode-local",
+  "displayName": "Minicode Local Models",
+  "description": "本地大模型与云端 API 供应商配置，Cursor 风格快捷键与一键导入",
+  "version": "1.0.0",
+  "publisher": "minicode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension",
+  "contributes": {
+    "localizations": [
+      {
+        "languageId": "zh-cn",
+        "languageName": "Chinese (Simplified)",
+        "localizedLanguageName": "简体中文",
+        "translations": [
+          {
+            "id": "minicode.minicode-local",
+            "path": "package.nls.zh-cn.json"
+          }
+        ]
+      }
+    ],
+    "languageModelChatProviders": [
+      {
+        "vendor": "minicode",
+        "displayName": "Minicode"
+      }
+    ],
+    "commands": [
+      {
+        "command": "minicode.migrateConfig",
+        "title": "迁移配置（Cursormini / Minicode）",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.openProviderPresets",
+        "title": "浏览模型供应商预设",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.openProviderWorkbench",
+        "title": "AI 供应商管理",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.applyPreset",
+        "title": "应用模型预设",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.welcome",
+        "title": "欢迎使用 Minicode",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.importCursor",
+        "title": "从 Cursor 导入（Rules / MCP / Skills）",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.addSelectionToChat",
+        "title": "将选区添加到聊天",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.openInlineEdit",
+        "title": "行内编辑（Cursor Ctrl+K）",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.openPlanMode",
+        "title": "打开 Plan 模式",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.openComposer",
+        "title": "打开 Composer（多文件 Agent）",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.attachCodebase",
+        "title": "添加 @Codebase 上下文",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.buildCodebaseIndex",
+        "title": "构建代码库语义索引",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.continueInBackground",
+        "title": "在 Background Agent 中继续",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.continueInCloud",
+        "title": "在 Cloud Agent 中继续",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.applyCursorFeatures",
+        "title": "应用 Cursor 对标功能默认配置",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.applyCursor3Experience",
+        "title": "应用 Cursor 3.0 Agent 中心体验",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.openAgentsWindow",
+        "title": "打开 Agents 窗口",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.openWorkspaceInAgentsWindow",
+        "title": "在 Agents 窗口中打开当前工作区",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.onboarding.open",
+        "title": "打开欢迎向导",
+        "category": "Minicode"
+      }
+    ],
+    "configuration": {
+      "title": "Minicode",
+      "properties": {
+        "minicode.migrateOnFirstRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "首次启动时自动迁移 ~/.cursormini 或 ~/.minicode 中的模型与 Agent 配置"
+        },
+        "minicode.importCursorOnFirstRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "首次启动时自动从 Cursor 导入 Rules、MCP 与 Skills（若存在 ~/.cursor）"
+        },
+        "minicode.modelRoutes": {
+          "type": "object",
+          "default": {},
+          "description": "多模型路由（plan / agent / code / fast），每项仅使用 model 字段",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string",
+                "description": "模型 ID（须已在 Manage Models 中可用）"
+              }
+            }
+          }
+        },
+        "minicode.features.tabCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 Cursor Tab 级体验：Copilot 补全 + Next Edit Suggestions (NES)"
+        },
+        "minicode.features.backgroundAgents": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 Background Agent（Copilot CLI 后台任务）"
+        },
+        "minicode.features.cloudAgents": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 Cloud Agent（Copilot Coding Agent）"
+        },
+        "minicode.features.composerUI": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 Composer 风格多文件 UI：会话侧栏、检查点、Diff 审阅"
+        },
+        "minicode.features.codebaseIndex": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 @Codebase 语义索引（Copilot workspace index）"
+        },
+        "minicode.features.codebaseIndexAutoBuild": {
+          "type": "boolean",
+          "default": true,
+          "description": "打开工作区后自动构建代码库语义索引"
+        },
+        "minicode.features.agentsWindow": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 Agents 窗口：多 Agent 并行、Local / CLI / Cloud 会话"
+        },
+        "minicode.features.agentFirstLayout": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cursor 3.0：首次打开工作区时最大化 Chat 侧栏并显示 Agent 会话列表"
+        },
+        "minicode.features.agentHostPriority": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cursor 3.0：Agents 窗口优先使用 Agent Host（Copilot CLI）"
+        },
+        "minicode.features.handoffTip": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cursor 3.0：在 Chat 输入框上方显示「在 Agents 窗口中继续」提示"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "workbench.action.chat.open",
+        "key": "ctrl+l",
+        "mac": "cmd+l",
+        "when": "!terminalFocus"
+      },
+      {
+        "command": "workbench.action.chat.open",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "args": { "mode": "agent" },
+        "when": "config.chat.agent.enabled && !terminalFocus"
+      },
+      {
+        "command": "minicode.openInlineEdit",
+        "key": "ctrl+k",
+        "mac": "cmd+k",
+        "when": "editorTextFocus && !editorReadonly"
+      },
+      {
+        "command": "minicode.addSelectionToChat",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "editorTextFocus && editorHasSelection"
+      },
+      {
+        "command": "minicode.openWorkspaceInAgentsWindow",
+        "key": "ctrl+shift+alt+a",
+        "mac": "cmd+shift+alt+a",
+        "when": "config.chat.agent.enabled && !isSessionsWindow && workspaceFolderCount > 0"
+      },
+      {
+        "command": "minicode.openAgentsWindow",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "config.chat.agent.enabled && !isSessionsWindow"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:minicode-local",
+    "watch": "gulp watch-extension:minicode-local"
+  },
+  "devDependencies": {
+    "@types/node": "24.x"
+  },
+  "dependencies": {
+    "@parcel/watcher": "^2.5.6"
+  }
+}

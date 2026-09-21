@@ -1,0 +1,96 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Editor Find / Replace Refinements".
+ *
+ * Gives the editor find/replace widget a modern, pill-like redesign that
+ * matches Cursor's polished editor chrome:
+ *   - Rounded container with subtle shadow
+ *   - Refined input field styling
+ *   - Better match count display
+ *   - Smooth open/close transitions
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Find Widget Container — card-styled with shadow and rounded corners
+ * ========================================================================== */
+
+.style-override .monaco-editor .find-widget {
+	border-radius: var(--vscode-cornerRadius-large, 8px);
+	border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
+	box-shadow: 0 4px 16px color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+	overflow: hidden;
+	transition: box-shadow 0.15s ease;
+}
+
+/* =============================================================================
+ * Find Input Fields — refined internal styling
+ * ========================================================================== */
+
+.style-override .monaco-editor .find-widget .monaco-findInput .monaco-inputbox {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+.style-override .monaco-editor .find-widget .monaco-inputbox {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.style-override .monaco-editor .find-widget .monaco-inputbox.synthetic-focus {
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder) inset;
+}
+
+/* =============================================================================
+ * Find Match Count — refined badge styling
+ * ========================================================================== */
+
+.style-override .monaco-editor .find-widget .monaco-findInput .matchesCount {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	padding: 0 6px;
+	font-size: 11px;
+	font-weight: 500;
+}
+
+/* =============================================================================
+ * Replace Toggle / Actions — refined button sizing and spacing
+ * ========================================================================== */
+
+.style-override .monaco-editor .find-widget .button {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease;
+}
+
+.style-override .monaco-editor .find-widget .button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* =============================================================================
+ * Replace Input Row — refined separator between find and replace rows
+ * ========================================================================== */
+
+.style-override .monaco-editor .find-widget .replace-input {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
+	padding-top: 4px;
+}
+
+/* =============================================================================
+ * Find Widget Close Button — refined position
+ * ========================================================================== */
+
+.style-override .monaco-editor .find-widget .codicon-find-collapsed,
+.style-override .monaco-editor .find-widget .codicon-find-expanded {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease;
+}
+
+.style-override .monaco-editor .find-widget .codicon-find-collapsed:hover,
+.style-override .monaco-editor .find-widget .codicon-find-expanded:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}

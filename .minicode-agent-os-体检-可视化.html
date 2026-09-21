@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Minicode Agent OS 核心功能体检</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,'Segoe UI','Microsoft YaHei',sans-serif;background:#f7f8fa;color:#1f2328;">
+<div style="width:100%;box-sizing:border-box;max-width:1200px;margin:0 auto;padding:20px;">
+  <div style="display:flex;flex-wrap:wrap;gap:16px;">
+    <!-- 左：越用越聪明闭环 -->
+    <div style="flex:1 1 620px;min-width:0;background:#fff;border:1px solid #e4e7eb;border-radius:12px;padding:16px;box-sizing:border-box;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🧠 「越用越聪明」闭环 · 运行态全链路核验</div>
+      <div style="font-size:13px;color:#57606a;margin-bottom:12px;">五阶段数据流：捕获 → 索引 → 注入 → 蒸馏 → 提示，全部落地验证通过</div>
+      <svg viewBox="0 0 560 440" width="100%" role="img" aria-label="越用越聪明闭环流程图">
+        <defs>
+          <marker id="arr" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#3994BC"/></marker>
+        </defs>
+        <!-- 中心 -->
+        <circle cx="280" cy="220" r="62" fill="#eaf4f9" stroke="#3994BC" stroke-width="2"/>
+        <text x="280" y="212" text-anchor="middle" font-size="15" font-weight="700" fill="#1f5f7d">越用越聪明</text>
+        <text x="280" y="232" text-anchor="middle" font-size="12" fill="#3994BC">Learning Engine</text>
+        <!-- 环形箭头 -->
+        <path d="M280,86 C330,86 380,110 410,140" fill="none" stroke="#3994BC" stroke-width="2" marker-end="url(#arr)"/>
+        <path d="M470,200 C470,250 450,290 420,315" fill="none" stroke="#3994BC" stroke-width="2" marker-end="url(#arr)"/>
+        <path d="M280,395 C230,395 180,370 150,340" fill="none" stroke="#3994BC" stroke-width="2" marker-end="url(#arr)"/>
+        <path d="M90,280 C90,230 110,190 140,165" fill="none" stroke="#3994BC" stroke-width="2" marker-end="url(#arr)"/>
+        <!-- ① 捕获沉淀 -->
+        <rect x="205" y="30" width="150" height="52" rx="10" fill="#fff" stroke="#3994BC" stroke-width="1.5"/>
+        <text x="280" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">① 捕获沉淀</text>
+        <text x="280" y="70" text-anchor="middle" font-size="11" fill="#57606a">Ctrl+Shift+Alt+M · 选区/对话</text>
+        <!-- ② 语义索引 -->
+        <rect x="395" y="128" width="150" height="52" rx="10" fill="#fff" stroke="#3994BC" stroke-width="1.5"/>
+        <text x="470" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">② 语义索引</text>
+        <text x="470" y="168" text-anchor="middle" font-size="11" fill="#57606a">TF-IDF 128维 · 30天衰减</text>
+        <!-- ③ 上下文注入 -->
+        <rect x="395" y="288" width="150" height="52" rx="10" fill="#fff" stroke="#3994BC" stroke-width="1.5"/>
+        <text x="470" y="310" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">③ 上下文注入</text>
+        <text x="470" y="328" text-anchor="middle" font-size="11" fill="#57606a">chat + instructionsFiles</text>
+        <!-- ④ 会话蒸馏 -->
+        <rect x="205" y="366" width="150" height="52" rx="10" fill="#fff" stroke="#3994BC" stroke-width="1.5"/>
+        <text x="280" y="388" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">④ 会话蒸馏</text>
+        <text x="280" y="406" text-anchor="middle" font-size="11" fill="#57606a">Stop Hook + LLM 0-3 条</text>
+        <!-- ⑤ 主动提示 -->
+        <rect x="15" y="258" width="150" height="52" rx="10" fill="#fff" stroke="#3994BC" stroke-width="1.5"/>
+        <text x="90" y="280" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">⑤ 主动提示</text>
+        <text x="90" y="298" text-anchor="middle" font-size="11" fill="#57606a">打开文件 💡 相关记忆</text>
+      </svg>
+      <div style="font-size:12px;color:#8b949e;margin-top:8px;border-top:1px dashed #e4e7eb;padding-top:8px;">Codebase 三件套：语义索引（AST 符号/依赖/调用图）+ 预测补全（ghost text）+ @codebase 问答，均已注册并构建成功</div>
+    </div>
+    <!-- 右：体检结果 -->
+    <div style="flex:1 1 320px;min-width:280px;display:flex;flex-direction:column;gap:16px;">
+      <div style="background:#fff;border:1px solid #e4e7eb;border-radius:12px;padding:14px;box-sizing:border-box;">
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px;">✅ 本轮修复（2 项致命）</div>
+        <div style="font-size:13px;line-height:1.7;">
+          <div style="display:flex;gap:8px;margin-bottom:8px;"><span style="color:#1a7f37;flex:none;">✔</span><div><b>agent-os 激活失败</b>：product.json proposal 白名单缺 agent-os → chatContextProvider 被拒 → 21 模块全灭。已加白名单。</div></div>
+          <div style="display:flex;gap:8px;"><span style="color:#1a7f37;flex:none;">✔</span><div><b>语义索引原型污染</b>：符号名 __proto__ 命中原型键 → push 崩溃。改用 Object.create(null)。</div></div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #e4e7eb;border-radius:12px;padding:14px;box-sizing:border-box;">
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px;">🔄 运行态验证证据</div>
+        <div style="font-size:13px;line-height:1.9;">
+          <div>· 激活：无 activation failed，预测补全 / @codebase 注册成功</div>
+          <div>· 索引：182 文件 · 27035 符号 · 2552ms</div>
+          <div>· Wiki：ARCHITECTURE / MODULES / INDEX 自动生成</div>
+          <div>· Memory：project.instructions.md 每次启动同步</div>
+          <div>· Hook：Stop 钩子 + session-learn.mjs 已安装</div>
+          <div>· 注入：instructionsFilesLocations 5 个路径注册</div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #e4e7eb;border-radius:12px;padding:14px;box-sizing:border-box;">
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px;">⚠️ 局限（非 bug，如实披露）</div>
+        <div style="font-size:13px;line-height:1.9;">
+          <div>· 属性测试为模板骨架，fast-check 未接入</div>
+          <div>· Arena/蒸馏/深度分析依赖 vscode.lm 有可用模型</div>
+          <div>· 导入关系不覆盖 require()/动态 import，统计偏低</div>
+          <div>· 两处常量重复定义（值一致，无行为影响）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

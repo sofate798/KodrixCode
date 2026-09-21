@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}}; img-src {{cspSource}} data:;">
+	<title>Idea Canvas</title>
+	<style>
+		:root {
+			--bg: var(--vscode-editor-background, #1e1e1e);
+			--bg-elevated: var(--vscode-sideBar-background, #252526);
+			--fg: var(--vscode-editor-foreground, #cccccc);
+			--fg-dim: var(--vscode-descriptionForeground, #999999);
+			--border: var(--vscode-panel-border, #454545);
+			--accent: var(--vscode-button-background, #0e639c);
+			--accent-hover: var(--vscode-button-hoverBackground, #1177bb);
+			--accent-fg: var(--vscode-button-foreground, #ffffff);
+			--card-bg: rgba(128,128,128,0.06);
+			--card-hover: rgba(128,128,128,0.1);
+			--success: #40c969;
+			--warn: #cca700;
+			--danger: #f14c4c;
+			--info: #3794ff;
+			--radius: 8px;
+			--radius-sm: 6px;
+			--gradient-1: linear-gradient(135deg, #6366f1, #a78bfa, #f472b6);
+			--gradient-2: linear-gradient(135deg, #0ea5e9, #6366f1);
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+			font-size: 13px;
+			background: var(--bg);
+			color: var(--fg);
+			line-height: 1.5;
+			-webkit-font-smoothing: antialiased;
+		}
+
+		.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+		/* Hero */
+		.hero {
+			padding: 28px 28px 16px;
+			border-bottom: 1px solid var(--border);
+			background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
+			position: relative;
+			overflow: hidden;
+		}
+		.hero::before {
+			content: '';
+			position: absolute;
+			top: -50%;
+			right: -20%;
+			width: 400px;
+			height: 400px;
+			background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%);
+			pointer-events: none;
+		}
+		.hero h1 {
+			font-size: 28px;
+			font-weight: 800;
+			letter-spacing: -0.03em;
+			margin-bottom: 4px;
+			position: relative;
+		}
+		.hero h1 .gradient {
+			background: var(--gradient-1);
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+			background-clip: text;
+		}
+		.hero .subtitle {
+			color: var(--fg-dim);
+			font-size: 13px;
+			margin-bottom: 16px;
+			max-width: 560px;
+			position: relative;
+		}
+
+		/* Idea Input Area */
+		.ideas-bar {
+			display: flex;
+			gap: 10px;
+			align-items: stretch;
+			position: relative;
+		}
+		.ideas-bar textarea {
+			flex: 1;
+			background: var(--card-bg);
+			border: 1.5px solid var(--border);
+			color: var(--fg);
+			padding: 14px 16px;
+			border-radius: var(--radius);
+			font-size: 14px;
+			font-family: inherit;
+			outline: none;
+			resize: vertical;
+			min-height: 60px;
+			max-height: 160px;
+			transition: border-color 150ms ease, box-shadow 150ms ease;
+			line-height: 1.5;
+		}
+		.ideas-bar textarea:focus {
+			border-color: var(--accent);
+			box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+		}
+		.ideas-bar textarea::placeholder { color: var(--fg-dim); }
+
+		.voice-btn {
+			background: var(--card-bg);
+			border: 1px solid var(--border);
+			color: var(--fg);
+			width: 44px;
+			border-radius: var(--radius);
+			cursor: pointer;
+			font-size: 18px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: all 150ms ease;
+			flex-shrink: 0;
+		}
+		.voice-btn:hover { border-color: var(--accent); background: var(--card-hover); }
+		.voice-btn.recording {
+			border-color: var(--danger);
+			background: rgba(241,76,76,0.12);
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+		@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+		/* Action Buttons */
+		.idea-actions {
+			display: flex;
+			gap: 8px;
+			margin-top: 12px;
+			flex-wrap: wrap;
+		}
+		.idea-actions button {
+			padding: 10px 22px;
+			border-radius: var(--radius);
+			cursor: pointer;
+			font-size: 13px;
+			font-weight: 600;
+			font-family: inherit;
+			transition: all 150ms ease;
+			border: none;
+		}
+		.btn-primary {
+			background: var(--gradient-2);
+			color: white;
+		}
+		.btn-primary:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 4px 14px rgba(99,102,241,0.3);
+		}
+		.btn-secondary {
+			background: transparent;
+			border: 1px solid var(--border) !important;
+			color: var(--fg);
+		}
+		.btn-secondary:hover { background: var(--card-hover); }
+
+		/* Quick Templates */
+		.quick-templates {
+			display: flex;
+			gap: 6px;
+			flex-wrap: wrap;
+			margin-top: 10px;
+		}
+		.qt-chip {
+			font-size: 11px;
+			padding: 5px 14px;
+			background: var(--card-bg);
+			border: 1px solid var(--border);
+			border-radius: 20px;
+			cursor: pointer;
+			color: var(--fg-dim);
+			transition: all 150ms ease;
+			user-select: none;
+		}
+		.qt-chip:hover {
+			border-color: var(--accent);
+			color: var(--fg);
+			background: var(--card-hover);
+			transform: translateY(-1px);
+		}
+		.qt-chip:active { transform: translateY(0); }
+
+		/* Idea Preview */
+		.idea-preview {
+			font-size: 12px;
+			color: var(--info);
+			padding: 8px 12px;
+			background: rgba(55,148,255,0.06);
+			border: 1px solid rgba(55,148,255,0.15);
+			border-radius: var(--radius-sm);
+			margin-top: 10px;
+			display: none;
+			animation: fadeInUp 200ms ease;
+		}
+		.idea-preview.visible { display: block; }
+
+		/* Main Content */
+		.content {
+			flex: 1;
+			padding: 20px 28px 32px;
+			display: flex;
+			flex-direction: column;
+			gap: 20px;
+		}
+
+		/* Phase Indicator */
+		.phase-indicator {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			padding: 14px 18px;
+			background: var(--card-bg);
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			font-size: 12px;
+			flex-wrap: wrap;
+			overflow-x: auto;
+		}
+		.phase-step {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			padding: 5px 12px;
+			border-radius: 20px;
+			font-size: 11px;
+			font-weight: 600;
+			color: var(--fg-dim);
+			transition: all 300ms ease;
+			white-space: nowrap;
+			border: 1px solid transparent;
+		}
+		.phase-step.active {
+			color: white;
+			background: var(--gradient-2);
+			border-color: transparent;
+			box-shadow: 0 2px 10px rgba(99,102,241,0.25);
+		}
+		.phase-step.done {
+			color: var(--success);
+			border-color: rgba(64,201,105,0.2);
+			background: rgba(64,201,105,0.06);
+		}
+		.phase-step .step-icon { font-size: 14px; }
+		.phase-connector {
+			width: 20px;
+			height: 1.5px;
+			background: var(--border);
+			flex-shrink: 0;
+		}
+		.phase-step.active + .phase-connector,
+		.phase-step.done + .phase-connector {
+			background: var(--accent);
+		}
+
+		/* Cards */
+		.card {
+			background: var(--card-bg);
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			padding: 16px;
+			transition: border-color 150ms ease;
+		}
+		.card:hover { border-color: rgba(128,128,128,0.2); }
+		.card h3 {
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+			color: var(--fg-dim);
+			margin-bottom: 14px;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		/* Analysis Grid */
+		.analysis-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+		}
+		@media (max-width: 500px) { .analysis-grid { grid-template-columns: 1fr; } }
+		.analysis-item {
+			padding: 10px 12px;
+			background: rgba(0,0,0,0.15);
+			border-radius: var(--radius-sm);
+			border: 1px solid rgba(128,128,128,0.06);
+		}
+		.analysis-item .ai-label {
+			font-size: 10px;
+			color: var(--fg-dim);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			margin-bottom: 3px;
+		}
+		.analysis-item .ai-value {
+			font-size: 13px;
+			font-weight: 600;
+			word-break: break-all;
+		}
+
+		/* Tech Badges */
+		.tech-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+		.tech-badge {
+			font-size: 10px;
+			padding: 2px 10px;
+			background: rgba(99,102,241,0.12);
+			color: #a5b4fc;
+			border-radius: 10px;
+			font-weight: 600;
+		}
+
+		/* Feature List */
+		.feature-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+		.feature-item {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 12px;
+			padding: 4px 8px;
+			border-radius: 4px;
+		}
+		.feature-item .fi-dot {
+			width: 6px;
+			height: 6px;
+			background: var(--success);
+			border-radius: 50%;
+			flex-shrink: 0;
+		}
+
+		/* Build Log */
+		.build-log {
+			max-height: 200px;
+			overflow-y: auto;
+			font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Fira Code', monospace);
+			font-size: 11px;
+			line-height: 1.7;
+		}
+		.build-log::-webkit-scrollbar { width: 4px; }
+		.build-log::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.15); border-radius: 2px; }
+		.log-line {
+			padding: 3px 0;
+			border-bottom: 1px solid rgba(128,128,128,0.03);
+			animation: fadeInUp 200ms ease both;
+		}
+		.log-line.info { color: var(--fg-dim); }
+		.log-line.success { color: var(--success); }
+		.log-line.error { color: var(--danger); }
+		.log-line.agent { color: var(--info); }
+		.log-line.highlight { color: var(--warn); font-weight: 600; }
+
+		/* Preview */
+		.preview-content {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 12px;
+			background: rgba(0,0,0,0.15);
+			border-radius: var(--radius-sm);
+		}
+		.preview-url {
+			color: var(--accent);
+			font-weight: 600;
+			cursor: pointer;
+			text-decoration: none;
+			font-size: 13px;
+		}
+		.preview-url:hover { text-decoration: underline; }
+		.preview-open-btn {
+			margin-left: auto;
+			padding: 6px 16px;
+			background: var(--accent);
+			color: var(--accent-fg);
+			border: none;
+			border-radius: var(--radius-sm);
+			cursor: pointer;
+			font-size: 12px;
+			font-weight: 600;
+			font-family: inherit;
+			transition: background 150ms ease;
+		}
+		.preview-open-btn:hover { background: var(--accent-hover); }
+
+		/* Intelligence */
+		.intel-content {
+			font-size: 12px;
+			color: var(--fg-dim);
+			line-height: 1.7;
+		}
+		.intel-content .intel-item {
+			padding: 6px 0;
+			border-bottom: 1px solid rgba(128,128,128,0.04);
+		}
+		.intel-content .intel-item:last-child { border-bottom: none; }
+
+		/* Empty State */
+		.empty-state {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 50px 20px;
+			text-align: center;
+			animation: fadeInUp 300ms ease;
+		}
+		.empty-state .es-icon { font-size: 56px; margin-bottom: 18px; opacity: 0.5; }
+		.empty-state .es-title {
+			font-size: 18px;
+			font-weight: 700;
+			margin-bottom: 10px;
+			background: var(--gradient-1);
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+			background-clip: text;
+		}
+		.empty-state .es-desc { font-size: 13px; color: var(--fg-dim); max-width: 440px; line-height: 1.6; }
+		.empty-state .es-tips {
+			margin-top: 20px;
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			font-size: 12px;
+			color: var(--fg-dim);
+		}
+		.empty-state .es-tips span { padding: 4px 0; }
+
+		/* Animations */
+		@keyframes shimmer {
+			0% { background-position: 200% 0; }
+			100% { background-position: -200% 0; }
+		}
+		@keyframes fadeInUp {
+			from { opacity: 0; transform: translateY(8px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		.fade-in { animation: fadeInUp 300ms ease forwards; }
+		.stagger > * { animation: fadeInUp 300ms ease both; }
+		.stagger > *:nth-child(1) { animation-delay: 0ms; }
+		.stagger > *:nth-child(2) { animation-delay: 50ms; }
+		.stagger > *:nth-child(3) { animation-delay: 100ms; }
+		.stagger > *:nth-child(4) { animation-delay: 150ms; }
+		.stagger > *:nth-child(5) { animation-delay: 200ms; }
+		.stagger > *:nth-child(6) { animation-delay: 250ms; }
+		.skeleton {
+			background: linear-gradient(90deg, rgba(128,128,128,0.05) 25%, rgba(128,128,128,0.1) 50%, rgba(128,128,128,0.05) 75%);
+			background-size: 200% 100%;
+			animation: shimmer 1.8s ease-in-out infinite;
+			border-radius: var(--radius-sm);
+		}
+		.empty-note { color: var(--fg-dim); font-size: 11px; font-style: italic; padding: 12px 0; }
+
+		/* Footer */
+		.footer {
+			padding: 12px 28px;
+			font-size: 10px;
+			color: var(--fg-dim);
+			text-align: center;
+			border-top: 1px solid var(--border);
+		}
+		.footer a { color: var(--accent); text-decoration: none; }
+		.footer a:hover { text-decoration: underline; }
+	</style>
+</head>
+<body>
+<div class="app">
+	<div class="hero">
+		<h1><span class="gradient">Idea Canvas</span></h1>
+		<p class="subtitle">描述你的想法，AI 全自动将其变为现实。让软件开发回归想法本身。</p>
+		<div class="ideas-bar">
+			<textarea id="ideaInput" placeholder="输入你的想法...&#10;例如：一个 AI 驱动的个人知识管理工具，支持 Markdown 笔记和双向链接"></textarea>
+			<button class="voice-btn" id="voiceBtn" title="语音输入">🎤</button>
+		</div>
+		<div class="idea-actions">
+			<button class="btn-primary" id="btnAnalyze">🚀 深度分析并构建</button>
+			<button class="btn-secondary" id="btnQuickPlan">⚡ 快速构建 (跳过分析)</button>
+		</div>
+		<div class="quick-templates" id="quickTemplates">
+			<span class="qt-chip" data-idea="一个带暗色模式的个人博客，支持 Markdown 文章和标签分类">📝 个人博客</span>
+			<span class="qt-chip" data-idea="一个 Trello 风格的任务看板，支持拖拽、多列表和团队协作">📋 任务看板</span>
+			<span class="qt-chip" data-idea="一个 AI 聊天界面，支持流式响应、会话管理和 Markdown 渲染">💬 AI 聊天</span>
+			<span class="qt-chip" data-idea="一个数据可视化仪表盘，包含多种图表类型、筛选器和导出功能">📊 仪表盘</span>
+			<span class="qt-chip" data-idea="一个电商平台，含商品展示、购物车、用户认证和订单管理">🛒 电商平台</span>
+		</div>
+		<div class="idea-preview" id="ideaPreview"></div>
+	</div>
+
+	<div class="content" id="mainContent">
+		<div class="empty-state" id="emptyState">
+			<div class="es-icon">💡</div>
+			<div class="es-title">你的下一个想法，从这里开始</div>
+			<div class="es-desc">在上方输入你的项目想法，或选择一个模板快速开始。AI 将自动完成需求分析、架构设计、任务拆解、多 Agent 协同开发和部署预览。</div>
+			<div class="es-tips">
+				<span>🎯 只需描述「做什么」，AI 负责「怎么做」</span>
+				<span>🤖 多智能体协作：架构师 → 开发者 → 测试者</span>
+				<span>🧠 越用越聪明：每个项目自动沉淀知识</span>
+				<span>🌐 自动构建预览：从想法到可运行应用</span>
+			</div>
+		</div>
+
+		<div id="phasePanel" style="display:none;">
+			<div class="phase-indicator stagger" id="phaseSteps">
+				<span class="phase-step" data-phase="idea-analysis"><span class="step-icon">🔍</span> 分析</span>
+				<span class="phase-connector"></span>
+				<span class="phase-step" data-phase="auto-planning"><span class="step-icon">📐</span> 规划</span>
+				<span class="phase-connector"></span>
+				<span class="phase-step" data-phase="crew-building"><span class="step-icon">👥</span> 团队</span>
+				<span class="phase-connector"></span>
+				<span class="phase-step" data-phase="build-in-progress"><span class="step-icon">⚡</span> 构建</span>
+				<span class="phase-connector"></span>
+				<span class="phase-step" data-phase="preview-ready"><span class="step-icon">🌐</span> 预览</span>
+				<span class="phase-connector"></span>
+				<span class="phase-step" data-phase="product-intelligence"><span class="step-icon">🧠</span> 智能</span>
+			</div>
+		</div>
+
+		<div id="analysisPanel" style="display:none;">
+			<div class="card fade-in">
+				<h3>🔎 深度分析</h3>
+				<div class="analysis-grid" id="analysisGrid"></div>
+				<div class="tech-badges" id="techBadges"></div>
+			</div>
+		</div>
+
+		<div id="featuresPanel" style="display:none;">
+			<div class="card fade-in">
+				<h3>🎯 核心功能</h3>
+				<div class="feature-list" id="featureList"></div>
+			</div>
+		</div>
+
+		<div id="buildPanel" style="display:none;">
+			<div class="card fade-in">
+				<h3>⚙️ 构建日志</h3>
+				<div class="build-log" id="buildLog"><div class="empty-note">等待构建开始…</div></div>
+			</div>
+		</div>
+
+		<div id="previewPanel" style="display:none;">
+			<div class="card fade-in">
+				<h3>🌐 产品预览</h3>
+				<div id="previewContent">
+					<div class="empty-note">构建完成后将自动加载预览</div>
+				</div>
+			</div>
+		</div>
+
+		<div id="intelPanel" style="display:none;">
+			<div class="card fade-in">
+				<h3>🧠 产品智能</h3>
+				<div class="intel-content" id="intelContent">
+					<div class="empty-note">知识将从构建过程中自动沉淀</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="footer">Idea Flow — 让软件开发回归想法本身 · <a href="#" onclick="post('openStatus',{});return false;">查看状态</a></div>
+</div>
+
+<script>
+	const vscode = acquireVsCodeApi();
+	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
+
+	const ideaInput = document.getElementById('ideaInput');
+	const ideaPreview = document.getElementById('ideaPreview');
+
+	// ── Voice Input ──
+	const voiceBtn = document.getElementById('voiceBtn');
+	let recognition = null;
+	try {
+		const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+		if (SR) {
+			recognition = new SR();
+			recognition.lang = 'zh-CN';
+			recognition.continuous = false;
+			recognition.interimResults = false;
+			recognition.onresult = (e) => {
+				const transcript = e.results[0][0].transcript;
+				const existing = ideaInput.value.trim();
+				ideaInput.value = existing ? existing + ' ' + transcript : transcript;
+				voiceBtn.classList.remove('recording');
+				ideaInput.focus();
+				post('detectIdea', { idea: ideaInput.value });
+			};
+			recognition.onerror = () => voiceBtn.classList.remove('recording');
+			recognition.onend = () => voiceBtn.classList.remove('recording');
+		}
+	} catch {}
+	voiceBtn.onclick = () => {
+		if (!recognition) { post('notify', { msg: '当前浏览器不支持语音输入' }); return; }
+		if (voiceBtn.classList.contains('recording')) { recognition.stop(); voiceBtn.classList.remove('recording'); }
+		else { recognition.start(); voiceBtn.classList.add('recording'); }
+	};
+
+	// ── Template Chips ──
+	document.querySelectorAll('.qt-chip').forEach(chip => {
+		chip.addEventListener('click', () => {
+			ideaInput.value = chip.dataset.idea;
+			ideaInput.focus();
+			post('detectIdea', { idea: chip.dataset.idea });
+		});
+	});
+
+	// ── Real-time Idea Detection ──
+	let detectTimer;
+	ideaInput.addEventListener('input', () => {
+		clearTimeout(detectTimer);
+		const text = ideaInput.value.trim();
+		if (text.length < 5) { ideaPreview.classList.remove('visible'); return; }
+		detectTimer = setTimeout(() => { post('detectIdea', { idea: text }); }, 500);
+	});
+
+	// ── Action Buttons ──
+	document.getElementById('btnAnalyze').onclick = () => {
+		const idea = ideaInput.value.trim();
+		if (!idea) {
+			ideaInput.focus();
+			ideaInput.style.borderColor = 'var(--danger)';
+			setTimeout(() => { ideaInput.style.borderColor = ''; }, 1500);
+			return;
+		}
+		post('startIdeaFlow', { idea, analyze: true });
+	};
+	document.getElementById('btnQuickPlan').onclick = () => {
+		const idea = ideaInput.value.trim();
+		if (idea) post('startIdeaFlow', { idea, analyze: false });
+	};
+
+	// ── Enter to submit ──
+	ideaInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && e.ctrlKey) {
+			e.preventDefault();
+			const idea = ideaInput.value.trim();
+			if (idea) post('startIdeaFlow', { idea, analyze: true });
+		}
+	});
+
+	// ── Message Handler ──
+	window.addEventListener('message', (e) => {
+		const msg = e.data;
+
+		// Notify extension to show message
+		if (msg.type === 'notify') {
+			// Forwarded to extension-side handler
+		}
+
+		// Idea detection
+		if (msg.type === 'ideaLikely') {
+			ideaPreview.textContent = '📍 检测到: ' + msg.label;
+			ideaPreview.classList.add('visible');
+		}
+
+		// State update
+		if (msg.type === 'stateUpdate') {
+			renderState(msg.state);
+		}
+
+		// Intelligence update
+		if (msg.type === 'intelUpdate') {
+			document.getElementById('intelPanel').style.display = 'block';
+			document.getElementById('intelContent').innerHTML = '<div class="intel-item">' + escapeHtml(msg.content).replace(/\n/g, '<br>') + '</div>';
+		}
+	});
+
+	function renderState(s) {
+		// Hide empty state
+		document.getElementById('emptyState').style.display = 'none';
+		document.getElementById('phasePanel').style.display = 'block';
+
+		// ── Phase Steps ──
+		const phaseOrder = ['idea-analysis', 'auto-planning', 'crew-building', 'build-in-progress', 'preview-ready', 'product-intelligence'];
+		const phaseIdx = phaseOrder.indexOf(s.phase);
+		const isError = s.phase === 'error';
+		document.querySelectorAll('.phase-step').forEach(el => {
+			const p = el.dataset.phase;
+			const pIdx = phaseOrder.indexOf(p);
+			el.classList.toggle('done', pIdx >= 0 && phaseIdx >= 0 && pIdx < phaseIdx);
+			el.classList.toggle('active', !isError && p === s.phase);
+		});
+
+		// Show error state
+		if (isError) {
+			const buildLog = document.getElementById('buildLog');
+			if (buildLog) {
+				buildLog.innerHTML = '<div class="log-line error" style="font-weight:600;color:var(--danger)">❌ 流程出错 — 请使用「重置 Idea Flow」重新开始</div>';
+			}
+
+		// ── Analysis ──
+		if (s.analysis) {
+			document.getElementById('analysisPanel').style.display = 'block';
+			const a = s.analysis;
+			const grid = document.getElementById('analysisGrid');
+			grid.innerHTML = [
+				{ label: '应用名称', value: escapeHtml(a.appName) },
+				{ label: '复杂度', value: a.complexity === 'high' ? '🟠 高' : a.complexity === 'medium' ? '🟡 中' : '🟢 低' },
+				{ label: '架构', value: escapeHtml(a.architecture) },
+				{ label: '预估文件', value: a.estimatedFiles + ' 个' },
+			].map(item => '<div class="analysis-item"><div class="ai-label">' + item.label + '</div><div class="ai-value">' + item.value + '</div></div>').join('');
+
+			// Tech badges
+			const badges = document.getElementById('techBadges');
+			badges.innerHTML = a.techStack.map(t => '<span class="tech-badge">' + escapeHtml(t) + '</span>').join('');
+
+			// Features
+			if (a.features && a.features.length) {
+				document.getElementById('featuresPanel').style.display = 'block';
+				const fl = document.getElementById('featureList');
+				fl.innerHTML = a.features.map((f, i) =>
+					'<div class="feature-item stagger" style="animation-delay:' + (i * 50) + 'ms"><span class="fi-dot"></span>' + escapeHtml(f) + '</div>'
+				).join('');
+			}
+		}
+
+		// ── Build Log ──
+		if (s.buildLogs && s.buildLogs.length) {
+			document.getElementById('buildPanel').style.display = 'block';
+			const logEl = document.getElementById('buildLog');
+			logEl.innerHTML = s.buildLogs.map((log, i) => {
+				const cls = /error|fail|exception|错误|失败/i.test(log) ? 'error'
+					: /success|完成|就绪|ready|done|✅|🎉/i.test(log) ? 'success'
+					: /agent|building|构建|执行|分析|规划|团队/i.test(log) ? 'agent'
+					: /idea|captur|启动|收到想法/i.test(log) ? 'highlight'
+					: 'info';
+				return '<div class="log-line ' + cls + '" style="animation-delay:' + Math.min(i * 20, 500) + 'ms">' + escapeHtml(log) + '</div>';
+			}).join('');
+			logEl.scrollTop = logEl.scrollHeight;
+		}
+
+		// ── Preview ──
+		if (s.previewUrl) {
+			document.getElementById('previewPanel').style.display = 'block';
+			document.getElementById('previewContent').innerHTML =
+				'<div class="preview-content"><span class="preview-url" onclick="post(\'openPreview\',{});return false;">🔗 ' + escapeHtml(s.previewUrl) + '</span><button class="preview-open-btn" onclick="post(\'openPreview\',{});">打开预览</button></div>';
+		} else if (s.phase === 'build-in-progress' || s.phase === 'preview-ready' || s.phase === 'product-intelligence') {
+			document.getElementById('previewPanel').style.display = 'block';
+		}
+	}
+
+	function escapeHtml(str) {
+		return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
+	// Signal ready
+	post('ready');
+</script>
+</body>
+</html>

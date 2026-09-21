@@ -1,0 +1,78 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Suggest / Auto-Completion Widget Refinements".
+ *
+ * Polishes the suggest widget (IntelliSense auto-complete popup) to match
+ * Cursor's quality:
+ *   - Refined item hover and selection transitions
+ *   - Better label/description spacing and alignment
+ *   - Documentation panel polish
+ *   - Filter-icons refinement
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Suggest List Rows — smooth hover/selection transitions
+ * ========================================================================== */
+
+.style-override .suggest-widget .monaco-list .monaco-list-row {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	margin: 0 4px;
+	transition: background-color 0.08s ease;
+}
+
+.style-override .suggest-widget .monaco-list .monaco-list-row:first-child {
+	margin-top: 4px;
+}
+
+.style-override .suggest-widget .monaco-list .monaco-list-row:last-child {
+	margin-bottom: 4px;
+}
+
+.style-override .suggest-widget .monaco-list .monaco-list-row.focused {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+}
+
+/* =============================================================================
+ * Suggest Item Labels — refined typography and spacing
+ * ========================================================================== */
+
+.style-override .suggest-widget .monaco-list .monaco-list-row .suggest-icon {
+	margin-right: 6px;
+}
+
+.style-override .suggest-widget .monaco-list .monaco-list-row .label-name {
+	font-weight: 500;
+}
+
+/* =============================================================================
+ * Documentation / Details Pane — polished styling
+ * ========================================================================== */
+
+.style-override .suggest-widget .details {
+	border-top: 1px solid var(--vscode-editorWidget-border, color-mix(in srgb, var(--vscode-foreground) 8%, transparent));
+	padding: 8px 12px;
+}
+
+.style-override .suggest-widget .details > .monaco-scrollable-element > .details-label {
+	font-size: 12px;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+/* =============================================================================
+ * Suggest Widget Status Bar — refined type info display
+ * ========================================================================== */
+
+.style-override .suggest-widget .suggest-status-bar {
+	border-top: 1px solid var(--vscode-editorWidget-border, color-mix(in srgb, var(--vscode-foreground) 8%, transparent));
+	padding: 2px 8px;
+	font-size: 11px;
+}

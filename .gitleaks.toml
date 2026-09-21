@@ -1,0 +1,45 @@
+[title]
+# Gitleaks config for Minicode
+# Excludes VS Code build artifacts, test fixtures, and false positives.
+# Custom rules tighten detection for our CI pipelines.
+
+[[rules]]
+id = "minicode-internal-endpoint"
+description = "Detect internal Microsoft/partner endpoints that should not be hardcoded"
+regex = '''https?://(?:[a-z0-9-]+\.)?(?:mai\.microsoft|microsoft\.(?:internal|corp)|msazure)\.(?:com|net|org)(?:/[^\s"'',)]*)'''
+tags = ["endpoint", "minicode"]
+
+[[rules]]
+id = "minicode-nonpublic-github-api"
+description = "Detect non-public GitHub API endpoints (copilot_internal)"
+regex = '''https://api\.github\.com/copilot_internal/[^\s"'',)]+'''
+tags = ["endpoint", "minicode"]
+
+[[rules]]
+id = "minicode-hardcoded-redirect-uri"
+description = "Detect hardcoded OAuth redirect URIs or callback URLs"
+regex = '''(?i)(?:redirect_?uri|callback_?url)\s*[:=]\s*['""]https?://[^\s"'',)]+'''
+tags = ["oauth", "minicode"]
+
+[allowlist]
+description = "Build artifacts, test fixtures, known-safe identifiers, reviewed API endpoints"
+paths = [
+    '.build/**',
+    'out/**',
+    'node_modules/**',
+    '.git/**',
+    'coverage/**',
+    'test-results/**',
+    'test/**/fixtures/**',
+    'build/darwin/.dmgbuild',
+    '.vscode-test/**',
+]
+stopwords = [
+    "Minicode.Editor",
+    "minicode-server",
+    "minicode-tunnel",
+    "com.minicode.editor",
+]
+regexes = [
+    '''api\.github\.com/copilot_internal/''',
+]

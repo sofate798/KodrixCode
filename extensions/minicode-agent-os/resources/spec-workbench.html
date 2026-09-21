@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}};">
+	<title>Spec Editor</title>
+	<style>
+		:root {
+			--bg: var(--vscode-editor-background, #1e1e1e);
+			--bg-elevated: var(--vscode-sideBar-background, #252526);
+			--fg: var(--vscode-editor-foreground, #cccccc);
+			--fg-dim: var(--vscode-descriptionForeground, #999999);
+			--border: var(--vscode-panel-border, #454545);
+			--accent: var(--vscode-button-background, #0e639c);
+			--accent-hover: var(--vscode-button-hoverBackground, #1177bb);
+			--accent-fg: var(--vscode-button-foreground, #ffffff);
+			--muted: var(--vscode-descriptionForeground, #999999);
+			--col-req: rgba(55,148,255,0.08);
+			--col-req-border: rgba(55,148,255,0.3);
+			--col-design: rgba(180,120,255,0.08);
+			--col-design-border: rgba(180,120,255,0.3);
+			--col-tasks: rgba(64,201,105,0.08);
+			--col-tasks-border: rgba(64,201,105,0.3);
+			--radius: 6px;
+			--radius-sm: 4px;
+			--transition-fast: 150ms ease;
+			--transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+			font-size: 13px;
+			background: var(--bg);
+			color: var(--fg);
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			-webkit-font-smoothing: antialiased;
+		}
+		header {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 14px;
+			border-bottom: 1px solid var(--border);
+			flex-shrink: 0;
+			flex-wrap: wrap;
+			background: var(--bg-elevated);
+		}
+		header h1 { font-size: 14px; font-weight: 600; margin-right: auto; letter-spacing: -0.01em; }
+		select {
+			background: var(--bg);
+			color: var(--fg);
+			border: 1px solid var(--border);
+			padding: 5px 10px;
+			border-radius: var(--radius-sm);
+			font-size: 12px;
+			min-width: 180px;
+			font-family: inherit;
+			cursor: pointer;
+			transition: border-color var(--transition-fast);
+		}
+		select:hover, select:focus { border-color: var(--accent); outline: none; }
+		.badge {
+			font-size: 10px;
+			color: var(--fg-dim);
+			padding: 3px 10px;
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			font-weight: 500;
+		}
+
+		/* Buttons */
+		.btn {
+			position: relative;
+			overflow: hidden;
+			background: var(--accent);
+			color: var(--accent-fg);
+			border: none;
+			padding: 5px 12px;
+			border-radius: var(--radius-sm);
+			cursor: pointer;
+			font-size: 11px;
+			font-weight: 500;
+			font-family: inherit;
+			transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+			white-space: nowrap;
+		}
+		.btn:hover {
+			background: var(--accent-hover);
+			transform: translateY(-0.5px);
+			box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+		}
+		.btn:active { transform: translateY(0); transition: transform 0.05s; }
+		.btn.secondary {
+			background: transparent;
+			color: var(--fg);
+			border: 1px solid var(--border);
+		}
+		.btn.secondary:hover {
+			background: rgba(128,128,128,0.1);
+			border-color: var(--fg-dim);
+		}
+		.btn .ripple {
+			position: absolute;
+			border-radius: 50%;
+			background: rgba(255,255,255,0.3);
+			transform: scale(0);
+			animation: ripple 0.6s ease-out;
+			pointer-events: none;
+		}
+		@keyframes ripple {
+			to { transform: scale(4); opacity: 0; }
+		}
+		@keyframes fadeInUp {
+			from { opacity: 0; transform: translateY(4px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		@keyframes shimmer {
+			0% { background-position: 200% 0; }
+			100% { background-position: -200% 0; }
+		}
+
+		/* Skeleton */
+		.skeleton {
+			background: linear-gradient(90deg,
+				rgba(128,128,128,0.06) 25%,
+				rgba(128,128,128,0.12) 50%,
+				rgba(128,128,128,0.06) 75%);
+			background-size: 200% 100%;
+			animation: shimmer 1.8s ease-in-out infinite;
+			border-radius: var(--radius-sm);
+		}
+		.skeleton-line { height: 12px; margin-bottom: 8px; }
+		.skeleton-line.short { width: 70%; }
+		.skeleton-block { height: 40px; margin-bottom: 10px; }
+
+		/* Columns */
+		.columns {
+			flex: 1;
+			display: grid;
+			grid-template-columns: 1fr 1fr 1fr;
+			gap: 1px;
+			background: var(--border);
+			min-height: 0;
+		}
+		.col {
+			background: var(--bg);
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			transition: box-shadow var(--transition-normal);
+		}
+		.col-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 10px 12px;
+			border-bottom: 2px solid transparent;
+			flex-shrink: 0;
+			transition: border-color var(--transition-normal);
+		}
+		.col-head.req { background: var(--col-req); border-color: var(--col-req-border); }
+		.col-head.design { background: var(--col-design); border-color: var(--col-design-border); }
+		.col-head.tasks { background: var(--col-tasks); border-color: var(--col-tasks-border); }
+		.col-head span {
+			font-weight: 600;
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+		}
+		.col-head.req span { color: #7ec8ff; }
+		.col-head.design span { color: #d4a0ff; }
+		.col-head.tasks span { color: #7dffb2; }
+
+		/* Checklist style for tasks */
+		.tasks-checklist { list-style: none; padding: 0; }
+		.tasks-checklist li {
+			padding: 4px 0;
+			padding-left: 20px;
+			position: relative;
+		}
+		.tasks-checklist li::before {
+			content: '☐';
+			position: absolute;
+			left: 0;
+			color: var(--fg-dim);
+		}
+		.tasks-checklist li.done { color: var(--fg-dim); text-decoration: line-through; }
+		.tasks-checklist li.done::before { content: '☑'; color: var(--col-tasks-border); }
+
+		.col-body {
+			flex: 1;
+			overflow: auto;
+			padding: 12px;
+			font-size: 12px;
+			line-height: 1.6;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+		.col-body::-webkit-scrollbar { width: 6px; }
+		.col-body::-webkit-scrollbar-track { background: transparent; }
+		.col-body::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 3px; }
+		.col-body::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.5); }
+		.col-body.empty { color: var(--fg-dim); font-style: italic; }
+
+		/* Empty State */
+		.empty-state {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			height: 100%;
+			gap: 8px;
+			color: var(--fg-dim);
+			padding: 20px;
+			text-align: center;
+		}
+		.empty-state .empty-icon { font-size: 24px; opacity: 0.2; }
+
+		/* Fade transitions */
+		.fade-in { animation: fadeInUp var(--transition-normal) forwards; }
+		.stagger-1 { animation-delay: 0.05s; }
+		.stagger-2 { animation-delay: 0.1s; }
+		.stagger-3 { animation-delay: 0.15s; }
+		.stagger-4 { animation-delay: 0.2s; }
+
+		[data-tooltip] { position: relative; }
+		[data-tooltip]:hover::after {
+			content: attr(data-tooltip);
+			position: absolute;
+			bottom: calc(100% + 6px);
+			left: 50%;
+			transform: translateX(-50%);
+			background: var(--bg-elevated);
+			color: var(--fg);
+			border: 1px solid var(--border);
+			padding: 4px 8px;
+			border-radius: var(--radius-sm);
+			font-size: 10px;
+			white-space: nowrap;
+			z-index: 100;
+			pointer-events: none;
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>📐 Spec Editor</h1>
+		<span class="badge">Kiro 三栏</span>
+		<select id="specSelect"><option value="">— 选择 Spec —</option></select>
+		<button class="btn secondary" id="btnRefresh" data-tooltip="刷新 Spec 列表">🔄</button>
+		<button class="btn secondary" id="btnNew" data-tooltip="新建 Spec">➕ 新建</button>
+		<button class="btn" id="btnImplement" data-tooltip="让 Agent 按 Spec 实施">🚀 实施（Agent）</button>
+	</header>
+	<div class="columns">
+		<section class="col" id="reqCol">
+			<div class="col-head req">
+				<span>📋 Requirements</span>
+				<button class="btn secondary" data-edit="requirements.md" data-tooltip="在编辑器中打开">✏️</button>
+			</div>
+			<div class="col-body" id="reqContent">
+				<div class="skeleton skeleton-line stagger-1"></div>
+				<div class="skeleton skeleton-line short stagger-2"></div>
+				<div class="skeleton skeleton-block stagger-3"></div>
+			</div>
+		</section>
+		<section class="col" id="designCol">
+			<div class="col-head design">
+				<span>🏗️ Design</span>
+				<button class="btn secondary" data-edit="design.md" data-tooltip="在编辑器中打开">✏️</button>
+			</div>
+			<div class="col-body" id="designContent">
+				<div class="skeleton skeleton-line stagger-1"></div>
+				<div class="skeleton skeleton-block stagger-2"></div>
+			</div>
+		</section>
+		<section class="col" id="tasksCol">
+			<div class="col-head tasks">
+				<span>✅ Tasks</span>
+				<button class="btn secondary" data-edit="tasks.md" data-tooltip="在编辑器中打开">✏️</button>
+			</div>
+			<div class="col-body" id="tasksContent">
+				<div class="skeleton skeleton-line short stagger-1"></div>
+				<div class="skeleton skeleton-line stagger-2"></div>
+				<div class="skeleton skeleton-line short stagger-3"></div>
+				<div class="skeleton skeleton-line stagger-4"></div>
+			</div>
+		</section>
+	</div>
+	<script>
+		const vscode = acquireVsCodeApi();
+		const specSelect = document.getElementById('specSelect');
+		const reqContent = document.getElementById('reqContent');
+		const designContent = document.getElementById('designContent');
+		const tasksContent = document.getElementById('tasksContent');
+
+		function post(cmd, data) {
+			vscode.postMessage({ command: cmd, ...data });
+		}
+
+		// Ripple effect
+		document.addEventListener('click', function(e) {
+			const btn = e.target.closest('.btn');
+			if (!btn) return;
+			const ripple = document.createElement('span');
+			ripple.className = 'ripple';
+			const rect = btn.getBoundingClientRect();
+			const size = Math.max(rect.width, rect.height);
+			ripple.style.width = ripple.style.height = size + 'px';
+			ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+			ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+			btn.appendChild(ripple);
+			ripple.addEventListener('animationend', function() { ripple.remove(); });
+		});
+
+		// Task checklist rendering
+		function renderTasks(text) {
+			if (!text || !text.trim()) return '';
+			const lines = text.split('\n');
+			let html = '<ul class="tasks-checklist">';
+			for (const line of lines) {
+				const trimmed = line.trim();
+				if (!trimmed) continue;
+				const isDone = /^-\s*\[x\]/i.test(trimmed);
+				const clean = trimmed.replace(/^-\s*\[[ x]\]\s*/i, '');
+				html += '<li class="' + (isDone ? 'done' : '') + '">' +
+					clean.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+					'</li>';
+			}
+			html += '</ul>';
+			return html;
+		}
+
+		function setCol(el, text, isTasks) {
+			if (text && text.trim()) {
+				el.innerHTML = isTasks
+					? renderTasks(text)
+					: text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+				el.classList.remove('empty');
+			} else {
+				el.innerHTML = '<div class="empty-state"><span class="empty-icon">📄</span><p>（空）</p></div>';
+				el.classList.add('empty');
+			}
+		}
+
+		specSelect.onchange = function() { post('selectSpec', { slug: specSelect.value }); };
+		document.getElementById('btnRefresh').onclick = function() { post('refresh'); };
+		document.getElementById('btnNew').onclick = function() { post('newSpec'); };
+		document.getElementById('btnImplement').onclick = function() { post('implement'); };
+
+		document.querySelectorAll('[data-edit]').forEach(function(btn) {
+			btn.onclick = function() { post('editFile', { file: btn.dataset.edit }); };
+		});
+
+		window.addEventListener('message', function(e) {
+			const msg = e.data;
+			if (msg.type === 'specList') {
+				specSelect.innerHTML = '<option value="">— 选择 Spec —</option>';
+				(msg.slugs || []).forEach(function(s) {
+					const o = document.createElement('option');
+					o.value = s;
+					o.textContent = s;
+					specSelect.appendChild(o);
+				});
+				if (msg.selected) specSelect.value = msg.selected;
+			}
+			if (msg.type === 'specContent') {
+				setCol(reqContent, msg.requirements, false);
+				setCol(designContent, msg.design, false);
+				setCol(tasksContent, msg.tasks, true);
+			}
+		});
+
+		post('ready');
+	</script>
+</body>
+</html>

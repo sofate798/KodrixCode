@@ -1,0 +1,214 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Empty State Design System".
+ *
+ * A unified empty-state visual language for all views that have no content to
+ * display (no open editors, no search results, no git changes, etc.). Every
+ * empty state follows the same layout pattern: icon → title → description →
+ * call-to-action button, creating a consistent, polished, enterprise-quality
+ * experience.
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Base Empty State Container — centered, breathing layout.
+ * ========================================================================== */
+
+.style-override .empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 48px 32px;
+	text-align: center;
+	gap: 12px;
+	min-height: 200px;
+}
+
+/* Compact variant for smaller containers (side panels, popups). */
+.style-override .empty-state.compact {
+	padding: 32px 24px;
+	gap: 8px;
+	min-height: 120px;
+}
+
+/* =============================================================================
+ * Empty State Icon — large, dimmed, with optional brand colour on hover.
+ * ========================================================================== */
+
+.style-override .empty-state .empty-state-icon {
+	font-size: 48px;
+	opacity: 0.25;
+	transition: opacity 0.2s var(--motion-easing-standard, ease),
+	            transform 0.2s var(--motion-easing-decelerate, cubic-bezier(0.16, 1, 0.3, 1));
+	color: var(--vscode-foreground);
+}
+
+.style-override .empty-state.compact .empty-state-icon {
+	font-size: 32px;
+}
+
+/* Subtle lift on hover — invites interaction. */
+.style-override .empty-state:hover .empty-state-icon {
+	opacity: 0.35;
+	transform: translateY(-2px);
+}
+
+/* Brand-coloured variant for primary empty states (e.g. no agent sessions). */
+.style-override .empty-state.brand .empty-state-icon {
+	color: var(--minicode-brand-primary, #3994BC);
+	opacity: 0.5;
+}
+
+/* =============================================================================
+ * Empty State Title — clear, bold, inviting.
+ * ========================================================================== */
+
+.style-override .empty-state .empty-state-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	line-height: 1.3;
+}
+
+.style-override .empty-state.compact .empty-state-title {
+	font-size: 14px;
+}
+
+/* =============================================================================
+ * Empty State Description — secondary text, max-width for readability.
+ * ========================================================================== */
+
+.style-override .empty-state .empty-state-description {
+	font-size: 13px;
+	color: var(--minicode-text-secondary, var(--vscode-descriptionForeground));
+	max-width: 320px;
+	line-height: 1.5;
+}
+
+.style-override .empty-state.compact .empty-state-description {
+	font-size: 12px;
+	max-width: 260px;
+}
+
+/* =============================================================================
+ * Empty State Action Button — brand-gradient CTA.
+ * ========================================================================== */
+
+.style-override .empty-state .empty-state-action {
+	margin-top: 8px;
+	padding: 8px 24px;
+	border-radius: 6px;
+	background: linear-gradient(135deg,
+		var(--minicode-brand-primary, #3994BC) 0%,
+		var(--minicode-brand-secondary, #58B3D9) 100%);
+	color: #FFFFFF;
+	font-size: 13px;
+	font-weight: 600;
+	border: none;
+	cursor: pointer;
+	transition: transform 0.15s var(--motion-easing-decelerate, cubic-bezier(0.16, 1, 0.3, 1)),
+	            box-shadow 0.15s var(--motion-easing-standard, ease),
+	            opacity 0.15s var(--motion-easing-standard, ease);
+}
+
+.style-override .empty-state .empty-state-action:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 16px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 35%, transparent);
+}
+
+.style-override .empty-state .empty-state-action:active {
+	transform: translateY(0) scale(0.98);
+}
+
+.style-override .empty-state .empty-state-action:disabled {
+	opacity: 0.4;
+	transform: none;
+	box-shadow: none;
+	cursor: default;
+}
+
+/* Secondary style action — outlined instead of filled. */
+.style-override .empty-state .empty-state-action.secondary {
+	background: transparent;
+	color: var(--minicode-brand-primary, #3994BC);
+	border: 1px solid color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 40%, transparent);
+}
+
+.style-override .empty-state .empty-state-action.secondary:hover {
+	background: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+	box-shadow: none;
+}
+
+/* =============================================================================
+ * Empty State Keybinding Hint — subtle grey badge.
+ * ========================================================================== */
+
+.style-override .empty-state .empty-state-keybinding {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 500;
+	background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+	color: var(--minicode-text-secondary, var(--vscode-descriptionForeground));
+}
+
+.style-override .empty-state .empty-state-keybinding .codicon {
+	font-size: 12px;
+}
+
+/* =============================================================================
+ * Specific Empty States — where the base component is extended.
+ * ========================================================================== */
+
+/* Welcome page empty state: more breathing room. */
+.style-override .empty-state.welcome {
+	padding: 64px 32px;
+	gap: 16px;
+}
+
+.style-override .empty-state.welcome .empty-state-icon {
+	font-size: 64px;
+	opacity: 0.3;
+}
+
+.style-override .empty-state.welcome .empty-state-title {
+	font-size: 20px;
+}
+
+/* Dark variant — for empty states on dark card surfaces. */
+.style-override .empty-state.dark .empty-state-icon {
+	opacity: 0.2;
+}
+
+.style-override .empty-state.dark .empty-state-description {
+	color: color-mix(in srgb, var(--vscode-foreground) 45%, transparent);
+}
+
+/* Inline variant — sits within a flex row, not centered. */
+.style-override .empty-state.inline {
+	flex-direction: row;
+	justify-content: flex-start;
+	text-align: left;
+	gap: 12px;
+	padding: 16px;
+	min-height: auto;
+}
+
+.style-override .empty-state.inline .empty-state-icon {
+	font-size: 24px;
+}
+
+.style-override .empty-state.inline .empty-state-title {
+	font-size: 14px;
+}

@@ -1,0 +1,57 @@
+# --- IDE / editor generated ---
+.vs/
+*.swp
+*.swo
+*~
+
+# --- Build outputs ---
+out/
+out-build/
+out-vscode/
+out-vscode-min/
+out-vscode-reh/
+out-vscode-reh-min/
+out-vscode-reh-web/
+out-vscode-reh-web-min/
+dist/
+.build/
+
+# --- Dependencies ---
+node_modules/
+font-size/node_modules/
+font-size/generate-css.js
+
+# --- OS / environment ---
+.DS_Store
+*.env
+Thumbs.db
+
+# --- VSCodium fork ignores ---
+vscode*
+VS*/*
+VSCode*
+VSCodium*
+assets/
+build/linux/appimage/out
+build/linux/appimage/pkg2appimage.AppDir
+build/linux/appimage/pkg2appimage-*.AppImage
+build/linux/appimage/pkg2appimage.AppImage
+build/linux/appimage/squashfs-root
+build/linux/appimage/VSCodium
+build/windows/msi/releasedir
+build/windows/msi/Files*.wxs
+build/windows/msi/Files*.wixobj
+sourcemaps/
+stores/snapcraft/insider/*.snap
+stores/snapcraft/stable/*.snap
+
+# --- Minicode user data ---
+.profile-minicode/
+.profile-oss/
+
+# --- Minicode dev/runtime artifacts ---
+.langpack-zh/
+.minicode-test/
+electron-out.log
+*.tsbuildinfo
+*.tsbuildinfo.*

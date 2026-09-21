@@ -1,0 +1,124 @@
+{
+  "name": "minicode-skills",
+  "displayName": "Minicode Skill 市场",
+  "description": "Skill 技能插件市场 — 内置目录、GitHub/npm 搜索、从 URL 安装",
+  "version": "1.0.0",
+  "publisher": "minicode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:minicode.skillsMarketplace",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension",
+  "contributes": {
+    "localizations": [
+      {
+        "languageId": "zh-cn",
+        "languageName": "Chinese (Simplified)",
+        "localizedLanguageName": "简体中文",
+        "translations": [
+          {
+            "id": "minicode.minicode-skills",
+            "path": "package.nls.zh-cn.json"
+          }
+        ]
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "minicode.skillsMarketplace",
+          "name": "Skill 市场",
+          "when": "true"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "minicode.skills.refresh",
+        "title": "刷新",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "minicode.skills.install",
+        "title": "安装 Skill",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "minicode.skills.installFromUrl",
+        "title": "从 URL 安装 Skill",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.skills.importCursor",
+        "title": "导入 ~/.cursor/skills",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.skills.searchGithub",
+        "title": "搜索 GitHub Skills",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.skills.openMarketplace",
+        "title": "打开 Skill 市场",
+        "category": "Minicode"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "minicode.skills.refresh",
+          "when": "view == minicode.skillsMarketplace",
+          "group": "navigation"
+        },
+        {
+          "command": "minicode.skills.installFromUrl",
+          "when": "view == minicode.skillsMarketplace",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "minicode.skills.install",
+          "when": "view == minicode.skillsMarketplace && viewItem == skillItem",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Minicode Skills",
+      "properties": {
+        "minicode.skills.installDir": {
+          "type": "string",
+          "default": "~/.agents/skills",
+          "description": "Skill 安装目录（每个 Skill 为子文件夹，内含 SKILL.md）"
+        },
+        "minicode.skills.registryUrls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "额外远程 Skill 目录 URL"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:minicode-skills",
+    "watch": "gulp watch-extension:minicode-skills"
+  },
+  "devDependencies": {
+    "@types/node": "24.x"
+  },
+  "dependencies": {
+    "@parcel/watcher": "^2.5.6"
+  }
+}

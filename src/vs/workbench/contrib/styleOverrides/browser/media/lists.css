@@ -1,0 +1,128 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "List & Tree Refinements".
+ *
+ * Polishes list/tree views (Explorer, Search, Source Control, Extensions,
+ * etc.) to match Cursor's refined visual quality:
+ *   - Smooth row hover/selection transitions
+ *   - Active cursor indicator (sidebar highlight)
+ *   - File decoration alignment
+ *   - Twisty (collapse/expand) icon refinement
+ *   - Sticky scroll polish
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Row Hover & Selection — smooth transitions and refined colors
+ * ========================================================================== */
+
+.style-override .monaco-list .monaco-list-row {
+	transition: background-color 0.08s ease, color 0.08s ease;
+}
+
+/* Slightly brighter hover for better feedback. */
+.style-override .monaco-list .monaco-list-row:hover:not(.selected):not(.focused) {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+}
+
+/* Active selection: refined background with a soft edge. */
+.style-override .monaco-list .monaco-list-row.selected {
+	background-color: var(--vscode-list-activeSelectionBackground, color-mix(in srgb, var(--vscode-foreground) 10%, transparent));
+}
+
+.style-override .monaco-list .monaco-list-row.focused.selected {
+	background-color: var(--vscode-list-focusAndSelectionBackground, var(--vscode-list-activeSelectionBackground));
+}
+
+/* =============================================================================
+ * File Explorer — active cursor indicator (left-edge highlight bar)
+ * ========================================================================== */
+
+/* Drop the default full-row highlight in favor of a subtle left-edge accent. */
+.style-override .explorer-folders-view .monaco-list .monaco-list-row.focused:not(.selected) {
+	box-shadow: inset 2px 0 0 var(--vscode-focusBorder, var(--vscode-list-focusOutline));
+	background-color: color-mix(in srgb, var(--vscode-foreground) 3%, transparent);
+}
+
+/* =============================================================================
+ * File Decorations — label alignment and icon spacing
+ * ========================================================================== */
+
+/* Give file/folder labels consistent spacing from their icons. */
+.style-override .explorer-folders-view .monaco-icon-label::before {
+	margin-right: 6px;
+}
+
+/* Git decoration colors: refined alpha for better readability. */
+.style-override .monaco-icon-label-container .label-decoration {
+	opacity: 0.75;
+}
+
+.style-override .monaco-list-row:hover .monaco-icon-label-container .label-decoration {
+	opacity: 0.9;
+}
+
+/* =============================================================================
+ * Twisties (Collapse/Expand Arrows) — refined sizing and alignment
+ * ========================================================================== */
+
+.style-override .monaco-tl-twistie {
+	font-size: 10px;
+	transition: transform 0.12s ease;
+}
+
+.style-override .monaco-tl-twistie.collapsible:not(.collapsed) {
+	transform: rotate(0deg);
+}
+
+.style-override .monaco-tl-twistie.collapsible.collapsed {
+	transform: rotate(-90deg);
+}
+
+/* =============================================================================
+ * Sticky Scroll — refined styling for hovered sticky scroll lines
+ * ========================================================================== */
+
+.style-override .monaco-tree-sticky-row {
+	transition: background-color 0.08s ease;
+}
+
+.style-override .monaco-tree-sticky-row:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+}
+
+/* =============================================================================
+ * List Drop Target Indicator — refined for smoother drag-and-drop
+ * ========================================================================== */
+
+.style-override .monaco-list .monaco-list-row.drop-target {
+	background-color: color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 30%, transparent);
+}
+
+/* =============================================================================
+ * Search Results — refined match highlight colors
+ * ========================================================================== */
+
+.style-override .monaco-list .highlight {
+	background-color: color-mix(in srgb, var(--vscode-editor-findMatchHighlightBackground) 30%, transparent);
+}
+
+/* =============================================================================
+ * Indent Guides — refined for better visual hierarchy
+ * ========================================================================== */
+
+.style-override .monaco-list .monaco-tl-indent > .indent-guide {
+	border-color: color-mix(in srgb, var(--vscode-tree-indentGuidesStroke) 60%, transparent);
+	transition: border-color 0.08s ease;
+}
+
+.style-override .monaco-list .monaco-tl-indent > .indent-guide.active {
+	border-color: color-mix(in srgb, var(--vscode-tree-indentGuidesStroke) 100%, transparent);
+}

@@ -1,0 +1,54 @@
+﻿name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build and Sign
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run compile-build
+      - run: npm run test-all-extensions
+      - name: Build artifacts
+        run: npm run gulp vscode-${{ matrix.os == 'windows-latest' && 'win32' || matrix.os == 'macos-latest' && 'darwin' || 'linux' }}-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: ../VSCode-*/
+
+  sanity:
+    name: Smoke Tests
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+      - run: npm run smoketest
+
+  publish:
+    name: Publish
+    needs: sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - run: echo "Publish artifacts ready"

@@ -1,0 +1,227 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Micro-Interactions & Motion".
+ *
+ * Implements a coordinated motion design system for enterprise-quality
+ * interactive feel across the workbench. Organised in three layers:
+ *
+ *   Layer 1 — Motion Tokens: reusable duration + easing variables consumed by
+ *            every animation rule below.
+ *   Layer 2 — Surface Animations: button press, focus rings, menus, tooltips,
+ *            dialogs, dropdowns, checkbox toggles.
+ *   Layer 3 — Transactional Animations: page loading, panel toggle, editor
+ *            group actions, status bar items.
+ *
+ * All motion rules are additionally gated behind `.monaco-enable-motion`
+ * (the global reduce-motion opt-in) so they respect accessibility preferences.
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Layer 1 — Motion Design Tokens
+ * ========================================================================== */
+
+.monaco-enable-motion .style-override {
+	/* Duration scale — shortest to longest */
+	--motion-duration-instant: 0.05s;
+	--motion-duration-fast: 0.1s;
+	--motion-duration-normal: 0.2s;
+	--motion-duration-slow: 0.3s;
+	--motion-duration-entrance: 0.4s;
+
+	/* Easing curves — named for the movement they produce */
+	--motion-easing-decelerate: cubic-bezier(0.16, 1, 0.3, 1);   /* user-triggered — starts fast, ends gently */
+	--motion-easing-accelerate: cubic-bezier(0.4, 0, 0.68, 0.06);  /* auto-dismiss — starts gently, accelerates */
+	--motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);           /* general purpose — smooth and steady */
+	--motion-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);      /* bounce — overshoots then settles */
+	--motion-easing-entrance: cubic-bezier(0, 0, 0, 1);             /* content reveal — slow start, steady finish */
+}
+
+/* =============================================================================
+ * Layer 2 — Surface Animations
+ * ========================================================================== */
+
+/* Action Bar Buttons — confident press feedback with spring deceleration. */
+.monaco-enable-motion .style-override .monaco-action-bar .action-item:active .action-label {
+	transform: scale(0.92);
+	transition: transform var(--motion-duration-fast) var(--motion-easing-decelerate);
+}
+
+.monaco-enable-motion .style-override .monaco-action-bar .action-item .action-label {
+	transition: transform var(--motion-duration-fast) var(--motion-easing-decelerate),
+	            background-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+/* Focus Rings — smooth transition on focus/blur using standard easing. */
+.monaco-enable-motion .style-override .monaco-inputbox,
+.monaco-enable-motion .style-override .monaco-select-box,
+.monaco-enable-motion .style-override .monaco-button {
+	transition: box-shadow var(--motion-duration-normal) var(--motion-easing-standard),
+	            border-color var(--motion-duration-normal) var(--motion-easing-standard);
+}
+
+/* Tooltips — lift-up entrance with gentle deceleration. */
+.monaco-enable-motion .style-override .monaco-hover-content {
+	animation: style-override-tooltip-in var(--motion-duration-fast) var(--motion-easing-decelerate);
+}
+
+@keyframes style-override-tooltip-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+/* Menu Items — instant hover transition for snappy feedback. */
+.monaco-enable-motion .style-override .monaco-menu .monaco-action-bar .action-item {
+	transition: background-color var(--motion-duration-instant) var(--motion-easing-standard);
+}
+
+/* Menu Entrance — subtle slide-down reveal. */
+.monaco-enable-motion .style-override .monaco-menu-container {
+	animation: style-override-menu-in var(--motion-duration-fast) var(--motion-easing-entrance);
+}
+
+@keyframes style-override-menu-in {
+	from {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Progress Bar — shimmer pulse using brand colours. */
+.monaco-enable-motion .style-override .monaco-progress-container.infinite .progress-bit {
+	animation: style-override-progress-shimmer 1.6s linear infinite;
+}
+
+@keyframes style-override-progress-shimmer {
+	0% { opacity: 0.35; }
+	50% { opacity: 0.9; }
+	100% { opacity: 0.35; }
+}
+
+/* Dialog Boxes — soft scale-up entrance with spring bounce. */
+.monaco-enable-motion .style-override .monaco-dialog-box {
+	animation: style-override-dialog-in var(--motion-duration-slow) var(--motion-easing-spring);
+}
+
+@keyframes style-override-dialog-in {
+	from {
+		opacity: 0;
+		transform: scale(0.94);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* Dropdowns & Select Boxes — drop-down reveal. */
+.monaco-enable-motion .style-override .monaco-select-box-dropdown-container {
+	animation: style-override-dropdown-in var(--motion-duration-fast) var(--motion-easing-decelerate);
+}
+
+@keyframes style-override-dropdown-in {
+	from {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Checkbox Toggle — subtle pop on check. */
+.monaco-enable-motion .style-override .monaco-custom-checkbox {
+	transition: transform var(--motion-duration-fast) var(--motion-easing-spring),
+	            background-color var(--motion-duration-fast) var(--motion-easing-standard),
+	            border-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.monaco-enable-motion .style-override .monaco-custom-checkbox.checked {
+	transform: scale(1.1);
+}
+
+/* =============================================================================
+ * Layer 3 — Transactional Animations
+ * ========================================================================== */
+
+/* Workbench Part Visibility — smooth panel toggle with deceleration. */
+.monaco-enable-motion .style-override .part {
+	transition: opacity var(--motion-duration-normal) var(--motion-easing-standard);
+}
+
+/* Smooth page content loading — brand-tinted fade-in for the entire workbench. */
+.monaco-enable-motion .style-override.monaco-workbench {
+	animation: style-override-workbench-in var(--motion-duration-entrance) var(--motion-easing-entrance);
+}
+
+@keyframes style-override-workbench-in {
+	from { opacity: 0; filter: brightness(0.8); }
+	to   { opacity: 1; filter: brightness(1); }
+}
+
+/* Editor Group Actions — refined split/pin button transitions. */
+.monaco-enable-motion .style-override .part.editor > .content .editor-group-container > .title .editor-actions .action-item {
+	transition: transform var(--motion-duration-fast) var(--motion-easing-decelerate);
+}
+
+.monaco-enable-motion .style-override .part.editor > .content .editor-group-container > .title .editor-actions .action-item:active {
+	transform: scale(0.92);
+}
+
+/* Status Bar Items — subtle press feedback. */
+.monaco-enable-motion .style-override .part.statusbar > .items-container > .statusbar-item:active {
+	transform: scale(0.97);
+	transition: transform var(--motion-duration-instant) var(--motion-easing-decelerate);
+}
+
+.monaco-enable-motion .style-override .part.statusbar > .items-container > .statusbar-item {
+	transition: transform var(--motion-duration-instant) var(--motion-easing-decelerate),
+	            background-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+/* =============================================================================
+ * List / Tree Row Entrance — staggered reveal for a polished first paint.
+ * ========================================================================== */
+
+.monaco-enable-motion .style-override .monaco-list .monaco-list-row {
+	animation: style-override-row-enter var(--motion-duration-normal) var(--motion-easing-entrance) both;
+}
+
+@keyframes style-override-row-enter {
+	from { opacity: 0; transform: translateY(-2px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =============================================================================
+ * Pane Expand / Collapse — smooth height transition.
+ * ========================================================================== */
+
+.monaco-enable-motion .style-override .monaco-pane-view .pane.expanded {
+	transition: grid-template-rows var(--motion-duration-normal) var(--motion-easing-standard);
+}
+
+/* =============================================================================
+ * Smooth Scroll Behavior — all scrollable surfaces.
+ * ========================================================================== */
+
+.monaco-enable-motion .style-override .monaco-scrollable-element {
+	scroll-behavior: smooth;
+}

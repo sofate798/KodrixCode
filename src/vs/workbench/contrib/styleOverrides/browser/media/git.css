@@ -1,0 +1,104 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Git & Source Control Refinements".
+ *
+ * Polishes the Source Control panel and git gutter decorations to match
+ * Cursor's quality:
+ *   - Refined gutter indicators (added/modified/deleted lines)
+ *   - Inline blame / authorship decoration
+ *   - Source Control panel item styling
+ *   - Commit message input polish
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Git Gutter Decorations — refined line-change indicators
+ * ========================================================================== */
+
+/* Added lines: subtle green left-margin indicator. */
+.style-override .monaco-editor .glyph-margin-widgets .git-add-glyph {
+	opacity: 0.6;
+}
+
+/* Modified lines: subtle blue/yellow indicator. */
+.style-override .monaco-editor .glyph-margin-widgets .git-modify-glyph {
+	opacity: 0.6;
+}
+
+/* Deleted lines: subtle red indicator. */
+.style-override .monaco-editor .glyph-margin-widgets .git-delete-glyph {
+	opacity: 0.6;
+}
+
+/* On hover over modified line — boost opacity. */
+.style-override .monaco-editor .glyph-margin-widgets:hover .git-add-glyph,
+.style-override .monaco-editor .glyph-margin-widgets:hover .git-modify-glyph,
+.style-override .monaco-editor .glyph-margin-widgets:hover .git-delete-glyph {
+	opacity: 0.9;
+}
+
+/* =============================================================================
+ * Source Control Panel — refined tree items
+ * ========================================================================== */
+
+.style-override .scm-view .monaco-list .monaco-list-row {
+	transition: background-color 0.08s ease;
+}
+
+/* Staged changes section — refined header. */
+.style-override .scm-view .scm-provider-header {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	padding: 4px 8px;
+}
+
+.style-override .scm-view .scm-provider-header:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+}
+
+/* =============================================================================
+ * Commit Message Input — refined textarea styling
+ * ========================================================================== */
+
+.style-override .scm-view .scm-editor .monaco-editor {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	border: 1px solid var(--vscode-input-border, transparent);
+	transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.style-override .scm-view .scm-editor .monaco-editor.focused {
+	border-color: var(--vscode-focusBorder, var(--vscode-input-border));
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder) inset;
+}
+
+/* =============================================================================
+ * Inline Blame / Annotations — refined opacity for less visual noise
+ * ========================================================================== */
+
+.style-override .monaco-editor .inline-blaming .blaming-info {
+	opacity: 0.7;
+	font-size: 11px;
+}
+
+.style-override .monaco-editor .inline-blaming .blaming-info:hover {
+	opacity: 1;
+}
+
+/* =============================================================================
+ * SCM Input Actions — refined button group spacing
+ * ========================================================================== */
+
+.style-override .scm-editor-container .scm-editor-toolbar {
+	gap: 2px;
+}
+
+.style-override .scm-editor-container .scm-editor-toolbar .monaco-action-bar .action-item {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease;
+}

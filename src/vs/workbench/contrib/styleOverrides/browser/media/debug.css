@@ -1,0 +1,90 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Debug Toolbar & Breakpoint Refinements".
+ *
+ * Polishes the debug experience to match Cursor's quality:
+ *   - Floating debug toolbar with refined shadow and rounded corners
+ *   - Breakpoint gutter decorations with smooth hover
+ *   - Call stack items with refined hover
+ *   - Debug console input polish
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Debug Floating Toolbar — refined shadow and rounding
+ * ========================================================================== */
+
+.style-override .monaco-editor .debug-toolbar {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	box-shadow: 0 4px 16px color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+	transition: box-shadow 0.15s ease;
+}
+
+/* Debug toolbar action items — refined rounded buttons. */
+.style-override .monaco-editor .debug-toolbar .monaco-action-bar .action-item .action-label {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease;
+}
+
+/* =============================================================================
+ * Breakpoint Glyphs — refined gutter indicator styling
+ * ========================================================================== */
+
+.style-override .monaco-editor .glyph-margin-widgets .cgmr.codicon-debug-breakpoint,
+.style-override .monaco-editor .glyph-margin-widgets .cgmr.codicon-debug-breakpoint-conditional,
+.style-override .monaco-editor .glyph-margin-widgets .cgmr.codicon-debug-breakpoint-log {
+	transition: opacity 0.1s ease;
+}
+
+/* =============================================================================
+ * Debug Call Stack — refined list items
+ * ========================================================================== */
+
+.style-override .debug-pane .debug-call-stack .monaco-list-row {
+	transition: background-color 0.08s ease;
+}
+
+.style-override .debug-pane .debug-call-stack .monaco-list-row:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+}
+
+/* Call stack session header — refined. */
+.style-override .debug-pane .debug-call-stack .session {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.08s ease;
+}
+
+/* =============================================================================
+ * Debug Variables — refined expansion and hover
+ * ========================================================================== */
+
+.style-override .debug-pane .debug-variables .monaco-list-row {
+	transition: background-color 0.08s ease;
+}
+
+.style-override .debug-pane .debug-variables .monaco-list-row:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+}
+
+/* =============================================================================
+ * Debug Console — refined input area
+ * ========================================================================== */
+
+.style-override .debug-pane .debug-console .repl-input-wrapper .monaco-editor {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+/* =============================================================================
+ * Debug Watch Expressions — refined hover
+ * ========================================================================== */
+
+.style-override .debug-pane .debug-watch .monaco-list-row {
+	transition: background-color 0.08s ease;
+}

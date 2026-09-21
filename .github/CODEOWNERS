@@ -1,0 +1,24 @@
+# Minicode Code Owners
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Core VS Code fork (review carefully)
+/src/vs/                        @minicode/core
+
+# Minicode Extensions
+/extensions/minicode-local/     @minicode/local
+/extensions/minicode-skills/    @minicode/skills
+/extensions/minicode-solo/      @minicode/solo
+/extensions/minicode-agent-os/  @minicode/agent-os
+
+# Build & CI
+/build/                         @minicode/build
+/.github/workflows/             @minicode/build
+
+# Product configuration
+/product.json                   @minicode/core @minicode/build
+
+# CLI (Rust)
+/cli/                           @minicode/cli
+
+# Marketplace skills
+/marketplace/                   @minicode/skills

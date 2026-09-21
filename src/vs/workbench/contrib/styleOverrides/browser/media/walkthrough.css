@@ -1,0 +1,71 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Walkthrough Refinements".
+ *
+ * Polishes the built-in walkthrough / getting started experience:
+ *   - Step cards with refined hover and shadow
+ *   - Progress indicator polish
+ *   - Step description typography
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Walkthrough Step Cards — refined card styling
+ * ========================================================================== */
+
+.style-override .gettingStartedContainer .step-container {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.style-override .gettingStartedContainer .step-container:hover {
+	box-shadow: 0 1px 6px color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+}
+
+/* =============================================================================
+ * Walkthrough Buttons — refined pill styling
+ * ========================================================================== */
+
+.style-override .gettingStartedContainer .gettingStartedStep .monaco-button {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease, transform 80ms ease;
+}
+
+.style-override .gettingStartedContainer .gettingStartedStep .monaco-button:active {
+	transform: scale(0.97);
+}
+
+/* =============================================================================
+ * Walkthrough Categories — refined header and description
+ * ========================================================================== */
+
+.style-override .gettingStartedContainer .category-header {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+.style-override .gettingStartedContainer .category-header:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+}
+
+/* =============================================================================
+ * Walkthrough Progress — refined step count circle
+ * ========================================================================== */
+
+.style-override .gettingStartedContainer .step-count {
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* =============================================================================
+ * Walkthrough Featured Item Cards — refined for the start page
+ * ========================================================================== */
+
+.style-override .gettingStartedContainer .getting-started-category .start-container {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}

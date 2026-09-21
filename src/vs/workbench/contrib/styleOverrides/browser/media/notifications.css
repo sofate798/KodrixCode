@@ -1,0 +1,94 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Notification Refinements".
+ *
+ * Polishes the notification system (toasts and notification center) to match
+ * Cursor's quality:
+ *   - Smoother toast entrance/exit animations
+ *   - Refined notification center item styling
+ *   - Better source attribution display
+ *   - Center header polish
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Notification Toasts — refined item styling with smooth transitions
+ * ========================================================================== */
+
+.style-override .notifications-toasts .notification-toast {
+	transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Source label — muted but clear. */
+.style-override .notification-toast .notification-toast-message .notification-source {
+	opacity: 0.65;
+	font-size: 11px;
+	font-weight: 500;
+}
+
+/* Toast actions — refined button styling. */
+.style-override .notification-toast .notification-toast-buttons .monaco-button {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease;
+}
+
+/* =============================================================================
+ * Notification Center — refined header and list styling
+ * ========================================================================== */
+
+/* Center header: refined bottom border and padding. */
+.style-override .notifications-center > .notifications-center-header {
+	border-bottom: 1px solid color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+	padding: 8px 12px;
+}
+
+/* Center header title — normal case, matching the font ramp. */
+.style-override .notifications-center > .notifications-center-header > .notifications-center-header-title {
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+/* Notification center items: subtle hover background. */
+.style-override .notifications-center .notification-list-item {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	margin: 2px 6px;
+	padding: 6px 8px;
+	transition: background-color 0.08s ease;
+}
+
+.style-override .notifications-center .notification-list-item:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+}
+
+/* =============================================================================
+ * Notification Severity Icons — refined colors and alignment
+ * ========================================================================== */
+
+.style-override .notifications-list-container .notification-list-item .notification-list-item-main-row .notification-icon {
+	opacity: 0.8;
+}
+
+/* =============================================================================
+ * Notification Toast Progress Bar — refined appearance
+ * ========================================================================== */
+
+.style-override .notifications-toasts .notification-toast-progress .notification-toast-progress-bit {
+	border-radius: 0 0 var(--vscode-cornerRadius-small, 4px) var(--vscode-cornerRadius-small, 4px);
+	height: 2px;
+}
+
+/* =============================================================================
+ * No Notifications Message — centered and polished
+ * ========================================================================== */
+
+.style-override .notifications-center .notifications-empty {
+	padding: 40px 16px;
+	opacity: 0.6;
+}

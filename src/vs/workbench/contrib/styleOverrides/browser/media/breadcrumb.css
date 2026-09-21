@@ -1,0 +1,75 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Breadcrumb Refinements".
+ *
+ * Gives the editor breadcrumb trail a polished, Cursor-like appearance:
+ *   - Pill-style breadcrumb items with smooth hover transitions
+ *   - Refined separator styling
+ *   - Better active-item indication
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Breadcrumb Container — subtle top border separation from editor
+ * ========================================================================== */
+
+.style-override .monaco-workbench .part.editor > .content .editor-group-container > .title .breadcrumbs {
+	padding-left: 8px;
+}
+
+/* =============================================================================
+ * Breadcrumb Items — pill-style hover and active states
+ * ========================================================================== */
+
+.style-override .monaco-breadcrumb-item {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	padding: 1px 4px;
+	transition: background-color 0.08s ease, color 0.08s ease;
+}
+
+.style-override .monaco-breadcrumb-item:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+}
+
+/* Active (folder/file) breadcrumb item — subtle highlight. */
+.style-override .monaco-breadcrumb-item.last {
+	font-weight: 500;
+}
+
+.style-override .monaco-breadcrumb-item.last:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+}
+
+/* =============================================================================
+ * Breadcrumb Separator — refined arrow styling
+ * ========================================================================== */
+
+.style-override .monaco-breadcrumb-item .monaco-icon-label::before {
+	opacity: 0.5;
+	font-size: 12px;
+}
+
+/* =============================================================================
+ * Breadcrumb Picker / Dropdown — refined entries
+ * ========================================================================== */
+
+.style-override .monaco-breadcrumb-picker .monaco-list .monaco-list-row {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	margin: 0 4px;
+	transition: background-color 0.08s ease;
+}
+
+.style-override .monaco-breadcrumb-picker .monaco-list .monaco-list-row:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+}
+
+.style-override .monaco-breadcrumb-picker .monaco-list .monaco-list-row.focused {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+}

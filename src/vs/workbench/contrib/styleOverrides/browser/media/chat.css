@@ -1,0 +1,307 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Chat UI Refinements".
+ *
+ * Polishes the chat panel to match Cursor's big-company quality:
+ *   - Input box: refined border-radius, hover/focus transitions, send button
+ *   - Message bubbles: subtle shadows, refined spacing
+ *   - Agent mode pill: smooth mode transitions
+ *   - Tool confirmation: card-based confirmations with better visual hierarchy
+ *   - Scroll-down button: refined positioning and animation
+ *   - Streaming text reveal: smooth line-by-line entrance
+ *   - Code block expand: accordion-style animation
+ *   - Send button: brand-gradient styling with hover glow
+ *   - Placeholder: subtle fade on focus
+ *   - Tool invocation: colour-coded by tool type
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Chat Input Container — refined border, background, and transitions
+ * ========================================================================== */
+
+.style-override .interactive-session .chat-input-container {
+	border-radius: var(--vscode-cornerRadius-large, 8px);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Subtle focus glow matching brand colour. */
+.style-override .chat-input-container.focused {
+	box-shadow: 0 0 0 1px var(--minicode-brand-primary, var(--vscode-focusBorder)),
+	            0 0 14px 2px color-mix(in srgb, var(--minicode-brand-primary, var(--vscode-focusBorder)) 20%, transparent);
+}
+
+/* =============================================================================
+ * Send Button — brand-gradient, hover glow, disabled fade.
+ * The send button lives in the `.chat-execute-toolbar` as a `codicon-arrow-up`
+ * action, rendered as a circle via `cornerRadius-circle`.
+ * ========================================================================== */
+
+.style-override .interactive-input-part .chat-execute-toolbar .action-item .action-label.codicon-arrow-up,
+.style-override .interactive-input-part .chat-execute-toolbar .action-item.interactive-input-submit-button .action-label {
+	background: linear-gradient(135deg,
+		var(--minicode-brand-primary, #3994BC) 0%,
+		var(--minicode-brand-secondary, #58B3D9) 100%);
+	border-radius: 50%;
+	color: #FFFFFF !important;
+	transition: all 0.2s var(--motion-easing-standard, ease);
+	opacity: 0.85;
+}
+
+.style-override .interactive-input-part .chat-execute-toolbar .action-item .action-label.codicon-arrow-up:hover,
+.style-override .interactive-input-part .chat-execute-toolbar .action-item.interactive-input-submit-button .action-label:hover {
+	opacity: 1;
+	transform: scale(1.08);
+	box-shadow: 0 2px 14px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 40%, transparent);
+}
+
+.style-override .interactive-input-part .chat-execute-toolbar .action-item .action-label.codicon-arrow-up:active,
+.style-override .interactive-input-part .chat-execute-toolbar .action-item.interactive-input-submit-button .action-label:active {
+	transform: scale(0.94);
+}
+
+/* Disabled state — subdued and non-interactive. */
+.style-override .interactive-input-part .chat-execute-toolbar .action-item.disabled .action-label.codicon-arrow-up,
+.style-override .interactive-input-part .chat-execute-toolbar .action-item.disabled.interactive-input-submit-button .action-label {
+	opacity: 0.3;
+	background: color-mix(in srgb, var(--vscode-foreground) 12%, transparent) !important;
+	transform: none;
+	box-shadow: none;
+}
+
+/* =============================================================================
+ * Chat Input Placeholder — fade on focus for cleaner appearance.
+ * ========================================================================== */
+
+.style-override .chat-input-container .monaco-editor .view-lines .view-line {
+	transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.style-override .chat-input-container.focused .monaco-editor .inputarea::placeholder {
+	opacity: 0.35;
+}
+
+/* =============================================================================
+ * Agent Mode Selector Pill — smooth mode transitions.
+ * ========================================================================== */
+
+/* Mode picker in the chat input toolbar — give it pill-like rounded corners. */
+.style-override .interactive-input-part .chat-mode-picker-item .monaco-dropdown,
+.style-override .interactive-input-part .chat-mode-picker-item {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.12s ease;
+}
+
+.style-override .interactive-input-part .chat-mode-picker-item:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+/* Mode option items inside the dropdown — subtle hover/selected states. */
+.style-override .interactive-input-part .chat-mode-picker-item .mode-option {
+	padding: 4px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s var(--motion-easing-standard, ease);
+}
+
+.style-override .interactive-input-part .chat-mode-picker-item .mode-option.selected {
+	background: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent);
+	color: var(--minicode-brand-primary, #3994BC);
+	font-weight: 600;
+}
+
+/* =============================================================================
+ * Chat Message Bubbles — refined spacing and visual polish.
+ * ========================================================================== */
+
+/* Response messages: slightly more breathing room between the avatar and content. */
+.style-override .interactive-item-container.interactive-response {
+	padding: 14px 16px;
+}
+
+/* User request bubbles: refined corner-radius for a softer, more modern look. */
+.style-override .interactive-session:not(.chat-widget > .interactive-session) .interactive-item-container.interactive-request .value .rendered-markdown {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	padding: 10px 14px;
+}
+
+/* Subtle hover lift on user request bubbles. */
+.style-override .interactive-session:not(.chat-widget > .interactive-session) .interactive-item-container.interactive-request .value .rendered-markdown {
+	transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.style-override .interactive-session:not(.chat-widget > .interactive-session) .interactive-item-container.interactive-request .value .rendered-markdown:hover {
+	box-shadow: 0 1px 3px color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+}
+
+/* =============================================================================
+ * Streaming Message Animation — smooth, line-by-line text reveal.
+ * The active streaming response has `.chat-response-loading` on its container.
+ * Code blocks use `.interactive-result-code-block`.
+ * ========================================================================== */
+
+.monaco-enable-motion .style-override .interactive-item-container.chat-response-loading .rendered-markdown > * {
+	animation: chat-line-in 0.25s var(--motion-easing-entrance, cubic-bezier(0, 0, 0, 1)) both;
+}
+
+@keyframes chat-line-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Code block accordion expand during streaming. */
+.monaco-enable-motion .style-override .interactive-item-container.chat-response-loading .interactive-result-code-block {
+	animation: code-block-expand 0.35s var(--motion-easing-entrance, cubic-bezier(0, 0, 0, 1));
+	transform-origin: top center;
+	overflow: hidden;
+}
+
+@keyframes code-block-expand {
+	from { opacity: 0; max-height: 0; }
+	to   { opacity: 1; max-height: 3000px; }
+}
+
+/* =============================================================================
+ * Chat Scroll-Down Button — refined position and subtle entrance animation.
+ * ========================================================================== */
+
+.style-override .interactive-session .chat-scroll-down {
+	right: 14px;
+	bottom: 10px;
+	box-shadow: 0 2px 8px color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+	transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+	opacity: 0.92;
+}
+
+.style-override .interactive-session .chat-scroll-down:hover {
+	opacity: 1;
+	box-shadow: 0 2px 12px color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+}
+
+/* =============================================================================
+ * Tool Confirmation / Interaction — card-based confirmations with refined visuals.
+ * ========================================================================== */
+
+/* Tool invocation progress cards (class is `.chat-tool-invocation-part`):
+ * refined border-radius and spacing. */
+.style-override .interactive-item-container .chat-tool-invocation-part {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	border-left: 2px solid transparent;
+	transition: background-color 0.12s ease, border-color 0.2s ease;
+}
+
+.style-override .interactive-item-container .chat-tool-invocation-part:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 3%, transparent);
+}
+
+/* Tool type colour coding — read (blue), write (green), shell (yellow), error (red). */
+.style-override .interactive-item-container .chat-tool-invocation-part.tool-read {
+	border-left-color: var(--minicode-brand-primary, #3994BC);
+}
+
+.style-override .interactive-item-container .chat-tool-invocation-part.tool-write {
+	border-left-color: var(--minicode-status-success, #73C991);
+}
+
+.style-override .interactive-item-container .chat-tool-invocation-part.tool-shell {
+	border-left-color: var(--minicode-status-warning, #E5BA7D);
+}
+
+.style-override .interactive-item-container .chat-tool-invocation-part.tool-error {
+	border-left-color: var(--minicode-status-error, #F48771);
+}
+
+/* =============================================================================
+ * Welcome View Suggested Prompts — polished card-style buttons.
+ * ========================================================================== */
+
+.style-override .chat-welcome-view-suggested-prompt {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	transition: background-color 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+
+.style-override .chat-welcome-view-suggested-prompt:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 1px 4px color-mix(in srgb, var(--minicode-brand-primary, var(--vscode-foreground)) 8%, transparent);
+	border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent);
+}
+
+.style-override .chat-welcome-view-suggested-prompt:active {
+	transform: translateY(0);
+}
+
+/* =============================================================================
+ * Attached Context Chips — refined pill styling for file/image attachments.
+ * ========================================================================== */
+
+.style-override .chat-attached-context .chat-attached-context-attachment {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+/* =============================================================================
+ * Agent Session Items — refined hover and active states.
+ * ========================================================================== */
+
+.style-override .agent-session-item {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	transition: background-color 0.1s ease;
+}
+
+/* =============================================================================
+ * Chat View Title — subtle polish.
+ * ========================================================================== */
+
+.style-override .chat-viewpane .chat-view-title-container {
+	padding: 0 4px;
+}
+
+/* =============================================================================
+ * Loading / Streaming States.
+ * ========================================================================== */
+
+.style-override .interactive-item-container .chat-animated-ellipsis {
+	opacity: 0.6;
+}
+
+.style-override .interactive-item-container.show-detail-progress .chat-animated-ellipsis {
+	animation: style-override-ellipsis-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes style-override-ellipsis-pulse {
+	0%, 100% { opacity: 0.4; }
+	50% { opacity: 0.8; }
+}
+
+/* =============================================================================
+ * Active Agent Input Border Pulse — when the agent is working, the chat input
+ * border subtly breathes with the brand colour to show "the agent is active."
+ * ========================================================================== */
+
+.monaco-enable-motion .style-override .chat-input-container.agent-working {
+	animation: chat-input-working-pulse 2s ease-in-out infinite;
+}
+
+@keyframes chat-input-working-pulse {
+	0%, 100% {
+		border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent);
+		box-shadow: 0 0 8px 0 color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+	}
+	50% {
+		border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 50%, transparent);
+		box-shadow: 0 0 18px 2px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 18%, transparent);
+	}
+}

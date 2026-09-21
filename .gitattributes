@@ -1,0 +1,47 @@
+# Auto-detect text files, ensure LF line endings in the working tree
+* text=auto eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.wasm binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.tgz binary
+*.7z binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.exe binary
+*.node binary
+*.pdb binary
+*.snap binary
+
+# Generated files (don't show in diffs by default)
+package-lock.json -diff linguist-generated=true
+cglicenses.json linguist-generated=true
+cgmanifest.json linguist-generated=true
+
+# Documentation
+*.md text eol=lf
+LICENSE text eol=lf
+
+# Shell scripts (must be LF)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# PowerShell scripts
+*.ps1 text eol=crlf
+
+# Batch scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf

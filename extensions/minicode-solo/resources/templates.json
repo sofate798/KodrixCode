@@ -1,0 +1,58 @@
+{
+  "templates": [
+    {
+      "id": "react-vite",
+      "name": "React + Vite (TypeScript)",
+      "category": "frontend",
+      "description": "现代 React 单页应用，Vite 构建秒级热更新",
+      "init_commands": ["npm install"],
+      "run_command": "npm run dev",
+      "run_port": 5173
+    },
+    {
+      "id": "vue-vite",
+      "name": "Vue 3 + Vite",
+      "category": "frontend",
+      "description": "Vue 3 组合式 API + Vite 构建",
+      "init_commands": ["npm install"],
+      "run_command": "npm run dev",
+      "run_port": 5173
+    },
+    {
+      "id": "fastapi-backend",
+      "name": "FastAPI 后端 (Python)",
+      "category": "backend",
+      "description": "FastAPI + Uvicorn 异步 API 服务",
+      "init_commands": ["pip install -r requirements.txt"],
+      "run_command": "python main.py",
+      "run_port": 8000
+    },
+    {
+      "id": "flask-backend",
+      "name": "Flask 后端 (Python)",
+      "category": "backend",
+      "description": "轻量 Flask Web 服务",
+      "init_commands": ["pip install -r requirements.txt"],
+      "run_command": "python app.py",
+      "run_port": 5000
+    },
+    {
+      "id": "static-html",
+      "name": "纯静态 HTML/CSS/JS",
+      "category": "frontend",
+      "description": "零依赖纯前端页面，即开即用",
+      "init_commands": [],
+      "run_command": "",
+      "run_port": 0
+    },
+    {
+      "id": "python-cli",
+      "name": "Python CLI 工具",
+      "category": "cli",
+      "description": "命令行工具脚手架，含 argparse",
+      "init_commands": ["pip install -r requirements.txt"],
+      "run_command": "python main.py",
+      "run_port": 0
+    }
+  ]
+}

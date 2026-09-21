@@ -1,0 +1,122 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Settings & Welcome Screen Refinements".
+ *
+ * Polishes the Settings editor and Welcome / Getting Started pages:
+ *   - Settings row hover and focus refinements
+ *   - Welcome card styling with subtle shadows
+ *   - Walkthrough step indicators
+ *   - Settings search result highlighting
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Settings Editor — refined row styling
+ * ========================================================================== */
+
+/* Settings row container: subtle hover background for the entire row. */
+.style-override .settings-editor .settings-body .setting-item {
+	transition: background-color 0.08s ease;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	margin: 0 4px;
+}
+
+.style-override .settings-editor .settings-body .setting-item:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 3%, transparent);
+}
+
+/* Settings focused row — refined outline. */
+.style-override .settings-editor .settings-body .setting-item.focused {
+	outline: 1px solid var(--vscode-focusBorder, var(--vscode-settings-focusedRowBorder));
+	outline-offset: -1px;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+/* Settings checkbox and dropdown — refined radius. */
+.style-override .settings-editor .setting-item-contents .monaco-custom-checkbox,
+.style-override .settings-editor .setting-item-contents .monaco-select-box {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+/* =============================================================================
+ * Settings Search — refined input and result count
+ * ========================================================================== */
+
+.style-override .settings-editor .settings-header .settings-search-container .monaco-inputbox {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.style-override .settings-editor .settings-header .settings-search-container .monaco-inputbox.synthetic-focus {
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder) inset;
+}
+
+/* Settings count badge — refined styling. */
+.style-override .settings-editor .settings-count-widget {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	padding: 2px 8px;
+	font-weight: 500;
+}
+
+/* =============================================================================
+ * Welcome / Getting Started — card styling and walkthrough
+ * ========================================================================== */
+
+/* Welcome card items: card-like with subtle hover lift. */
+.style-override .gettingStartedContainer .getting-started-category {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.style-override .gettingStartedContainer .getting-started-category:hover {
+	box-shadow: 0 2px 8px color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+	transform: translateY(-1px);
+}
+
+/* Walkthrough steps — refined step indicators. */
+.style-override .gettingStartedContainer .step-count {
+	border-radius: 50%;
+	font-weight: 600;
+}
+
+/* Welcome page checkmark — green tint. */
+.style-override .gettingStartedContainer .codicon-check {
+	color: var(--vscode-terminal-ansiGreen, #50c878);
+}
+
+/* =============================================================================
+ * Keybindings Editor — refined row styling
+ * ========================================================================== */
+
+.style-override .keybindings-editor .keybindings-body .monaco-list-row {
+	transition: background-color 0.08s ease;
+}
+
+.style-override .keybindings-editor .keybindings-body .monaco-list-row:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 3%, transparent);
+}
+
+/* Keybinding table header — refined alignment. */
+.style-override .keybindings-editor .keybindings-header {
+	padding: 8px 12px;
+}
+
+/* =============================================================================
+ * Extensions View — refined card hover
+ * ========================================================================== */
+
+.style-override .extensions-view .extension {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.style-override .extensions-view .extension:hover {
+	box-shadow: 0 1px 4px color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+}

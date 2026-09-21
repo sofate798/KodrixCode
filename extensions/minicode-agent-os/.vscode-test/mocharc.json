@@ -1,0 +1,10 @@
+{
+	"$schema": "https://www.schemastore.org/mocharc",
+	"ui": "tdd",
+	"timeout": 10000,
+	"color": true,
+	"reporter": "spec",
+	"recursive": true,
+	"spec": ["test/unit/**/*.test.js", "test/integration/**/*.test.js"],
+	"require": ["test/fixtures/setup.js"]
+}

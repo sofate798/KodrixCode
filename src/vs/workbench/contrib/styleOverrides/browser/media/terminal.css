@@ -1,0 +1,96 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Terminal Refinements".
+ *
+ * Polishes the integrated terminal to match Cursor's terminal quality:
+ *   - Refined tab styling (pill-style, matching panel tabs)
+ *   - Scrollbar polish
+ *   - Terminal cursor and selection refinements
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Terminal Tabs — pill-style, matching the panel tab treatment
+ * ========================================================================== */
+
+.style-override .terminal-tabs-entry {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.08s ease;
+	padding: 0 8px !important;
+}
+
+.style-override .terminal-tabs-entry:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+}
+
+.style-override .terminal-tabs-entry.is-active {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+	font-weight: 500;
+}
+
+/* Drop the underline indicator in favor of the pill background. */
+.style-override .terminal-tabs-entry.is-active::before {
+	display: none;
+}
+
+/* =============================================================================
+ * Terminal Tab Actions — refined icon button styling
+ * ========================================================================== */
+
+.style-override .terminal-tabs-entry .monaco-action-bar .action-item .action-label {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	transition: background-color 0.08s ease;
+}
+
+.style-override .terminal-tabs-entry .monaco-action-bar .action-item .action-label:hover {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+}
+
+/* =============================================================================
+ * Terminal Scrollbar — refined slider appearance
+ * ========================================================================== */
+
+.style-override .xterm .xterm-viewport::-webkit-scrollbar-thumb {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+.style-override .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+	background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+/* =============================================================================
+ * Terminal Selection — refined colors
+ * ========================================================================== */
+
+/* Use the theme's selection color consistently. */
+.style-override .xterm .xterm-selection {
+	opacity: 0.5;
+}
+
+/* =============================================================================
+ * Terminal Find — refined widget styling inside terminal
+ * ========================================================================== */
+
+.style-override .terminal-find-widget {
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	box-shadow: 0 2px 8px color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+}
+
+.style-override .terminal-find-widget .monaco-findInput .monaco-inputbox {
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+/* =============================================================================
+ * Terminal Overview Ruler — refined decorations
+ * ========================================================================== */
+
+.style-override .xterm .xterm-decoration-overview-ruler {
+	transition: opacity 0.1s ease;
+}

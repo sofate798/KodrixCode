@@ -1,0 +1,150 @@
+{
+  "name": "minicode-solo",
+  "displayName": "Minicode SOLO Builder",
+  "description": "TRAE SOLO 模式 — 四栏工作台 · 从零规划并构建完整项目",
+  "version": "1.1.0",
+  "publisher": "minicode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onChatParticipant:minicode.solo",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension",
+  "contributes": {
+    "localizations": [
+      {
+        "languageId": "zh-cn",
+        "languageName": "Chinese (Simplified)",
+        "localizedLanguageName": "简体中文",
+        "translations": [
+          {
+            "id": "minicode.minicode-solo",
+            "path": "package.nls.zh-cn.json"
+          }
+        ]
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "minicode.solo",
+        "name": "solo",
+        "fullName": "SOLO Builder",
+        "description": "从零构建完整项目（Trae SOLO 四栏工作台）：规划 → 确认 → 批量生成 → 预览",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "plan",
+            "description": "仅生成技术选型与文件清单（不写入文件）"
+          },
+          {
+            "name": "build",
+            "description": "根据已确认的方案批量生成项目文件"
+          },
+          {
+            "name": "templates",
+            "description": "列出可用技术栈模板"
+          }
+        ]
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "minicode-solo",
+          "title": "SOLO",
+          "icon": "resources/solo-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "minicode-solo": [
+        {
+          "type": "webview",
+          "id": "minicode.solo.launcher",
+          "name": "SOLO Builder"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "minicode.solo.openWindow",
+        "title": "在新窗口打开 SOLO",
+        "category": "Minicode",
+        "icon": "$(window)"
+      },
+      {
+        "command": "minicode.solo.start",
+        "title": "启动 SOLO Builder（四栏工作台）",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.solo.openWorkbench",
+        "title": "打开 SOLO 四栏工作台",
+        "category": "Minicode"
+      },
+      {
+        "command": "minicode.solo.preview",
+        "title": "打开 SOLO 预览（Simple Browser）",
+        "category": "Minicode"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "minicode.solo.openWindow",
+          "when": "view == minicode.solo.launcher",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "minicode.solo.openWindow",
+        "key": "ctrl+shift+s",
+        "when": "config.minicode.solo.enableKeybinding"
+      }
+    ],
+    "configuration": {
+      "title": "Minicode SOLO",
+      "properties": {
+        "minicode.solo.autoApply": {
+          "type": "boolean",
+          "default": true,
+          "description": "构建阶段自动应用文件编辑"
+        },
+        "minicode.solo.autoPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "SOLO 构建后提示并打开 Simple Browser 预览"
+        },
+        "minicode.solo.workbenchOpenChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "打开四栏工作台时并排打开 @solo Chat"
+        },
+        "minicode.solo.enableKeybinding": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 Ctrl+Shift+S 在新窗口打开 SOLO"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:minicode-solo",
+    "watch": "gulp watch-extension:minicode-solo"
+  },
+  "devDependencies": {
+    "@types/node": "24.x"
+  },
+  "dependencies": {
+    "@parcel/watcher": "^2.5.6"
+  }
+}

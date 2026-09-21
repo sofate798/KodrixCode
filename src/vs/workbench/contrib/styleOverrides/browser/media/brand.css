@@ -1,0 +1,151 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Style-override module: "Brand Identity & Status Bar Indicator".
+ *
+ * Injects a cohesive brand visual language into the workbench chrome — the
+ * surfaces users see every session. This is the "always-on" brand layer that
+ * sits beneath feature-specific modules.
+ *
+ * Covers:
+ *   - Status bar brand identity indicator (left side)
+ *   - Brand pulse animation for the live indicator dot
+ *   - Brand-gradient accent on key interactive surfaces
+ *   - Subtle brand tint on the command center
+ *
+ * All rules are gated behind the `.style-override` class, which the
+ * StyleOverridesContribution toggles onto the workbench container(s) when the
+ * `workbench.experimental.modernUI` (Modern UI Update) setting is enabled.
+ */
+
+/* =============================================================================
+ * Brand Identity — Status Bar Indicator
+ * ========================================================================== */
+
+/*
+ * The Minicode brand indicator sits in the status bar as a subtle but
+ * recognisable brand mark. It shows a coloured dot (status-dependent) next
+ * to "Minicode" text, and on click opens the Minicode Hub.
+ */
+.style-override .statusbar-item.minicode-brand-indicator {
+	display: inline-flex !important;
+	align-items: center;
+	gap: 6px;
+	padding: 0 10px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.2px;
+	transition: background-color 0.15s var(--motion-easing-standard, ease);
+}
+
+.style-override .statusbar-item.minicode-brand-indicator:hover {
+	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+}
+
+/* Brand dot — colour changes based on context readiness. */
+.style-override .statusbar-item.minicode-brand-indicator .brand-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--minicode-text-muted, #555555);
+	transition: background-color 0.3s var(--motion-easing-standard, ease);
+	flex-shrink: 0;
+}
+
+/* Ready state — green dot, no pulse. */
+.style-override .statusbar-item.minicode-brand-indicator.ready .brand-dot {
+	background-color: var(--minicode-status-success, #73C991);
+}
+
+/* Busy state — brand dot with gentle pulse. */
+.monaco-enable-motion .style-override .statusbar-item.minicode-brand-indicator.busy .brand-dot {
+	background-color: var(--minicode-brand-primary, #3994BC);
+	animation: brand-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes brand-dot-pulse {
+	0%, 100% { opacity: 0.4; transform: scale(1);   box-shadow: 0 0 0 0 color-mix(in srgb, var(--minicode-brand-primary) 30%, transparent); }
+	50%      { opacity: 1;   transform: scale(1.3); box-shadow: 0 0 8px 3px color-mix(in srgb, var(--minicode-brand-primary) 20%, transparent); }
+}
+
+/* Error state — red dot, no pulse. */
+.style-override .statusbar-item.minicode-brand-indicator.error .brand-dot {
+	background-color: var(--minicode-status-error, #F48771);
+}
+
+/* Brand label text — brand colour when active. */
+.style-override .statusbar-item.minicode-brand-indicator .brand-label {
+	color: var(--minicode-text-secondary, #8C8C8C);
+	transition: color 0.2s var(--motion-easing-standard, ease);
+}
+
+.style-override .statusbar-item.minicode-brand-indicator.busy .brand-label {
+	color: var(--minicode-brand-primary, #3994BC);
+}
+
+.style-override .statusbar-item.minicode-brand-indicator.ready .brand-label {
+	color: var(--vscode-foreground);
+}
+
+/* =============================================================================
+ * Brand Accents — in-key surfaces with brand tint.
+ * ========================================================================== */
+
+/* Command center gets a subtle brand tint on hover. */
+.style-override .part.titlebar > .titlebar-container > .titlebar-center > .window-title > .command-center .action-item.command-center-center:hover {
+	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 8%, transparent) !important;
+	border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 15%, transparent) !important;
+}
+
+/* Agent status pill gets brand-tinted hover background. */
+.style-override .agent-status-pill:hover {
+	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 8%, transparent) !important;
+}
+
+/* Primary action buttons (OK / Confirm / Submit in dialogs). */
+.style-override .monaco-dialog-box .monaco-button.primary {
+	background: linear-gradient(135deg,
+		var(--minicode-brand-primary, #3994BC) 0%,
+		var(--minicode-brand-secondary, #58B3D9) 100%) !important;
+	color: #FFFFFF !important;
+	border: none !important;
+	font-weight: 600;
+	transition: transform 0.15s var(--motion-easing-decelerate, cubic-bezier(0.16, 1, 0.3, 1)),
+	            box-shadow 0.15s var(--motion-easing-standard, ease);
+}
+
+.style-override .monaco-dialog-box .monaco-button.primary:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 16px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 30%, transparent);
+}
+
+.style-override .monaco-dialog-box .monaco-button.primary:active {
+	transform: translateY(0);
+}
+
+/* Link colours — brand tint. */
+.style-override a {
+	color: var(--minicode-text-link, #48A0C7);
+	transition: color 0.15s var(--motion-easing-standard, ease);
+}
+
+.style-override a:hover {
+	color: var(--minicode-brand-secondary, #58B3D9);
+}
+
+/* =============================================================================
+ * Welcome View Branding — the first thing new users see.
+ * ========================================================================== */
+
+/* Getting started / welcome page title gets brand gradient. */
+.style-override.monaco-workbench .part.editor > .content .gettingStartedContainer h1 {
+	background: linear-gradient(135deg,
+		var(--minicode-brand-primary, #3994BC) 0%,
+		var(--minicode-brand-secondary, #58B3D9) 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}

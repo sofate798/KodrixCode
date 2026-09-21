@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}}; img-src {{cspSource}} data:; frame-src http://localhost:* http://127.0.0.1:*;">
+	<title>SOLO Builder</title>
+	<style>
+		:root {
+			--bg: var(--vscode-editor-background, #1e1e1e);
+			--bg-elevated: var(--vscode-sideBar-background, #252526);
+			--fg: var(--vscode-editor-foreground, #cccccc);
+			--fg-dim: var(--vscode-descriptionForeground, #999999);
+			--border: var(--vscode-panel-border, #454545);
+			--accent: var(--vscode-button-background, #0e639c);
+			--accent-hover: var(--vscode-button-hoverBackground, #1177bb);
+			--accent-fg: var(--vscode-button-foreground, #ffffff);
+			--muted: var(--vscode-descriptionForeground, #999999);
+			--danger: #f14c4c;
+			--success: #40c969;
+			--warn: #cca700;
+			--info: #3794ff;
+			--radius: 6px;
+			--radius-sm: 4px;
+			--transition-fast: 150ms ease;
+			--transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+			font-size: 13px;
+			background: var(--bg);
+			color: var(--fg);
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			-webkit-font-smoothing: antialiased;
+		}
+		header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 10px 14px;
+			border-bottom: 1px solid var(--border);
+			flex-shrink: 0;
+			background: var(--bg-elevated);
+			gap: 12px;
+		}
+		header h1 {
+			font-size: 14px;
+			font-weight: 600;
+			letter-spacing: -0.01em;
+		}
+		header .badge {
+			font-size: 10px;
+			color: var(--fg-dim);
+			background: rgba(128,128,128,0.12);
+			padding: 3px 10px;
+			border-radius: 10px;
+			font-weight: 500;
+			letter-spacing: 0.02em;
+		}
+		header .version-tag {
+			font-size: 10px;
+			color: var(--info);
+			background: rgba(55,148,255,0.12);
+			padding: 2px 8px;
+			border-radius: 10px;
+			font-weight: 600;
+		}
+		.grid {
+			flex: 1;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			grid-template-rows: 1fr 1fr;
+			gap: 1px;
+			background: var(--border);
+			min-height: 0;
+		}
+		.panel {
+			background: var(--bg);
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			overflow: hidden;
+			transition: background var(--transition-normal);
+		}
+		.panel.active {
+			box-shadow: inset 0 0 0 1px var(--accent);
+		}
+		.panel-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 8px 12px;
+			border-bottom: 1px solid var(--border);
+			flex-shrink: 0;
+			gap: 8px;
+			background: var(--bg-elevated);
+		}
+		.panel-head span {
+			font-weight: 600;
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: var(--fg-dim);
+		}
+		.panel-head .panel-icon { font-size: 14px; margin-right: 2px; }
+		.panel-body {
+			flex: 1;
+			overflow: auto;
+			padding: 12px;
+			min-height: 0;
+			scroll-behavior: smooth;
+		}
+		.panel-body::-webkit-scrollbar { width: 6px; }
+		.panel-body::-webkit-scrollbar-track { background: transparent; }
+		.panel-body::-webkit-scrollbar-thumb {
+			background: rgba(128,128,128,0.3);
+			border-radius: 3px;
+		}
+		.panel-body::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.5); }
+
+		.panel-body.plan {
+			font-size: 12px;
+			line-height: 1.6;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+		.panel-body.plan.empty {
+			color: var(--fg-dim);
+			font-style: italic;
+		}
+
+		/* Skeleton Loading */
+		.skeleton {
+			background: linear-gradient(90deg,
+				rgba(128,128,128,0.08) 25%,
+				rgba(128,128,128,0.15) 50%,
+				rgba(128,128,128,0.08) 75%);
+			background-size: 200% 100%;
+			animation: shimmer 1.8s ease-in-out infinite;
+			border-radius: var(--radius-sm);
+		}
+		.skeleton-line { height: 14px; margin-bottom: 10px; }
+		.skeleton-line.short { width: 65%; }
+		.skeleton-line.medium { width: 85%; }
+		.skeleton-block { height: 60px; margin-bottom: 12px; }
+		@keyframes shimmer {
+			0% { background-position: 200% 0; }
+			100% { background-position: -200% 0; }
+		}
+
+		/* Fade-in animation */
+		@keyframes fadeInUp {
+			from { opacity: 0; transform: translateY(6px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		.fade-in {
+			animation: fadeInUp var(--transition-normal) forwards;
+		}
+		.stagger-1 { animation-delay: 0.05s; }
+		.stagger-2 { animation-delay: 0.1s; }
+		.stagger-3 { animation-delay: 0.15s; }
+
+		/* Buttons */
+		.btn {
+			position: relative;
+			overflow: hidden;
+			background: var(--accent);
+			color: var(--accent-fg);
+			border: none;
+			padding: 5px 12px;
+			border-radius: var(--radius-sm);
+			cursor: pointer;
+			font-size: 11px;
+			font-weight: 500;
+			font-family: inherit;
+			transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+			white-space: nowrap;
+		}
+		.btn:hover {
+			background: var(--accent-hover);
+			transform: translateY(-0.5px);
+			box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+		}
+		.btn:active {
+			transform: translateY(0);
+			transition: transform 0.05s;
+		}
+		.btn.secondary {
+			background: transparent;
+			color: var(--fg);
+			border: 1px solid var(--border);
+		}
+		.btn.secondary:hover {
+			background: rgba(128,128,128,0.1);
+			border-color: var(--fg-dim);
+		}
+		.btn.danger {
+			background: transparent;
+			color: var(--danger);
+			border: 1px solid rgba(241,76,76,0.3);
+		}
+		.btn.danger:hover { background: rgba(241,76,76,0.1); }
+
+		/* Ripple effect */
+		.btn .ripple {
+			position: absolute;
+			border-radius: 50%;
+			background: rgba(255,255,255,0.3);
+			transform: scale(0);
+			animation: ripple 0.6s ease-out;
+			pointer-events: none;
+		}
+		@keyframes ripple {
+			to { transform: scale(4); opacity: 0; }
+		}
+
+		.btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+		.hint {
+			color: var(--fg-dim);
+			font-size: 11px;
+			margin-top: 8px;
+			line-height: 1.5;
+		}
+		.cmd-box {
+			background: rgba(128,128,128,0.08);
+			border: 1px solid var(--border);
+			padding: 8px 10px;
+			border-radius: var(--radius-sm);
+			font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Fira Code', monospace);
+			font-size: 11px;
+			margin: 6px 0;
+			transition: border-color var(--transition-fast);
+			cursor: pointer;
+		}
+		.cmd-box:hover { border-color: var(--accent); }
+		.cmd-box .cmd-label {
+			font-size: 9px;
+			color: var(--fg-dim);
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			margin-bottom: 2px;
+		}
+
+		/* Preview */
+		.preview-frame {
+			width: 100%;
+			height: 100%;
+			border: none;
+			background: #ffffff;
+			transition: opacity var(--transition-normal);
+		}
+		.preview-placeholder {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			height: 100%;
+			color: var(--fg-dim);
+			text-align: center;
+			gap: 12px;
+			padding: 20px;
+		}
+		.preview-placeholder .preview-icon {
+			font-size: 32px;
+			opacity: 0.3;
+			margin-bottom: 4px;
+		}
+
+		/* Status */
+		.status { font-size: 11px; color: var(--fg-dim); margin-top: 6px; }
+		.status.success { color: var(--success); }
+		.status.error { color: var(--danger); }
+		.status.info { color: var(--info); }
+
+		/* Build Badge */
+		.build-badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			font-size: 10px;
+			padding: 3px 10px;
+			border-radius: 12px;
+			font-weight: 600;
+			letter-spacing: 0.02em;
+			transition: all var(--transition-normal);
+		}
+		.build-badge.idle { background: rgba(128,128,128,0.15); color: var(--fg-dim); }
+		.build-badge.agent { background: rgba(55,148,255,0.2); color: #7ec8ff; }
+		.build-badge.files { background: rgba(204,167,0,0.2); color: #ffd700; }
+		.build-badge.install { background: rgba(204,167,0,0.2); color: #ffd700; }
+		.build-badge.done { background: rgba(64,201,105,0.2); color: #7dffb2; }
+		.build-badge.error { background: rgba(241,76,76,0.2); color: #ff7b7b; }
+		.build-badge.dev { background: rgba(200,120,255,0.2); color: #d4a0ff; }
+		.build-badge .pulse {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: currentColor;
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+		@keyframes pulse {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.3; }
+		}
+
+		/* Build Log */
+		.build-log {
+			background: rgba(0,0,0,0.2);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+			padding: 8px 10px;
+			font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Fira Code', monospace);
+			font-size: 10px;
+			line-height: 1.5;
+			max-height: 140px;
+			overflow-y: auto;
+			margin: 8px 0;
+			white-space: pre-wrap;
+		}
+		.build-log::-webkit-scrollbar { width: 4px; }
+		.build-log::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 2px; }
+		.build-log .log-stdout { color: var(--success); }
+		.build-log .log-stderr { color: var(--danger); }
+		.build-log .log-agent { color: var(--info); }
+		.build-log .log-info { color: var(--fg-dim); }
+
+		.build-meta {
+			font-size: 10px;
+			color: var(--fg-dim);
+			margin-bottom: 4px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		/* Build Stepper */
+		.build-stepper {
+			display: flex;
+			align-items: center;
+			gap: 0;
+			margin: 8px 0 10px;
+			padding: 0 2px;
+		}
+		.build-step {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			flex: 1;
+			position: relative;
+			min-width: 0;
+		}
+		.build-step:not(:last-child)::after {
+			content: '';
+			position: absolute;
+			top: 9px;
+			left: calc(50% + 10px);
+			right: calc(-50% + 10px);
+			height: 2px;
+			background: var(--border);
+			transition: background var(--transition-normal);
+		}
+		.build-step.done:not(:last-child)::after,
+		.build-step.active:not(:last-child)::after {
+			background: var(--accent);
+		}
+		.build-step-dot {
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			border: 2px solid var(--border);
+			background: var(--bg);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 9px;
+			font-weight: 700;
+			z-index: 1;
+			transition: all var(--transition-normal);
+		}
+		.build-step.active .build-step-dot {
+			border-color: var(--accent);
+			background: var(--accent);
+			color: var(--accent-fg);
+			box-shadow: 0 0 0 3px rgba(14,99,156,0.25);
+			animation: stepPulse 1.5s ease-in-out infinite;
+		}
+		.build-step.done .build-step-dot {
+			border-color: var(--success);
+			background: var(--success);
+			color: #fff;
+		}
+		.build-step.error .build-step-dot {
+			border-color: var(--danger);
+			background: var(--danger);
+			color: #fff;
+		}
+		.build-step-label {
+			font-size: 9px;
+			color: var(--fg-dim);
+			margin-top: 4px;
+			text-align: center;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			max-width: 100%;
+			transition: color var(--transition-fast);
+		}
+		.build-step.active .build-step-label { color: var(--info); font-weight: 600; }
+		.build-step.done .build-step-label { color: var(--success); }
+		@keyframes stepPulse {
+			0%, 100% { box-shadow: 0 0 0 3px rgba(14,99,156,0.25); }
+			50% { box-shadow: 0 0 0 6px rgba(14,99,156,0.1); }
+		}
+		.file-count {
+			display: inline-flex;
+			align-items: center;
+			gap: 3px;
+			font-weight: 600;
+		}
+		.file-count.up { color: var(--success); }
+		.file-count.down { color: var(--danger); }
+
+		/* Plan Markdown Styling */
+		.plan-content h1 { font-size: 16px; margin: 12px 0 8px; color: var(--fg); }
+		.plan-content h2 { font-size: 14px; margin: 10px 0 6px; color: var(--fg); }
+		.plan-content h3 { font-size: 13px; margin: 8px 0 4px; color: var(--fg-dim); }
+		.plan-content code {
+			background: rgba(128,128,128,0.15);
+			padding: 1px 5px;
+			border-radius: 3px;
+			font-size: 11px;
+		}
+		.plan-content pre {
+			background: rgba(0,0,0,0.25);
+			padding: 10px;
+			border-radius: var(--radius-sm);
+			overflow-x: auto;
+			font-size: 11px;
+		}
+
+		/* Tooltip */
+		[data-tooltip] { position: relative; }
+		[data-tooltip]:hover::after {
+			content: attr(data-tooltip);
+			position: absolute;
+			bottom: calc(100% + 6px);
+			left: 50%;
+			transform: translateX(-50%);
+			background: var(--bg-elevated);
+			color: var(--fg);
+			border: 1px solid var(--border);
+			padding: 4px 8px;
+			border-radius: var(--radius-sm);
+			font-size: 10px;
+			white-space: nowrap;
+			z-index: 100;
+			pointer-events: none;
+			animation: fadeInUp 0.15s ease;
+		}
+
+		/* Empty State */
+		.empty-state {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			height: 100%;
+			gap: 8px;
+			color: var(--fg-dim);
+			padding: 20px;
+			text-align: center;
+		}
+		.empty-state .empty-icon { font-size: 28px; opacity: 0.25; }
+	</style>
+</head>
+<body>
+	<header>
+		<h1>🚀 SOLO Builder</h1>
+		<span class="version-tag">v2.0</span>
+		<span class="badge">Trae 四栏工作台</span>
+	</header>
+	<div class="grid">
+		<!-- Plan Panel -->
+		<section class="panel">
+			<div class="panel-head">
+				<span><span class="panel-icon">📋</span> 规划 Plan</span>
+				<div style="display:flex;gap:4px;">
+					<button class="btn secondary" id="btnRefreshPlan" data-tooltip="刷新规划内容">🔄</button>
+					<button class="btn secondary" id="btnOpenPlan" data-tooltip="在编辑器中打开">✏️</button>
+				</div>
+			</div>
+			<div class="panel-body plan" id="planBody">
+				<div class="skeleton skeleton-line medium fade-in stagger-1"></div>
+				<div class="skeleton skeleton-line fade-in stagger-2"></div>
+				<div class="skeleton skeleton-line short fade-in stagger-2"></div>
+				<div class="skeleton skeleton-block fade-in stagger-3"></div>
+			</div>
+		</section>
+
+		<!-- Chat Panel -->
+		<section class="panel">
+			<div class="panel-head"><span><span class="panel-icon">💬</span> 对话 Chat</span></div>
+			<div class="panel-body">
+				<div class="btn-row fade-in stagger-1">
+					<button class="btn" id="btnStartPlan">🚀 开始规划 @solo</button>
+					<button class="btn" id="btnConfirmBuild">✅ 确认构建</button>
+					<button class="btn secondary" id="btnOpenAgent">🤖 Agent 模式</button>
+				</div>
+				<p class="hint fade-in stagger-2">💡 流程：规划 → 确认构建 → Agent 写文件 → 终端启动 → 预览验证</p>
+				<p class="status" id="chatStatus"></p>
+			</div>
+		</section>
+
+		<!-- Terminal Panel -->
+		<section class="panel">
+			<div class="panel-head">
+				<span><span class="panel-icon">⌨️</span> 终端 Terminal</span>
+				<span class="build-badge idle" id="buildBadge">待命</span>
+			</div>
+			<div class="panel-body">
+				<div class="build-stepper" id="buildStepper">
+					<div class="build-step" data-phase="agent"><div class="build-step-dot">1</div><span class="build-step-label">Agent</span></div>
+					<div class="build-step" data-phase="files"><div class="build-step-dot">2</div><span class="build-step-label">写文件</span></div>
+					<div class="build-step" data-phase="install"><div class="build-step-dot">3</div><span class="build-step-label">依赖</span></div>
+					<div class="build-step" data-phase="dev"><div class="build-step-dot">4</div><span class="build-step-label">Dev</span></div>
+					<div class="build-step" data-phase="done"><div class="build-step-dot">✓</div><span class="build-step-label">完成</span></div>
+				</div>
+				<div class="build-meta" id="buildMeta">等待 Agent 构建任务…</div>
+				<div class="build-log" id="buildLog">（准备就绪）</div>
+				<p class="hint">构建完成后在此运行 dev server：</p>
+				<div class="cmd-box" id="initCmdBox" data-tooltip="点击运行"><div class="cmd-label">初始化</div><span id="initCmd">npm install</span></div>
+				<div class="cmd-box" id="runCmdBox" data-tooltip="点击启动开发服务器"><div class="cmd-label">启动 Dev Server</div><span id="runCmd">npm run dev</span></div>
+				<div class="btn-row">
+					<button class="btn" id="btnRunInit">⚡ 运行初始化</button>
+					<button class="btn" id="btnRunDev">🔥 启动 Dev Server</button>
+					<button class="btn secondary" id="btnFocusTerminal">📟 聚焦终端</button>
+					<button class="btn secondary" id="btnMarkDone">🏁 标记完成</button>
+				</div>
+			</div>
+		</section>
+
+		<!-- Preview Panel -->
+		<section class="panel">
+			<div class="panel-head">
+				<span><span class="panel-icon">🌐</span> 预览 Preview</span>
+				<button class="btn secondary" id="btnOpenPreview">🔗 外部打开</button>
+			</div>
+			<div class="panel-body" style="padding:0;">
+				<div class="preview-placeholder" id="previewPlaceholder">
+					<span class="preview-icon">🖥️</span>
+					<p>Dev server 启动后在此预览</p>
+					<button class="btn" id="btnLoadPreview">📱 加载预览</button>
+					<p class="hint" id="previewUrlDisplay">http://localhost:5173</p>
+				</div>
+				<iframe class="preview-frame" id="previewFrame" style="display:none;" title="SOLO Preview" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+			</div>
+		</section>
+	</div>
+	<script>
+		const vscode = acquireVsCodeApi();
+		const planBody = document.getElementById('planBody');
+		const planContent = document.getElementById('planContent');
+		const previewFrame = document.getElementById('previewFrame');
+		const previewPlaceholder = document.getElementById('previewPlaceholder');
+		const previewUrlDisplay = document.getElementById('previewUrlDisplay');
+		const initCmd = document.getElementById('initCmd');
+		const runCmd = document.getElementById('runCmd');
+		const buildBadge = document.getElementById('buildBadge');
+		const buildMeta = document.getElementById('buildMeta');
+		const buildLog = document.getElementById('buildLog');
+		const buildStepper = document.getElementById('buildStepper');
+		const chatStatus = document.getElementById('chatStatus');
+
+		const STEPPER_ORDER = ['agent', 'files', 'install', 'dev', 'done'];
+		const phaseIndex = { idle: -1, agent: 0, files: 1, install: 2, dev: 3, done: 4, error: -1 };
+
+		function updateStepper(phase) {
+			if (!buildStepper) return;
+			const currentIdx = phaseIndex[phase] ?? -1;
+			buildStepper.querySelectorAll('.build-step').forEach(function(step) {
+				const p = step.getAttribute('data-phase');
+				const idx = phaseIndex[p] ?? -1;
+				step.classList.remove('active', 'done', 'error');
+				if (phase === 'error') {
+					if (idx <= currentIdx && currentIdx >= 0) step.classList.add('error');
+				} else if (idx < currentIdx) {
+					step.classList.add('done');
+				} else if (idx === currentIdx) {
+					step.classList.add('active');
+				}
+			});
+		}
+
+		const phaseLabel = {
+			idle: '待命', agent: 'Agent 构建中', files: '写入文件',
+			install: '依赖安装', dev: 'Dev Server', done: '构建完成', error: '异常'
+		};
+		const phaseClass = { idle: 'idle', agent: 'agent', files: 'files', install: 'install', dev: 'dev', done: 'done', error: 'error' };
+
+		// Plan content element (created dynamically to switch between skeleton and content)
+		let planContentEl = null;
+
+		function post(cmd, data) {
+			vscode.postMessage({ command: cmd, ...data });
+		}
+
+		// Ripple effect on all buttons
+		document.addEventListener('click', function(e) {
+			const btn = e.target.closest('.btn');
+			if (!btn) return;
+			const ripple = document.createElement('span');
+			ripple.className = 'ripple';
+			const rect = btn.getBoundingClientRect();
+			const size = Math.max(rect.width, rect.height);
+			ripple.style.width = ripple.style.height = size + 'px';
+			ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+			ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+			btn.appendChild(ripple);
+			ripple.addEventListener('animationend', function() { ripple.remove(); });
+		});
+
+		// Button handlers
+		document.getElementById('btnRefreshPlan').onclick = function() { post('refreshPlan'); };
+		document.getElementById('btnOpenPlan').onclick = function() { post('openPlan'); };
+		document.getElementById('btnStartPlan').onclick = function() { post('startPlan'); };
+		document.getElementById('btnConfirmBuild').onclick = function() { post('confirmBuild'); };
+		document.getElementById('btnOpenAgent').onclick = function() { post('openAgent'); };
+		document.getElementById('btnRunInit').onclick = function() { post('runCommand', { cmd: initCmd.textContent }); };
+		document.getElementById('btnRunDev').onclick = function() { post('runCommand', { cmd: runCmd.textContent }); };
+		document.getElementById('btnFocusTerminal').onclick = function() { post('focusTerminal'); };
+		document.getElementById('btnMarkDone').onclick = function() { post('markBuildDone'); };
+		document.getElementById('btnOpenPreview').onclick = function() { post('openPreview'); };
+		document.getElementById('btnLoadPreview').onclick = function() { post('loadPreview'); };
+
+		// Click-to-run on cmd boxes
+		document.getElementById('initCmdBox').onclick = function() { post('runCommand', { cmd: initCmd.textContent }); };
+		document.getElementById('runCmdBox').onclick = function() { post('runCommand', { cmd: runCmd.textContent }); };
+
+		// Render plan with basic markdown-like formatting
+		function renderPlan(text) {
+			if (!text || !text.trim()) return '';
+			return text
+				.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+				.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+				.replace(/^## (.+)$/gm, '<h2>$1</h2>')
+				.replace(/^# (.+)$/gm, '<h1>$1</h1>')
+				.replace(/`([^`]+)`/g, '<code>$1</code>')
+				.replace(/^- (.+)$/gm, '• $1')
+				.replace(/\n\n/g, '<br><br>');
+		}
+
+		// Colorize build log lines
+		function colorizeLog(logs) {
+			if (!logs || !logs.length) return '<span class="log-info">（无日志）</span>';
+			return logs.slice(-15).map(function(line) {
+				var cls = 'log-info';
+				if (/error|fail|exception|traceback/i.test(line)) cls = 'log-stderr';
+				else if (/success|pass|done|complete|finished/i.test(line)) cls = 'log-stdout';
+				else if (/agent|tool|running|executing|writing/i.test(line)) cls = 'log-agent';
+				return '<span class="' + cls + '">' + line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+			}).join('\n');
+		}
+
+		window.addEventListener('message', function(e) {
+			var msg = e.data;
+
+			if (msg.type === 'plan') {
+				if (msg.content && msg.content.trim()) {
+					planBody.innerHTML = '<div class="plan-content fade-in">' + renderPlan(msg.content) + '</div>';
+					planBody.classList.remove('empty');
+				} else {
+					planBody.innerHTML = '<div class="empty-state fade-in"><span class="empty-icon">📝</span><p>尚无规划</p><p style="font-size:11px;">点击「开始规划」在 Chat 中生成方案</p></div>';
+					planBody.classList.add('empty');
+				}
+			}
+
+			if (msg.type === 'template') {
+				if (msg.initCommand) initCmd.textContent = msg.initCommand;
+				if (msg.runCommand) runCmd.textContent = msg.runCommand;
+				if (msg.previewUrl) {
+					previewUrlDisplay.textContent = msg.previewUrl;
+				}
+			}
+
+			if (msg.type === 'preview') {
+				if (msg.url) {
+					previewFrame.src = msg.url;
+					previewFrame.style.display = 'block';
+					previewFrame.style.opacity = '0';
+					previewPlaceholder.style.display = 'none';
+					setTimeout(function() { previewFrame.style.opacity = '1'; }, 50);
+				}
+			}
+
+			if (msg.type === 'status') {
+				chatStatus.textContent = msg.text || '';
+				chatStatus.className = 'status fade-in';
+				if (/完成|成功|done|success/i.test(msg.text || '')) chatStatus.className += ' success';
+				if (/错误|失败|error|fail/i.test(msg.text || '')) chatStatus.className += ' error';
+			}
+
+			if (msg.type === 'buildStatus') {
+				var phase = msg.phase || 'idle';
+				var label = phaseLabel[phase] || phase;
+				buildBadge.innerHTML = (phase === 'agent' || phase === 'files' || phase === 'install')
+					? '<span class="pulse"></span>' + label
+					: label;
+				buildBadge.className = 'build-badge ' + (phaseClass[phase] || 'idle');
+				updateStepper(phase);
+
+				var metaText = (msg.message || '');
+				if (msg.fileChangeCount) {
+					metaText += ' · <span class="file-count up">+' + msg.fileChangeCount + ' 文件变更</span>';
+				}
+				buildMeta.innerHTML = metaText;
+				buildLog.innerHTML = colorizeLog(msg.logs);
+			}
+		});
+
+		// Initial load
+		post('ready');
+	</script>
+</body>
+</html>
