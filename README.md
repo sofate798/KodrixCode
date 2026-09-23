@@ -111,8 +111,6 @@ kodrix/
 | [`REPAIR-NOTES.md`](REPAIR-NOTES.md) | 启动卡死、native 模块、语言包等排障 |
 | [`SECURITY.md`](SECURITY.md) | 漏洞报告与安全实践 |
 | [`MIGRATION.md`](MIGRATION.md) | Cursor / Cursormini 能力迁移对照 |
-| [`docs/项目体检与Cursor方向升级报告-2026-09-21.md`](docs/项目体检与Cursor方向升级报告-2026-09-21.md) | 体检与升级报告 |
-| [`docs/项目缺陷与Bug深度审计报告-2026-09-23-复核版.md`](docs/项目缺陷与Bug深度审计报告-2026-09-23-复核版.md) | 缺陷审计复核（最新闭环） |
 
 ## 上游与许可
 
