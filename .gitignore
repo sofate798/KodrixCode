@@ -57,6 +57,9 @@ electron-out.log
 *.tsbuildinfo.*
 .eslintcache
 
+# Copilot extension test simulation cache (generated at test runtime)
+extensions/copilot/test/simulation/cache/
+
 
 # CodeGraph local index (regenerate with 'codegraph init')
 .codegraph/
