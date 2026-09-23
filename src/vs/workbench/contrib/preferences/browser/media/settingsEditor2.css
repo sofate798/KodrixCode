@@ -682,6 +682,27 @@
 	min-width: initial;
 }
 
+.settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-custom .setting-item-value {
+	display: block;
+}
+
+.settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-custom .setting-item-control {
+	width: 100%;
+}
+
+.settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-custom .setting-item-custom-webview {
+	width: 100%;
+	min-height: 120px;
+	border: 1px solid var(--vscode-settings-dropdownBorder, transparent);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-custom .setting-item-custom-placeholder {
+	opacity: 0.8;
+	font-style: italic;
+}
+
 .settings-editor > .settings-body .settings-tree-container .setting-item.setting-item-enum .setting-item-value > .setting-item-control > select {
 	width: 320px;
 }

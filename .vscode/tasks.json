@@ -22,8 +22,8 @@
 				"command": ".\\scripts\\code.bat"
 			},
 			"args": [
-				"--user-data-dir=${workspaceFolder}/.profile-minicode",
-				"--extensions-dir=${workspaceFolder}/.profile-minicode/extensions"
+				"--user-data-dir=${workspaceFolder}/.profile-kodrix",
+				"--extensions-dir=${workspaceFolder}/.profile-kodrix/extensions"
 			],
 			"inAgents": true,
 			"problemMatcher": []
@@ -381,8 +381,8 @@
 			},
 			"args": [
 				"--agents",
-				"--user-data-dir=${userHome}/.minicode-dev",
-				"--extensions-dir=${userHome}/.minicode-dev/extensions"
+				"--user-data-dir=${userHome}/.kodrix-dev",
+				"--extensions-dir=${userHome}/.kodrix-dev/extensions"
 			],
 			"problemMatcher": []
 		},

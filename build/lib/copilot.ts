@@ -66,6 +66,13 @@ const copilotTgrepPlatforms = [
 	'win32-arm64', 'win32-x64',
 ];
 
+// @anthropic-ai/claude-agent-sdk vendors audio-capture as {arch}-{platform}
+const claudeAudioCapturePlatforms = [
+	'arm64-darwin', 'x64-darwin',
+	'arm64-linux', 'x64-linux',
+	'arm64-win32', 'x64-win32',
+];
+
 function toCopilotTgrepPlatformArch(platform: string, arch: string): string {
 	if (platform === 'alpine') {
 		return `linuxmusl-${arch}`;
@@ -303,6 +310,11 @@ export function prepareBuiltInCopilotRipgrepShim(platform: string, arch: string,
 	pruneNonTargetCopilotSdkPrebuilds(copilotPackagePlatformArch, path.join(copilotSdkBase, 'prebuilds'), copilotPlatforms);
 	pruneNonTargetCopilotSdkPrebuilds(tgrepPlatformArch, path.join(copilotSdkBase, path.join('tgrep', 'bin')), copilotTgrepPlatforms);
 	pruneNonTargetCopilotSdkPrebuilds(tgrepPlatformArch, path.join(copilotBase, path.join('tgrep', 'bin')), copilotTgrepPlatforms);
+	pruneNonTargetCopilotSdkPrebuilds(
+		`${nodeArch}-${nodePlatform}`,
+		path.join(extensionNodeModules, '@anthropic-ai', 'claude-agent-sdk', 'vendor', 'audio-capture'),
+		claudeAudioCapturePlatforms
+	);
 
 	const ripgrepSource = path.join(appNodeModulesDir, '@vscode', 'ripgrep-universal', 'bin', platformArch);
 	if (!fs.existsSync(ripgrepSource)) {

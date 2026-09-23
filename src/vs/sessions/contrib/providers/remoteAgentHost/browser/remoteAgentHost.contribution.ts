@@ -953,7 +953,7 @@ export class RemoteAgentHostContribution extends Disposable implements IWorkbenc
 
 	/**
 	 * Authenticate using protectedResources from agent info in root state.
-	 * Resolves tokens via the standard VS Code authentication service.
+	 * Resolves tokens via the standard Kodrix Code authentication service.
 	 *
 	 * Marks the matching provider's `authenticationPending` observable while
 	 * the auth pass is in flight so that sessions surface as still loading.
@@ -1044,7 +1044,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 				},
 				required: ['address', 'name'],
 			},
-			description: nls.localize('chat.remoteAgentHosts', "A list of WebSocket remote agent host addresses to connect to (e.g. \"localhost:3000\"). SSH remote agent host details are managed by VS Code."),
+			description: nls.localize('chat.remoteAgentHosts', "A list of WebSocket remote agent host addresses to connect to (e.g. \"localhost:3000\"). SSH remote agent host details are managed by Kodrix Code."),
 			default: [],
 			scope: ConfigurationScope.APPLICATION,
 			tags: ['experimental', 'advanced'],

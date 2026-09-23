@@ -309,7 +309,7 @@ export class SessionPermissionManager extends Disposable {
 	}
 
 	/**
-	 * Returns whether VS Code's global auto-approve setting (`chat.tools.global.autoApprove`) is enabled.
+	 * Returns whether Kodrix Code's global auto-approve setting (`chat.tools.global.autoApprove`) is enabled.
 	 * When enabled, every tool call is auto-approved without changing the session's approval level in the permissions picker.
 	 */
 	isGlobalAutoApproveEnabled(): boolean {

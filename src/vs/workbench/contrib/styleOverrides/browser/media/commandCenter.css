@@ -13,7 +13,7 @@
  * rest and only reveal the command-center active background/border on hover,
  * instead of carrying a solid fill the whole time.
  *
- * Minicode enhancement: brand-tinted hover states for a cohesive visual
+ * Kodrix enhancement: brand-tinted hover states for a cohesive visual
  * identity across the title bar and command center.
  *
  * All rules are gated behind the `.style-override` class, which
@@ -36,8 +36,8 @@
  * brand touchpoint that feels premium without being loud.
  */
 .style-override.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-title > .command-center .action-item.command-center-center:hover {
-	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 8%, transparent) !important;
-	border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 18%, transparent) !important;
+	background-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 8%, transparent) !important;
+	border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 18%, transparent) !important;
 	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -46,9 +46,9 @@
  * or command input is actually open.
  */
 .style-override.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-title > .command-center .action-item.command-center-center.active {
-	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 12%, transparent) !important;
-	border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 25%, transparent) !important;
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 15%, transparent);
+	background-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 12%, transparent) !important;
+	border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 25%, transparent) !important;
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 15%, transparent);
 }
 
 /*
@@ -64,7 +64,7 @@
 
 /* Brand-tinted hover for the agent status pill. */
 .style-override .agent-status-pill:not(.session-mode):hover {
-	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 8%, transparent) !important;
+	background-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 8%, transparent) !important;
 	transition: background-color 0.15s ease;
 }
 
@@ -82,7 +82,7 @@
 
 /* Brand-tinted hover for badge sections. */
 .style-override .agent-status-badge-section:not(.filtered):hover {
-	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 8%, transparent) !important;
+	background-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 8%, transparent) !important;
 	transition: background-color 0.15s ease;
 }
 

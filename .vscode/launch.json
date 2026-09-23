@@ -271,12 +271,12 @@
 			"runtimeArgs": [
 				"--inspect-brk=5875",
 				"--no-cached-data",
-				"--crash-reporter-directory=${workspaceFolder}/.profile-minicode/crashes",
+				"--crash-reporter-directory=${workspaceFolder}/.profile-kodrix/crashes",
 				// for general runtime freezes: https://github.com/microsoft/vscode/issues/127861#issuecomment-904144910
 				"--disable-features=CalculateNativeWinOcclusion",
 				"--disable-extension=vscode.vscode-api-tests"
 			],
-			"userDataDir": "${userHome}/.minicode-dev",
+			"userDataDir": "${userHome}/.kodrix-dev",
 			"webRoot": "${workspaceFolder}",
 			"cascadeTerminateToConfigurations": [
 				"Attach to Extension Host"
@@ -316,13 +316,13 @@
 			"runtimeArgs": [
 				"--inspect-brk=5875",
 				"--no-cached-data",
-				"--crash-reporter-directory=${workspaceFolder}/.profile-minicode/crashes",
+				"--crash-reporter-directory=${workspaceFolder}/.profile-kodrix/crashes",
 				// for general runtime freezes: https://github.com/microsoft/vscode/issues/127861#issuecomment-904144910
 				"--disable-features=CalculateNativeWinOcclusion",
 				"--disable-extension=vscode.vscode-api-tests",
 				"--agents"
 			],
-			"userDataDir": "${userHome}/.minicode-dev",
+			"userDataDir": "${userHome}/.kodrix-dev",
 			"webRoot": "${workspaceFolder}",
 			"cascadeTerminateToConfigurations": [
 				"Attach to Extension Host"
@@ -365,12 +365,12 @@
 			"runtimeArgs": [
 				"--inspect-brk=5875",
 				"--no-cached-data",
-				"--crash-reporter-directory=${workspaceFolder}/.profile-minicode/crashes",
+				"--crash-reporter-directory=${workspaceFolder}/.profile-kodrix/crashes",
 				// for general runtime freezes: https://github.com/microsoft/vscode/issues/127861#issuecomment-904144910
 				"--disable-features=CalculateNativeWinOcclusion",
 				"--disable-extension=vscode.vscode-api-tests"
 			],
-			"userDataDir": "${userHome}/.minicode-dev",
+			"userDataDir": "${userHome}/.kodrix-dev",
 			"webRoot": "${workspaceFolder}",
 			"cascadeTerminateToConfigurations": [
 				"Attach to Extension Host"
@@ -580,7 +580,7 @@
 			"program": "${workspaceFolder}/test/unit/electron/index.js",
 			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS",
 			"windows": {
-				"runtimeExecutable": "${workspaceFolder}/.build/electron/Minicode.exe"
+				"runtimeExecutable": "${workspaceFolder}/.build/electron/Kodrix.exe"
 			},
 			"linux": {
 				"runtimeExecutable": "${workspaceFolder}/.build/electron/code-oss"
@@ -610,7 +610,7 @@
 			"program": "${workspaceFolder}/test/unit/electron/index.js",
 			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS",
 			"windows": {
-				"runtimeExecutable": "${workspaceFolder}/.build/electron/Minicode.exe"
+				"runtimeExecutable": "${workspaceFolder}/.build/electron/Kodrix.exe"
 			},
 			"linux": {
 				"runtimeExecutable": "${workspaceFolder}/.build/electron/code-oss"
@@ -644,18 +644,18 @@
 			"timeout": 240000,
 			"args": [
 				"-l",
-				"${workspaceFolder}/.build/electron/Minicode.exe"
+				"${workspaceFolder}/.build/electron/Kodrix.exe"
 			],
 			"osx": {
 				"args": [
 					"-l",
-					"${workspaceFolder}/.build/electron/Minicode.app/Contents/MacOS/Minicode"
+					"${workspaceFolder}/.build/electron/Kodrix.app/Contents/MacOS/Kodrix"
 				]
 			},
 			"linux": {
 				"args": [
 					"-l",
-					"${workspaceFolder}/.build/electron/minicode"
+					"${workspaceFolder}/.build/electron/kodrix"
 				]
 			},
 			"outFiles": [

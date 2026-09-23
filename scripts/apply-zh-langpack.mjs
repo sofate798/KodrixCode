@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 /**
- * apply-zh-langpack.mjs — Minicode 界面默认简体中文（核心 UI）
+ * apply-zh-langpack.mjs — Kodrix 界面默认简体中文（核心 UI）
  *
  * 背景：
- *   Minicode 的 dev 构建（esbuild transpile）产物中，out/vs/nls.js 的
+ *   Kodrix 的 dev 构建（esbuild transpile）产物中，out/vs/nls.js 的
  *   localize(data, message) 在 data 为字符串 key（未启用 NLS 索引机制）时
  *   直接返回英文默认值，因此界面显示英文（虽然 code.bat 已传 --locale=zh-cn）。
  *
@@ -29,8 +33,8 @@ const root = path.resolve(__dirname, '..');
 const LANGPACK_MAIN = path.join(root, 'extensions', 'ms-ceintl.vscode-language-pack-zh-hans', 'translations', 'main.i18n.json');
 const NLS_JS = path.join(root, 'out', 'vs', 'nls.js');
 const OUT_VS = path.join(root, 'out', 'vs');
-const MARK = '/* MINICODE_ZH_LANGPACK */';
-const TABLE_DECL = 'const __MINICODE_ZH =';
+const MARK = '/* KODRIX_ZH_LANGPACK */';
+const TABLE_DECL = 'const __KODRIX_ZH =';
 
 function fail(msg) {
   console.error('[apply-zh-langpack] ERROR: ' + msg);
@@ -60,12 +64,23 @@ function flatten(langpack) {
 }
 
 // ---------- 2. 注入 nls.js ----------
-const ORIG_LOCALIZE = `function localize(data, message, ...args) {
+// nls.js 存在两种编译产物变体：
+//  A. ESM 版（node build/next/index.ts transpile）：无参数注释、双引号、2 空格缩进
+//  B. CJS 版（gulp transpile-client）：参数带 /* | number when built */ 注释、单引号、4 空格缩进
+const ORIG_LOCALIZE_VARIANTS = [
+  `function localize(data, message, ...args) {
   if (typeof data === "number") {
     return _format(lookupMessage(data, message), args);
   }
   return _format(message, args);
-}`;
+}`,
+  `function localize(data /* | number when built */, message /* | null when built */, ...args) {
+    if (typeof data === 'number') {
+        return _format(lookupMessage(data, message), args);
+    }
+    return _format(message, args);
+}`,
+];
 
 const ZH_LOCALIZE = `function localize(data, message, ...args) {
   let __key = null;
@@ -75,7 +90,7 @@ const ZH_LOCALIZE = `function localize(data, message, ...args) {
     __key = data.key;
   }
   if (__key !== null) {
-    const __zh = __MINICODE_ZH[__key];
+    const __zh = __KODRIX_ZH[__key];
     if (typeof __zh === "string") {
       return _format(__zh, args);
     }
@@ -86,7 +101,8 @@ const ZH_LOCALIZE = `function localize(data, message, ...args) {
   return _format(message, args);
 }`;
 
-const ORIG_LOCALIZE2 = `function localize2(data, originalMessage, ...args) {
+const ORIG_LOCALIZE2_VARIANTS = [
+  `function localize2(data, originalMessage, ...args) {
   let message;
   if (typeof data === "number") {
     message = lookupMessage(data, originalMessage);
@@ -98,7 +114,22 @@ const ORIG_LOCALIZE2 = `function localize2(data, originalMessage, ...args) {
     value,
     original: originalMessage === message ? value : _format(originalMessage, args)
   };
-}`;
+}`,
+  `function localize2(data /* | number when built */, originalMessage, ...args) {
+    let message;
+    if (typeof data === 'number') {
+        message = lookupMessage(data, originalMessage);
+    }
+    else {
+        message = originalMessage;
+    }
+    const value = _format(message, args);
+    return {
+        value,
+        original: originalMessage === message ? value : _format(originalMessage, args)
+    };
+}`,
+];
 
 const ZH_LOCALIZE2 = `function localize2(data, originalMessage, ...args) {
   let message;
@@ -108,8 +139,8 @@ const ZH_LOCALIZE2 = `function localize2(data, originalMessage, ...args) {
   } else if (data && typeof data === "object" && typeof data.key === "string") {
     __key = data.key;
   }
-  if (__key !== null && typeof __MINICODE_ZH[__key] === "string") {
-    message = __MINICODE_ZH[__key];
+  if (__key !== null && typeof __KODRIX_ZH[__key] === "string") {
+    message = __KODRIX_ZH[__key];
   } else if (typeof data === "number") {
     message = lookupMessage(data, originalMessage);
   } else {
@@ -140,11 +171,21 @@ function apply() {
   if (!src.includes(anchor)) fail('out/vs/nls.js 结构异常：找不到 getNLSMessages 锚点');
   src = src.replace(anchor, MARK + '\n' + tableJs + '\n' + anchor);
 
-  // 替换 localize / localize2
-  if (!src.includes(ORIG_LOCALIZE)) fail('out/vs/nls.js 结构异常：找不到原始 localize 函数体');
-  src = src.replace(ORIG_LOCALIZE, ZH_LOCALIZE);
-  if (src.includes(ORIG_LOCALIZE2)) {
-    src = src.replace(ORIG_LOCALIZE2, ZH_LOCALIZE2);
+  // 替换 localize / localize2（兼容两种编译产物变体）
+  let replacedLocalize = false;
+  for (const variant of ORIG_LOCALIZE_VARIANTS) {
+    if (src.includes(variant)) {
+      src = src.replace(variant, ZH_LOCALIZE);
+      replacedLocalize = true;
+      break;
+    }
+  }
+  if (!replacedLocalize) fail('out/vs/nls.js 结构异常：找不到原始 localize 函数体');
+  for (const variant of ORIG_LOCALIZE2_VARIANTS) {
+    if (src.includes(variant)) {
+      src = src.replace(variant, ZH_LOCALIZE2);
+      break;
+    }
   }
 
   fs.writeFileSync(NLS_JS, src, 'utf8');

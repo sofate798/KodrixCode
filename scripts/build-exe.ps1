@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Minicode Windows Installer Builder (Inno Setup)
+  Kodrix Windows Installer Builder (Inno Setup)
   一键构建 Windows EXE 安装包
 
 .DESCRIPTION
@@ -62,7 +62,7 @@ function Invoke-Gulp([string[]]$Tasks) {
 
 Write-Host ''
 Write-Host '=========================================' -ForegroundColor Magenta
-Write-Host '  Minicode Windows Installer Build' -ForegroundColor Magenta
+Write-Host '  Kodrix Windows Installer Build' -ForegroundColor Magenta
 Write-Host "  Arch: $Arch  Target: $Target" -ForegroundColor Magenta
 Write-Host '=========================================' -ForegroundColor Magenta
 Write-Host ''
@@ -83,7 +83,7 @@ $packageJson = Get-Content (Join-Path $Root 'package.json') -Raw | ConvertFrom-J
 $version = $packageJson.version
 $appFolder = Join-Path (Split-Path $Root -Parent) "VSCode-win32-$Arch"
 $setupDir = Join-Path $Root ".build\win32-$Arch\$Target-setup"
-$setupExe = Join-Path $setupDir 'VSCodeSetup.exe'
+$setupExe = Join-Path $setupDir 'KodrixSetup.exe'
 $distDir = Join-Path $Root 'dist'
 
 if (-not $Force -and (Test-Path $setupExe) -and -not $SkipPackage) {
@@ -126,9 +126,9 @@ if (-not (Test-Path $setupExe)) {
 Write-Step '[4/4] Copying to dist/...'
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 $distName = if ($Target -eq 'user') {
-	"Minicode-$version-$Arch-UserSetup.exe"
+	"Kodrix-$version-$Arch-UserSetup.exe"
 } else {
-	"Minicode-$version-$Arch-SystemSetup.exe"
+	"Kodrix-$version-$Arch-SystemSetup.exe"
 }
 $distPath = Join-Path $distDir $distName
 Copy-Item -Force -Path $setupExe -Destination $distPath

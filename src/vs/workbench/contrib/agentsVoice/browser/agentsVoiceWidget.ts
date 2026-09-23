@@ -413,7 +413,7 @@ export class AgentsVoiceWidget extends Disposable {
 			// Track which key triggered PTT so keyup releases correctly
 			// even when the user rebinds pushToTalk to a different key.
 			// We capture the last keydown code at the document level (capture
-			// phase) before the VS Code keybinding handler fires pttDown.
+			// phase) before the Kodrix Code keybinding handler fires pttDown.
 			let pttKeyCode: string | undefined;
 			let lastKeyDownCode: string | undefined;
 			const onDocKeydown = (e: KeyboardEvent) => { lastKeyDownCode = e.code; };

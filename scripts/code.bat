@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-title Minicode Dev
+title Kodrix Dev
 
 :: Disable QuickEdit mode to prevent accidental click-selection from pausing the launcher
 powershell -NoProfile -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class ConsoleMode { [DllImport(\"kernel32.dll\", SetLastError = true)] public static extern IntPtr GetStdHandle(int nStdHandle); [DllImport(\"kernel32.dll\", SetLastError = true)] public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode); [DllImport(\"kernel32.dll\", SetLastError = true)] public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode); public static void DisableQuickEdit() { IntPtr h = GetStdHandle(-10); uint mode; GetConsoleMode(h, out mode); mode &= ~0x40U; SetConsoleMode(h, mode); } }'; [ConsoleMode]::DisableQuickEdit()" >nul 2>&1
@@ -27,7 +27,7 @@ set "CODE=.build\electron\%NAMESHORT%"
 if not exist "%CODE%" (
 	echo.
 	echo ERROR: Electron executable not found: "%CODE%" 1>&2
-	echo        Run debug.bat -Prepare or debug.bat -FullCompile first. 1>&2
+	echo        Run debug-rebuild.bat first. 1>&2
 	echo.
 	pause
 	exit /b 1
@@ -57,7 +57,7 @@ for %%A in (%*) do (
 )
 if "!_DISABLE_FOUND!"=="1" set "DISABLE_TEST_EXTENSION="
 
-:: Launch Minicode (use delayed expansion for proper empty-var handling)
+:: Launch Kodrix (use delayed expansion for proper empty-var handling)
 :: Default locale is zh-cn; override by passing --locale=en or --locale=zh-tw
 "%CODE%" . !DISABLE_TEST_EXTENSION! --locale=zh-cn %*
 goto end

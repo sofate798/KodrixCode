@@ -109,6 +109,10 @@ const configurationEntrySchema: IJSONSchema = {
 								default: 'singlelineText',
 								description: nls.localize('scope.editPresentation', 'When specified, controls the presentation format of the string setting.')
 							},
+							renderer: {
+								type: 'string',
+								description: nls.localize('scope.renderer', 'When specified, the Settings editor uses a custom webview renderer registered with this view type via `registerSettingsEditorRenderer`.')
+							},
 							order: {
 								type: 'integer',
 								description: nls.localize('scope.order', 'When specified, gives the order of this setting relative to other settings within the same category. Settings with an order property will be placed before settings without this property set.')

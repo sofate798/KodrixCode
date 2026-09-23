@@ -174,7 +174,7 @@ export class AgentHostStateManager extends Disposable {
 	/**
 	 * Authoritative per-chat conversation state, keyed by chat channel URI.
 	 * The protocol moved turns/activeTurn/pending state off the session and
-	 * onto a per-chat channel. VS Code currently models every session as
+	 * onto a per-chat channel. Kodrix Code currently models every session as
 	 * having exactly one chat — its default chat — whose URI is derived
 	 * deterministically from the session URI via {@link buildDefaultChatUri}.
 	 */
@@ -621,7 +621,7 @@ export class AgentHostStateManager extends Disposable {
 
 	/**
 	 * Creates the default {@link ChatState} for a session and records it as
-	 * the session's single chat. VS Code models every session as having
+	 * the session's single chat. Kodrix Code models every session as having
 	 * exactly one chat — its default chat — whose URI is derived
 	 * deterministically from the session URI. The chat is seeded with any
 	 * pre-populated `turns` (used by {@link restoreSession}).
@@ -1000,7 +1000,7 @@ export class AgentHostStateManager extends Disposable {
 	 * producer to re-create the changeset on next subscribe.
 	 *
 	 * Per the spec, the server SHOULD also unsubscribe its clients after
-	 * dispatching this action; for VS Code-internal clients that happens
+	 * dispatching this action; for Kodrix Code-internal clients that happens
 	 * via the `notify/sessionRemoved` notification, which the workbench-side
 	 * provider correlates to release any held subscriptions.
 	 *
@@ -1221,7 +1221,7 @@ export class AgentHostStateManager extends Disposable {
 	 * Bridges a default-chat state transition back onto its owning session.
 	 *
 	 * The protocol moved turn lifecycle (and therefore the derived
-	 * activity status) onto the chat channel. To preserve VS Code's
+	 * activity status) onto the chat channel. To preserve Kodrix Code's
 	 * single-chat behaviour we:
 	 *  - track active-turn transitions (driving `RootActiveSessionsChanged`
 	 *    and `hasActiveSessions`, which gate `--enable-remote-auto-shutdown`),

@@ -1,24 +1,24 @@
-# Minicode Code Owners
+# Kodrix Code Owners
 # See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Core VS Code fork (review carefully)
-/src/vs/                        @minicode/core
+/src/vs/                        @kodrix/core
 
-# Minicode Extensions
-/extensions/minicode-local/     @minicode/local
-/extensions/minicode-skills/    @minicode/skills
-/extensions/minicode-solo/      @minicode/solo
-/extensions/minicode-agent-os/  @minicode/agent-os
+# Kodrix Extensions
+/extensions/kodrix-local/     @kodrix/local
+/extensions/kodrix-skills/    @kodrix/skills
+/extensions/kodrix-solo/      @kodrix/solo
+/extensions/kodrix-agent-os/  @kodrix/agent-os
 
 # Build & CI
-/build/                         @minicode/build
-/.github/workflows/             @minicode/build
+/build/                         @kodrix/build
+/.github/workflows/             @kodrix/build
 
 # Product configuration
-/product.json                   @minicode/core @minicode/build
+/product.json                   @kodrix/core @kodrix/build
 
 # CLI (Rust)
-/cli/                           @minicode/cli
+/cli/                           @kodrix/cli
 
 # Marketplace skills
-/marketplace/                   @minicode/skills
+/marketplace/                   @kodrix/skills

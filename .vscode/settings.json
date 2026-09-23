@@ -42,7 +42,7 @@
 	"files.exclude": {
 		".git": true,
 		".build": true,
-		".profile-minicode": true,
+		".profile-kodrix": true,
 		"**/*.tsbuildinfo": true,
 		"**/.DS_Store": true,
 		".vscode-test": true,

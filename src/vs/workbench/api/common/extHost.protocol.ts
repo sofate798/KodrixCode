@@ -1945,6 +1945,20 @@ export interface ExtHostChatOutputRendererShape {
 	$renderChatOutput(viewType: string, mime: string, valueData: VSBuffer, webviewHandle: string, context: IChatOutputRenderContextDto, token: CancellationToken): Promise<void>;
 }
 
+export interface MainThreadSettingsEditorRendererShape extends IDisposable {
+	$registerSettingsEditorRenderer(viewType: string, extensionId: ExtensionIdentifier, extensionLocation: UriComponents): void;
+	$unregisterSettingsEditorRenderer(viewType: string): void;
+}
+
+export interface ISettingsEditorSettingContextDto {
+	readonly key: string;
+	readonly value: unknown;
+}
+
+export interface ExtHostSettingsEditorRendererShape {
+	$resolveSettingsEditorSetting(viewType: string, setting: ISettingsEditorSettingContextDto, webviewHandle: string, token: CancellationToken): Promise<void>;
+}
+
 export interface MainThreadProfileContentHandlersShape {
 	$registerProfileContentHandler(id: string, name: string, description: string | undefined, extensionId: string): Promise<void>;
 	$unregisterProfileContentHandler(id: string): Promise<void>;
@@ -3748,9 +3762,9 @@ export interface MainThreadTestingShape {
 	$updateController(controllerId: string, patch: ITestControllerPatch): void;
 	/** Diposes of the test controller with the given ID */
 	$unregisterTestController(controllerId: string): void;
-	/** Requests tests published to VS Code. */
+	/** Requests tests published to Kodrix Code. */
 	$subscribeToDiffs(): void;
-	/** Stops requesting tests published to VS Code. */
+	/** Stops requesting tests published to Kodrix Code. */
 	$unsubscribeFromDiffs(): void;
 	/** Publishes that new tests were available on the given source. */
 	$publishDiff(controllerId: string, diff: TestsDiffOp.Serialized[]): void;
@@ -4093,6 +4107,7 @@ export const MainContext = {
 	MainThreadDataChannels: createProxyIdentifier<MainThreadDataChannelsShape>('MainThreadDataChannels'),
 	MainThreadChatSessions: createProxyIdentifier<MainThreadChatSessionsShape>('MainThreadChatSessions'),
 	MainThreadChatOutputRenderer: createProxyIdentifier<MainThreadChatOutputRendererShape>('MainThreadChatOutputRenderer'),
+	MainThreadSettingsEditorRenderer: createProxyIdentifier<MainThreadSettingsEditorRendererShape>('MainThreadSettingsEditorRenderer'),
 	MainThreadChatContext: createProxyIdentifier<MainThreadChatContextShape>('MainThreadChatContext'),
 	MainThreadChatDebug: createProxyIdentifier<MainThreadChatDebugShape>('MainThreadChatDebug'),
 	MainThreadBrowsers: createProxyIdentifier<MainThreadBrowsersShape>('MainThreadBrowsers'),
@@ -4143,6 +4158,7 @@ export const ExtHostContext = {
 	ExtHostUrls: createProxyIdentifier<ExtHostUrlsShape>('ExtHostUrls'),
 	ExtHostUriOpeners: createProxyIdentifier<ExtHostUriOpenersShape>('ExtHostUriOpeners'),
 	ExtHostChatOutputRenderer: createProxyIdentifier<ExtHostChatOutputRendererShape>('ExtHostChatOutputRenderer'),
+	ExtHostSettingsEditorRenderer: createProxyIdentifier<ExtHostSettingsEditorRendererShape>('ExtHostSettingsEditorRenderer'),
 	ExtHostProfileContentHandlers: createProxyIdentifier<ExtHostProfileContentHandlersShape>('ExtHostProfileContentHandlers'),
 	ExtHostOutputService: createProxyIdentifier<ExtHostOutputServiceShape>('ExtHostOutputService'),
 	ExtHostLabelService: createProxyIdentifier<ExtHostLabelServiceShape>('ExtHostLabelService'),

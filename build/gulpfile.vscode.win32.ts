@@ -97,8 +97,9 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
 			TunnelApplicationName: product.tunnelApplicationName,
 			ApplicationName: product.applicationName,
 			Arch: arch,
-			AppId: { 'x64': x64AppId, 'arm64': arm64AppId }[arch],
-			IncompatibleTargetAppId: { 'x64': product.win32x64AppId, 'arm64': product.win32arm64AppId }[arch],
+			// Inno treats {…} as constants; double "{" so AppId GUID stays literal.
+			AppId: ({ 'x64': x64AppId, 'arm64': arm64AppId }[arch] as string).replace(/\{/g, '{{'),
+			IncompatibleTargetAppId: ({ 'x64': product.win32x64AppId, 'arm64': product.win32arm64AppId }[arch] as string).replace(/\{/g, '{{'),
 			AppUserId: product.win32AppUserModelId,
 			ArchitecturesAllowed: { 'x64': 'x64', 'arm64': 'arm64' }[arch],
 			ArchitecturesInstallIn64BitMode: { 'x64': 'x64', 'arm64': 'arm64' }[arch],

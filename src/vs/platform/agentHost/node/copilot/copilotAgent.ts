@@ -63,7 +63,7 @@ import { COPILOT_INTEGRATION_ID } from '../../../endpoint/common/licenseAgreemen
 const RUNTIME_SLASH_COMMAND_COMPLETION_WAIT_MS = 300;
 
 /**
- * Maps a VS Code {@link LogLevel} to the Copilot CLI runtime's `logLevel`
+ * Maps a Kodrix Code {@link LogLevel} to the Copilot CLI runtime's `logLevel`
  * option so the spawned CLI logs (written to `~/.copilot/logs/process-*.log`)
  * match the agent host's configured verbosity. `Trace` maps to the CLI's most
  * verbose `'all'` level so renderer-side trace logging surfaces the CLI's
@@ -698,7 +698,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		const clientStarting = (async () => {
 			this._logService.info('[Copilot] Starting CopilotClient...');
 
-			// Build a clean env for the CLI subprocess, stripping Electron/VS Code vars
+			// Build a clean env for the CLI subprocess, stripping Electron/Kodrix Code vars
 			// that can interfere with the Node.js process the SDK spawns.
 			const env: Record<string, string | undefined> = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' });
 			delete env['NODE_OPTIONS'];
@@ -734,7 +734,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 				env['COPILOT_CLI_ENABLED_FEATURE_FLAGS'] = [...flags].join(',');
 			}
 
-			// Identify VS Code's agent host traffic in CAPI
+			// Identify Kodrix Code's agent host traffic in CAPI
 			env['GITHUB_COPILOT_INTEGRATION_ID'] = COPILOT_INTEGRATION_ID;
 			this._logService.info(`[Copilot] Set CLI env: GITHUB_COPILOT_INTEGRATION_ID=${COPILOT_INTEGRATION_ID}`);
 
@@ -754,13 +754,13 @@ export class CopilotAgent extends Disposable implements IAgent {
 			const cliPath = await resolveCopilotCliPath(nodeModulesUri);
 
 			// The SDK's sandbox auto-detection looks for `<MXC_BIN_DIR>/<arch>/wxc-exec.exe`
-			// (and the Linux/macOS equivalents). VS Code core ships the MXC sandbox binaries
+			// (and the Linux/macOS equivalents). Kodrix Code core ships the MXC sandbox binaries
 			// at `node_modules/@microsoft/mxc-sdk/bin/<arch>/`, so point `MXC_BIN_DIR` there.
 			// The @github/copilot package's own `mxc-bin/` is excluded from the product build
 			// (see build/.moduleignore), mirroring `CopilotCLISDK.getPackage` in the extension.
 			env['MXC_BIN_DIR'] = URI.joinPath(nodeModulesUri, '@microsoft', 'mxc-sdk', 'bin').fsPath;
 
-			// Add VS Code's built-in ripgrep to PATH so the CLI subprocess can find it.
+			// Add Kodrix Code's built-in ripgrep to PATH so the CLI subprocess can find it.
 			const resolvedRgDiskPath = await rgDiskPath();
 			const rgDir = dirname(resolvedRgDiskPath);
 			// On Windows the env key is typically "Path" (not "PATH"). Since we copied

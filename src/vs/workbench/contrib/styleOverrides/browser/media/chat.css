@@ -34,8 +34,8 @@
 
 /* Subtle focus glow matching brand colour. */
 .style-override .chat-input-container.focused {
-	box-shadow: 0 0 0 1px var(--minicode-brand-primary, var(--vscode-focusBorder)),
-	            0 0 14px 2px color-mix(in srgb, var(--minicode-brand-primary, var(--vscode-focusBorder)) 20%, transparent);
+	box-shadow: 0 0 0 1px var(--kodrix-brand-primary, var(--vscode-focusBorder)),
+	            0 0 14px 2px color-mix(in srgb, var(--kodrix-brand-primary, var(--vscode-focusBorder)) 20%, transparent);
 }
 
 /* =============================================================================
@@ -47,8 +47,8 @@
 .style-override .interactive-input-part .chat-execute-toolbar .action-item .action-label.codicon-arrow-up,
 .style-override .interactive-input-part .chat-execute-toolbar .action-item.interactive-input-submit-button .action-label {
 	background: linear-gradient(135deg,
-		var(--minicode-brand-primary, #3994BC) 0%,
-		var(--minicode-brand-secondary, #58B3D9) 100%);
+		var(--kodrix-brand-primary, #3994BC) 0%,
+		var(--kodrix-brand-secondary, #58B3D9) 100%);
 	border-radius: 50%;
 	color: #FFFFFF !important;
 	transition: all 0.2s var(--motion-easing-standard, ease);
@@ -59,7 +59,7 @@
 .style-override .interactive-input-part .chat-execute-toolbar .action-item.interactive-input-submit-button .action-label:hover {
 	opacity: 1;
 	transform: scale(1.08);
-	box-shadow: 0 2px 14px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 40%, transparent);
+	box-shadow: 0 2px 14px color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 40%, transparent);
 }
 
 .style-override .interactive-input-part .chat-execute-toolbar .action-item .action-label.codicon-arrow-up:active,
@@ -112,8 +112,8 @@
 }
 
 .style-override .interactive-input-part .chat-mode-picker-item .mode-option.selected {
-	background: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent);
-	color: var(--minicode-brand-primary, #3994BC);
+	background: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 20%, transparent);
+	color: var(--kodrix-brand-primary, #3994BC);
 	font-weight: 600;
 }
 
@@ -209,19 +209,19 @@
 
 /* Tool type colour coding — read (blue), write (green), shell (yellow), error (red). */
 .style-override .interactive-item-container .chat-tool-invocation-part.tool-read {
-	border-left-color: var(--minicode-brand-primary, #3994BC);
+	border-left-color: var(--kodrix-brand-primary, #3994BC);
 }
 
 .style-override .interactive-item-container .chat-tool-invocation-part.tool-write {
-	border-left-color: var(--minicode-status-success, #73C991);
+	border-left-color: var(--kodrix-status-success, #73C991);
 }
 
 .style-override .interactive-item-container .chat-tool-invocation-part.tool-shell {
-	border-left-color: var(--minicode-status-warning, #E5BA7D);
+	border-left-color: var(--kodrix-status-warning, #E5BA7D);
 }
 
 .style-override .interactive-item-container .chat-tool-invocation-part.tool-error {
-	border-left-color: var(--minicode-status-error, #F48771);
+	border-left-color: var(--kodrix-status-error, #F48771);
 }
 
 /* =============================================================================
@@ -235,8 +235,8 @@
 
 .style-override .chat-welcome-view-suggested-prompt:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 1px 4px color-mix(in srgb, var(--minicode-brand-primary, var(--vscode-foreground)) 8%, transparent);
-	border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent);
+	box-shadow: 0 1px 4px color-mix(in srgb, var(--kodrix-brand-primary, var(--vscode-foreground)) 8%, transparent);
+	border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 20%, transparent);
 }
 
 .style-override .chat-welcome-view-suggested-prompt:active {
@@ -297,11 +297,11 @@
 
 @keyframes chat-input-working-pulse {
 	0%, 100% {
-		border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent);
-		box-shadow: 0 0 8px 0 color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+		border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 20%, transparent);
+		box-shadow: 0 0 8px 0 color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 10%, transparent);
 	}
 	50% {
-		border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 50%, transparent);
-		box-shadow: 0 0 18px 2px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 18%, transparent);
+		border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 50%, transparent);
+		box-shadow: 0 0 18px 2px color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 18%, transparent);
 	}
 }

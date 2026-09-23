@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}};">
+	<link rel="stylesheet" href="{{codiconsCssUri}}">
+	<style>
+		.codicon { vertical-align: -0.15em; }
+		.qs-icon .codicon, .section-icon .codicon, .ac-icon .codicon, .sr-icon .codicon,
+		.es-icon .codicon, .step-icon .codicon, .empty-icon .codicon { font-size: 1em; }
+		.ki-ok { color: var(--success, #40c969); }
+		.ki-mid { color: var(--warn, #cca700); }
+		.ki-warn { color: #f5a623; }
+		.btn .codicon, button .codicon { margin-right: 4px; }
+		.ws-tag .codicon { margin-right: 4px; }
+	</style>
+<title>Learning Dashboard</title>
+	<style>
+		:root {
+			--bg: var(--vscode-editor-background, #1e1e1e);
+			--bg-elevated: var(--vscode-sideBar-background, #252526);
+			--fg: var(--vscode-editor-foreground, #cccccc);
+			--fg-dim: var(--vscode-descriptionForeground, #999999);
+			--border: var(--vscode-panel-border, #454545);
+			--accent: var(--vscode-button-background, #0e639c);
+			--accent-hover: var(--vscode-button-hoverBackground, #1177bb);
+			--accent-fg: var(--vscode-button-foreground, #ffffff);
+			--success: #40c969;
+			--warn: #cca700;
+			--danger: #f14c4c;
+			--info: #3794ff;
+			--radius: 10px;
+			--radius-sm: 6px;
+			--transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+			--cat-arch: #3794ff;
+			--cat-conv: #40c969;
+			--cat-pattern: #c878ff;
+			--cat-pitfall: #f14c4c;
+			--cat-pref: #cca700;
+			--cat-other: #888888;
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+			font-size: 13px;
+			background: var(--bg);
+			color: var(--fg);
+			padding: 0;
+			-webkit-font-smoothing: antialiased;
+		}
+
+		.header {
+			padding: 20px 24px 16px;
+			border-bottom: 1px solid var(--border);
+			background: var(--bg-elevated);
+		}
+		.header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+		.header p { color: var(--fg-dim); font-size: 12px; }
+
+		/* Stats Row */
+		.stats-row {
+			display: flex;
+			gap: 16px;
+			padding: 16px 24px;
+			border-bottom: 1px solid var(--border);
+			flex-wrap: wrap;
+		}
+		.stat-card {
+			flex: 1;
+			min-width: 100px;
+			padding: 14px 16px;
+			background: rgba(128,128,128,0.05);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+			text-align: center;
+			transition: border-color var(--transition);
+		}
+		.stat-card:hover { border-color: var(--accent); }
+		.stat-card .sv { font-size: 28px; font-weight: 700; }
+		.stat-card .sl { font-size: 10px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+		/* Toolbar */
+		.toolbar {
+			display: flex;
+			gap: 10px;
+			padding: 12px 24px;
+			border-bottom: 1px solid var(--border);
+			align-items: center;
+			flex-wrap: wrap;
+		}
+		.toolbar input {
+			flex: 1;
+			min-width: 120px;
+			background: rgba(128,128,128,0.08);
+			border: 1px solid var(--border);
+			color: var(--fg);
+			padding: 8px 12px;
+			border-radius: var(--radius-sm);
+			font-size: 12px;
+			font-family: inherit;
+			outline: none;
+		}
+		.toolbar input:focus { border-color: var(--accent); }
+		.toolbar select {
+			background: var(--bg);
+			color: var(--fg);
+			border: 1px solid var(--border);
+			padding: 8px 12px;
+			border-radius: var(--radius-sm);
+			font-size: 12px;
+			font-family: inherit;
+		}
+
+		/* Chart */
+		.chart-area {
+			padding: 16px 24px;
+			border-bottom: 1px solid var(--border);
+		}
+		.chart-area h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-dim); margin-bottom: 12px; }
+		.bar-chart { display: flex; gap: 12px; align-items: flex-end; height: 120px; }
+		.bar-col {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 6px;
+		}
+		.bar {
+			width: 100%;
+			max-width: 60px;
+			border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+			transition: height var(--transition);
+			min-height: 4px;
+			cursor: pointer;
+			position: relative;
+		}
+		.bar:hover { filter: brightness(1.2); }
+		.bar-label { font-size: 9px; color: var(--fg-dim); text-transform: uppercase; text-align: center; }
+		.bar-value { font-size: 12px; font-weight: 700; }
+
+		/* Timeline */
+		.timeline-area {
+			padding: 16px 24px 24px;
+			max-height: 400px;
+			overflow-y: auto;
+		}
+		.timeline-area::-webkit-scrollbar { width: 6px; }
+		.timeline-area::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 3px; }
+		.timeline-area h3 {
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: var(--fg-dim);
+			margin-bottom: 12px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+		.tl-item {
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			gap: 12px;
+			align-items: start;
+			padding: 10px 0;
+			border-bottom: 1px solid rgba(128,128,128,0.06);
+			transition: background var(--transition);
+		}
+		.tl-item:hover { background: rgba(128,128,128,0.03); }
+		.tl-cat {
+			font-size: 10px;
+			font-weight: 700;
+			text-transform: uppercase;
+			padding: 3px 8px;
+			border-radius: 4px;
+			white-space: nowrap;
+			letter-spacing: 0.03em;
+		}
+		.cat-architecture { background: rgba(55,148,255,0.15); color: var(--cat-arch); }
+		.cat-convention { background: rgba(64,201,105,0.15); color: var(--cat-conv); }
+		.cat-pattern { background: rgba(200,120,255,0.15); color: var(--cat-pattern); }
+		.cat-pitfall { background: rgba(241,76,76,0.15); color: var(--cat-pitfall); }
+		.cat-preference { background: rgba(204,167,0,0.15); color: var(--cat-pref); }
+		.cat-other { background: rgba(128,128,128,0.12); color: var(--cat-other); }
+		.tl-content { font-size: 12px; line-height: 1.5; min-width: 0; }
+		.tl-meta {
+			font-size: 10px;
+			color: var(--fg-dim);
+			text-align: right;
+			white-space: nowrap;
+		}
+		.tl-meta .tl-source {
+			font-size: 9px;
+			opacity: 0.7;
+			display: block;
+		}
+		.tl-empty {
+			color: var(--fg-dim);
+			font-style: italic;
+			padding: 20px 0;
+			text-align: center;
+		}
+
+		/* Buttons */
+		.btn-sm {
+			padding: 6px 12px;
+			border-radius: var(--radius-sm);
+			border: 1px solid var(--border);
+			background: transparent;
+			color: var(--fg);
+			font-size: 11px;
+			cursor: pointer;
+			font-family: inherit;
+			transition: all var(--transition);
+		}
+		.btn-sm:hover { background: rgba(128,128,128,0.1); }
+		.btn-sm.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+
+		/* Count badge */
+		.count-badge {
+			font-size: 10px;
+			font-weight: 600;
+			padding: 2px 8px;
+			border-radius: 10px;
+			background: rgba(128,128,128,0.15);
+		}
+
+		/* Fade */
+		@keyframes fadeIn {
+			from { opacity: 0; transform: translateY(4px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		.fade-in { animation: fadeIn var(--transition) forwards; }
+
+		/* Empty state */
+		.empty-state {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 40px;
+			gap: 12px;
+			color: var(--fg-dim);
+		}
+		.empty-state .empty-icon { font-size: 40px; opacity: 0.3; }
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1><i class="codicon codicon-beaker" aria-hidden="true"></i> Learning Dashboard — 越用越聪明</h1>
+		<p>跨会话知识沉淀 · 自动蒸馏 · 语义记忆检索 · 学习趋势</p>
+	</div>
+
+	<!-- Stats -->
+	<div class="stats-row" id="statsRow">
+		<div class="stat-card"><div class="sv" id="statTotal">—</div><div class="sl">总学习条目</div></div>
+		<div class="stat-card"><div class="sv" id="statSessions">—</div><div class="sl">学习会话数</div></div>
+		<div class="stat-card"><div class="sv" id="statSemantic">—</div><div class="sl">语义向量</div></div>
+		<div class="stat-card"><div class="sv" id="statThisWeek">—</div><div class="sl">本周新增</div></div>
+		<div class="stat-card"><div class="sv" id="statMemory">—</div><div class="sl">Memory 条目</div></div>
+	</div>
+
+	<!-- Toolbar -->
+	<div class="toolbar">
+		<input type="text" id="searchInput" placeholder="搜索学习内容…" />
+		<select id="filterCat">
+			<option value="all">全部类别</option>
+			<option value="architecture">架构</option>
+			<option value="convention">约定</option>
+			<option value="pattern">模式</option>
+			<option value="pitfall">陷阱</option>
+			<option value="preference">偏好</option>
+			<option value="other">其他</option>
+		</select>
+		<select id="filterSource">
+			<option value="all">全部来源</option>
+			<option value="manual">手动</option>
+			<option value="session">会话蒸馏</option>
+			<option value="wiki">Wiki</option>
+			<option value="spec">Spec</option>
+			<option value="capture">捕获</option>
+		</select>
+		<button class="btn-sm" id="btnCapture"><i class="codicon codicon-add" aria-hidden="true"></i> 沉淀知识</button>
+		<button class="btn-sm" id="btnRefresh"><i class="codicon codicon-refresh" aria-hidden="true"></i> 刷新</button>
+	</div>
+
+	<!-- Chart -->
+	<div class="chart-area">
+		<h3><i class="codicon codicon-graph" aria-hidden="true"></i> 类别分布</h3>
+		<div class="bar-chart" id="barChart"></div>
+	</div>
+
+	<!-- Timeline -->
+	<div class="timeline-area">
+		<h3>
+			<span><i class="codicon codicon-history" aria-hidden="true"></i> 学习时间线</span>
+			<span class="count-badge" id="filteredCount">0 条</span>
+		</h3>
+		<div id="timeline"></div>
+	</div>
+
+<script>
+	const vscode = acquireVsCodeApi();
+	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
+	let allEntries = [];
+	let currentFilter = { cat: 'all', source: 'all', search: '' };
+
+	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
+
+	const catColors = {
+		architecture: '#3794ff', convention: '#40c969', pattern: '#c878ff',
+		pitfall: '#f14c4c', preference: '#cca700', other: '#888888'
+	};
+	const catNames = {
+		architecture: '架构', convention: '约定', pattern: '模式',
+		pitfall: '陷阱', preference: '偏好', other: '其他'
+	};
+	const sourceIcons = {
+		manual: 'edit', session: 'hubot', wiki: 'book', spec: 'symbol-ruler', capture: 'pin', auto: 'flame'
+	};
+
+	function renderStats(data) {
+		document.getElementById('statTotal').textContent = data.totalEntries || 0;
+		document.getElementById('statSessions').textContent = data.sessionProcessed || 0;
+		document.getElementById('statSemantic').textContent = data.semanticVectors || 0;
+		document.getElementById('statThisWeek').textContent = data.thisWeek || 0;
+		document.getElementById('statMemory').textContent = data.memoryCount || 0;
+	}
+
+	function renderChart(entries) {
+		const cats = {};
+		entries.forEach(e => { cats[e.category] = (cats[e.category] || 0) + 1; });
+		const maxVal = Math.max(1, ...Object.values(cats));
+		const container = document.getElementById('barChart');
+		container.innerHTML = '';
+
+		const order = ['architecture', 'convention', 'pattern', 'pitfall', 'preference', 'other'];
+		order.forEach(cat => {
+			const count = cats[cat] || 0;
+			const h = Math.max(4, (count / maxVal) * 110);
+			const col = document.createElement('div');
+			col.className = 'bar-col';
+			col.innerHTML = `<span class="bar-value">${count}</span>
+				<div class="bar" style="height:${h}px;background:${catColors[cat]};" data-cat="${cat}"></div>
+				<span class="bar-label">${catNames[cat]}</span>`;
+			col.querySelector('.bar').onclick = () => {
+				document.getElementById('filterCat').value = cat;
+				applyFilters();
+			};
+			container.appendChild(col);
+		});
+	}
+
+	function renderTimeline(entries) {
+		const el = document.getElementById('timeline');
+		el.innerHTML = '';
+		document.getElementById('filteredCount').textContent = entries.length + ' 条';
+
+		if (!entries.length) {
+			el.innerHTML = '<div class="tl-empty">没有匹配的学习记录</div>';
+			return;
+		}
+
+		entries.forEach((e, i) => {
+			const item = document.createElement('div');
+			item.className = 'tl-item fade-in';
+			item.style.animationDelay = (i * 0.03) + 's';
+
+			const catCls = 'cat-' + e.category;
+			const srcIcon = ki(sourceIcons[e.source] || 'file-text');
+			const date = (e.timestamp || '').slice(0, 10);
+
+			item.innerHTML = `
+				<span class="tl-cat ${catCls}">${catNames[e.category] || e.category}</span>
+				<span class="tl-content">${e.content || ''}</span>
+				<span class="tl-meta">
+					${date}
+					<span class="tl-source">${srcIcon} ${e.source || ''}</span>
+				</span>`;
+			el.appendChild(item);
+		});
+	}
+
+	function applyFilters() {
+		currentFilter.cat = document.getElementById('filterCat').value;
+		currentFilter.source = document.getElementById('filterSource').value;
+		currentFilter.search = document.getElementById('searchInput').value.toLowerCase();
+
+		let filtered = allEntries;
+		if (currentFilter.cat !== 'all') filtered = filtered.filter(e => e.category === currentFilter.cat);
+		if (currentFilter.source !== 'all') filtered = filtered.filter(e => e.source === currentFilter.source);
+		if (currentFilter.search) {
+			filtered = filtered.filter(e =>
+				(e.content || '').toLowerCase().includes(currentFilter.search) ||
+				(e.category || '').toLowerCase().includes(currentFilter.search)
+			);
+		}
+
+		// Reverse chronological
+		filtered.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+
+		renderChart(filtered);
+		renderTimeline(filtered);
+	}
+
+	// Event listeners
+	document.getElementById('searchInput').addEventListener('input', applyFilters);
+	document.getElementById('filterCat').addEventListener('change', applyFilters);
+	document.getElementById('filterSource').addEventListener('change', applyFilters);
+
+	document.getElementById('btnCapture').onclick = () => post('capture');
+	document.getElementById('btnRefresh').onclick = () => post('refresh');
+
+	// Messages
+	window.addEventListener('message', (e) => {
+		const msg = e.data;
+		if (msg.type === 'dashboard') {
+			allEntries = msg.entries || [];
+			renderStats(msg.stats || {});
+			applyFilters();
+		}
+	});
+
+	post('ready');
+</script>
+</body>
+</html>

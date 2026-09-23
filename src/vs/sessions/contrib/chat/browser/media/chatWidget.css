@@ -176,7 +176,7 @@
 	gap: 4px;
 }
 
-/* Match VS Code chat-secondary-toolbar sizing for action items in the bottom row
+/* Match Kodrix Code chat-secondary-toolbar sizing for action items in the bottom row
  * (e.g. session control pickers and repo config pickers) so they align with the
  * mode/model picker font in the input toolbar. */
 .new-chat-widget-container .new-chat-bottom-container .action-label {

@@ -18,11 +18,11 @@ import { IAgentHostFileSystemService, SYNCED_CUSTOMIZATION_SCHEME } from '../../
 // Re-export so existing consumers don't need to change their import source.
 export { SYNCED_CUSTOMIZATION_SCHEME };
 
-const DISPLAY_NAME = 'VS Code Synced Data';
+const DISPLAY_NAME = 'Kodrix Code Synced Data';
 
 const MANIFEST_CONTENT = JSON.stringify({
 	name: DISPLAY_NAME,
-	description: 'Customization data synced from VS Code',
+	description: 'Customization data synced from Kodrix Code',
 }, null, '\t');
 
 /**
@@ -49,7 +49,7 @@ interface ISyncableFile {
 }
 
 /**
- * An MCP server configured directly in VS Code (i.e. not contributed by an
+ * An MCP server configured directly in Kodrix Code (i.e. not contributed by an
  * agent plugin) that should be bundled into the synthetic plugin so the
  * agent host can launch it.
  */
@@ -73,7 +73,7 @@ interface IBundleResult {
  *
  * ```
  * .plugin/plugin.json
- * .mcp.json        ← MCP servers configured in VS Code
+ * .mcp.json        ← MCP servers configured in Kodrix Code
  * rules/          ← instruction files
  * commands/       ← prompt files
  * agents/         ← agent files

@@ -15,7 +15,7 @@ import type { ToolCallState } from '../state/protocol/state.js';
  */
 export interface IToolCallMeta {
 	/**
-	 * VS Code rendering hint. `terminal` routes the call to the command/output
+	 * Kodrix Code rendering hint. `terminal` routes the call to the command/output
 	 * renderer, `subagent` to the subagent UI, `search` to the search renderer;
 	 * everything else falls through to the generic invocation renderer. Set by
 	 * the agent adapter, never matched on raw tool name by the renderer.
@@ -44,7 +44,7 @@ export interface IToolCallMeta {
 }
 
 /**
- * The set of VS Code-recognized tool-call rendering kinds. Add a new value here
+ * The set of Kodrix Code-recognized tool-call rendering kinds. Add a new value here
  * (and teach the renderer to handle it) rather than matching on tool name.
  */
 export type ToolKind = 'terminal' | 'subagent' | 'search';

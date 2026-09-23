@@ -181,6 +181,11 @@ suite('copilot', () => {
 
 			fs.mkdirSync(path.join(extensionCopilotDir, 'sdk', 'prebuilds', 'linux-x64'), { recursive: true });
 			fs.writeFileSync(path.join(extensionCopilotDir, 'sdk', 'prebuilds', 'linux-x64', 'runtime.node'), '');
+			const audioCaptureDir = path.join(builtInCopilotExtensionDir, 'node_modules', '@anthropic-ai', 'claude-agent-sdk', 'vendor', 'audio-capture');
+			for (const plat of ['x64-linux', 'x64-win32', 'arm64-darwin']) {
+				fs.mkdirSync(path.join(audioCaptureDir, plat), { recursive: true });
+				fs.writeFileSync(path.join(audioCaptureDir, plat, 'audio-capture.node'), '');
+			}
 			fs.mkdirSync(path.join(platformPackageDir, 'prebuilds', 'win32-x64', 'conpty'), { recursive: true });
 			fs.writeFileSync(path.join(platformPackageDir, 'prebuilds', 'win32-x64', 'runtime.node'), '');
 			fs.writeFileSync(path.join(platformPackageDir, 'prebuilds', 'win32-x64', 'conpty.node'), '');
@@ -196,6 +201,9 @@ suite('copilot', () => {
 			assert(fs.existsSync(path.join(extensionCopilotDir, 'sdk', 'prebuilds', 'win32-x64', 'conpty.node')));
 			assert(fs.existsSync(path.join(extensionCopilotDir, 'sdk', 'prebuilds', 'win32-x64', 'conpty', 'OpenConsole.exe')));
 			assert(!fs.existsSync(path.join(extensionCopilotDir, 'sdk', 'prebuilds', 'linux-x64')));
+			assert(fs.existsSync(path.join(audioCaptureDir, 'x64-win32', 'audio-capture.node')));
+			assert(!fs.existsSync(path.join(audioCaptureDir, 'x64-linux')));
+			assert(!fs.existsSync(path.join(audioCaptureDir, 'arm64-darwin')));
 			assert(fs.existsSync(path.join(extensionCopilotDir, 'tgrep', 'bin', 'win32-x64', 'tgrep.exe')));
 			assert(fs.existsSync(path.join(extensionCopilotDir, 'sdk', 'tgrep', 'bin', 'win32-x64', 'tgrep.exe')));
 			assert(fs.existsSync(path.join(extensionCopilotDir, 'sdk', 'ripgrep', 'bin', 'win32-x64', 'rg.exe')));

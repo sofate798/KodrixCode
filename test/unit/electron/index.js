@@ -252,11 +252,11 @@ app.on('ready', () => {
 		return {
 			product: {
 				version: '1.x.y',
-				nameShort: 'Minicode Dev',
-				nameLong: 'Minicode Dev',
-				applicationName: 'minicode',
-				dataFolderName: '.minicode',
-				urlProtocol: 'minicode',
+				nameShort: 'Kodrix Dev',
+				nameLong: 'Kodrix Dev',
+				applicationName: 'kodrix',
+				dataFolderName: '.kodrix',
+				urlProtocol: 'kodrix',
 			}
 		};
 	});

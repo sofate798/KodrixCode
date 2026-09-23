@@ -1,26 +1,10 @@
-# Security Policy
+# 安全策略
 
-## Supported Versions
+完整说明见仓库根目录 [`SECURITY.md`](../SECURITY.md)。
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x     | :white_check_mark: |
+**请勿**就安全漏洞开设公开 Issue。优先发送邮件至 security@kodrix.dev。
 
-## Reporting a Vulnerability
+### 响应时限（摘要）
 
-**Do not open public issues for security vulnerabilities.**
-
-Please report security issues to the Minicode maintainers via email.
-
-### Response Timeline
-- Acknowledgment: within 72 hours
-- Initial assessment: within 1 week
-
-## Security Best Practices
-
-1. Never commit secrets — use environment variables or secure credential storage
-2. Validate all user input — especially file paths, URLs, and shell command arguments
-3. Use parameterized commands — never construct shell commands with string interpolation
-4. Enforce path traversal protection — validate file paths stay within intended directories
-5. Set timeouts and size limits on all network requests
-6. Use `vscode.OutputChannel` for logging — never log sensitive data
+- 初步确认：48 小时内
+- 初步评估：5 个工作日内

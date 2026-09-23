@@ -1184,7 +1184,7 @@ export const codeTunnelSubcommands: Fig.Subcommand[] = [
 
 const codeCompletionSpec: Fig.Spec = {
 	name: 'code',
-	description: 'Visual Studio Code',
+	description: 'Kodrix Code',
 	args: {
 		template: ['filepaths', 'folders'],
 		isVariadic: true,

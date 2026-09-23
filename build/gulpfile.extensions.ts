@@ -51,10 +51,9 @@ function onExtensionCompilationEnd(): void {
 // 	ignore: ['**/out/**', '**/node_modules/**']
 // });
 const compilations = [
-	'extensions/minicode-local/tsconfig.json',
-	'extensions/minicode-skills/tsconfig.json',
-	'extensions/minicode-solo/tsconfig.json',
-	'extensions/minicode-agent-os/tsconfig.json',
+	'extensions/kodrix-local/tsconfig.json',
+	'extensions/kodrix-skills/tsconfig.json',
+	'extensions/kodrix-agent-os/tsconfig.json',
 	'extensions/configuration-editing/tsconfig.json',
 	'extensions/css-language-features/client/tsconfig.json',
 	'extensions/css-language-features/server/tsconfig.json',

@@ -38,7 +38,7 @@ const root = path.dirname(path.dirname(import.meta.dirname));
 const productjson = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../../product.json'), 'utf8'));
 const builtInExtensions = productjson.builtInExtensions as IExtensionDefinition[] || [];
 const webBuiltInExtensions = productjson.webBuiltInExtensions as IExtensionDefinition[] || [];
-const controlFilePath = path.join(os.homedir(), '.minicode-dev', 'extensions', 'control.json');
+const controlFilePath = path.join(os.homedir(), '.kodrix-dev', 'extensions', 'control.json');
 const ENABLE_LOGGING = !process.env['VSCODE_BUILD_BUILTIN_EXTENSIONS_SILENCE_PLEASE'];
 
 function log(...messages: string[]): void {

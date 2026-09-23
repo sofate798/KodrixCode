@@ -12,7 +12,7 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 import { IWorkbenchContribution } from '../../../../../../workbench/common/contributions.js';
 
 /**
- * Forwards the `chat.agentHost.opus48Prompt.enabled` VS Code setting into the
+ * Forwards the `chat.agentHost.opus48Prompt.enabled` Kodrix Code setting into the
  * **local** agent host's root config (`opus48Prompt`) so
  * {@link CopilotSessionLauncher} can read it at session launch via
  * `getRootValue`. Gated on `chat.agentHost.enabled`.

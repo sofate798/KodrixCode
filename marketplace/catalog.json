@@ -1,15 +1,15 @@
 {
-  "name": "Minicode 官方市场",
+  "name": "Kodrix 官方市场",
   "version": "1.0.0",
-  "description": "内置 Skill 包目录（与 extensions/minicode-skills/resources/catalog.json 同步）",
+  "description": "内置 Skill 包目录（与 extensions/kodrix-skills/resources/catalog.json 同步）",
   "items": [
     {
-      "id": "minicode.code-review",
+      "id": "kodrix.code-review",
       "kind": "skill",
       "displayName": "代码审查助手",
       "description": "按专业标准审查代码质量、安全与可维护性，输出结构化审查报告。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["AI", "Programming"],
       "tags": ["review", "quality"],
       "bundle": "code-review",
@@ -17,12 +17,12 @@
       "icon": "🔍"
     },
     {
-      "id": "minicode.commit-message",
+      "id": "kodrix.commit-message",
       "kind": "skill",
       "displayName": "Commit 消息生成",
       "description": "根据 git diff 生成规范、简洁的 Conventional Commits 提交信息。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["AI", "Git"],
       "tags": ["git", "commit"],
       "bundle": "commit-message",
@@ -30,12 +30,12 @@
       "icon": "📝"
     },
     {
-      "id": "minicode.python-expert",
+      "id": "kodrix.python-expert",
       "kind": "extension",
       "displayName": "Python 专家",
       "description": "VS Code 风格扩展包，提供 Python 最佳实践、类型提示与性能优化 Skill。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["Programming Languages", "AI"],
       "tags": ["python"],
       "bundle": "python-expert",
@@ -43,12 +43,12 @@
       "icon": "🐍"
     },
     {
-      "id": "minicode.refactor-helper",
+      "id": "kodrix.refactor-helper",
       "kind": "skill",
       "displayName": "重构助手",
       "description": "识别代码坏味道，给出小步重构方案与重构后完整代码。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["AI", "Programming"],
       "tags": ["refactor"],
       "bundle": "refactor-helper",
@@ -56,12 +56,12 @@
       "icon": "🔧"
     },
     {
-      "id": "minicode.codegeex",
+      "id": "kodrix.codegeex",
       "kind": "skill",
       "displayName": "CodeGeeX 智能编程",
       "description": "THUDM CodeGeeX 代码补全、翻译与提示模式参考 Skill。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["AI", "Programming"],
       "tags": ["codegeex", "completion", "translation"],
       "bundle": "codegeex",
@@ -69,12 +69,12 @@
       "icon": "🧬"
     },
     {
-      "id": "minicode.ui-ux-pro",
+      "id": "kodrix.ui-ux-pro",
       "kind": "extension",
       "displayName": "UI/UX 设计顾问",
       "description": "前端界面设计审查、配色与布局建议，适合优化 Web 界面。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["Design", "AI"],
       "tags": ["ui", "css"],
       "bundle": "ui-ux-pro",
@@ -82,12 +82,12 @@
       "icon": "🎨"
     },
     {
-      "id": "minicode.browser-agent",
+      "id": "kodrix.browser-agent",
       "kind": "skill",
       "displayName": "Browser Agent",
       "description": "Qoder/Trae 风格浏览器验证：Simple Browser 预览、UI 回归、Playwright MCP。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["AI", "Testing"],
       "tags": ["browser", "preview", "e2e"],
       "bundle": "browser-agent",
@@ -95,12 +95,12 @@
       "icon": "🌐"
     },
     {
-      "id": "minicode.one-click-deploy",
+      "id": "kodrix.one-click-deploy",
       "kind": "skill",
       "displayName": "一键部署",
       "description": "Trae 风格一键部署：Vercel / Netlify / GitHub Pages。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["AI", "DevOps"],
       "tags": ["deploy", "vercel", "netlify"],
       "bundle": "one-click-deploy",
@@ -108,12 +108,12 @@
       "icon": "🚀"
     },
     {
-      "id": "minicode.idea-engineer",
+      "id": "kodrix.idea-engineer",
       "kind": "skill",
       "displayName": "Idea Engineer — 想法→产品",
       "description": "从一句话想法到完整可运行产品。全自动需求分析、架构设计、任务分解、多 Agent 开发和部署预览。",
       "version": "1.0.0",
-      "publisher": "minicode",
+      "publisher": "kodrix",
       "categories": ["AI", "Productivity"],
       "tags": ["idea", "product", "generation"],
       "bundle": "idea-engineer",

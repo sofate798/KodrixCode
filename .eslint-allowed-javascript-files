@@ -90,11 +90,17 @@ scripts/chat-simulation/common/utils.js
 scripts/chat-simulation/merge-ci-summary.js
 scripts/chat-simulation/test-chat-mem-leaks.js
 scripts/chat-simulation/test-chat-perf-regression.js
+scripts/apply-zh-langpack.mjs
 scripts/code-agent-host.js
 scripts/code-perf.js
 scripts/code-server.js
 scripts/code-sessions-web.js
 scripts/code-web.js
+scripts/copy-native-modules.mjs
+scripts/fix-product-json.mjs
+scripts/fix-wms.mjs
+scripts/restore-pw-shim.mjs
+scripts/sync-marketplace-catalog.mjs
 scripts/xterm-update.js
 src/vs/base/browser/dompurify/dompurify.js
 src/vs/base/common/marked/marked.js

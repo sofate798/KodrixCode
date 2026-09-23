@@ -39,6 +39,7 @@ import { IExtHostAuthentication } from './extHostAuthentication.js';
 import { ExtHostBulkEdits } from './extHostBulkEdits.js';
 import { ExtHostChatAgents2 } from './extHostChatAgents2.js';
 import { ExtHostChatOutputRenderer } from './extHostChatOutputRenderer.js';
+import { ExtHostSettingsEditorRenderer } from './extHostSettingsEditorRenderer.js';
 import { ExtHostChatSessions } from './extHostChatSessions.js';
 import { ExtHostChatStatus } from './extHostChatStatus.js';
 import { ExtHostChatQuota } from './extHostChatQuota.js';
@@ -242,6 +243,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostUriOpeners = rpcProtocol.set(ExtHostContext.ExtHostUriOpeners, new ExtHostUriOpeners(rpcProtocol));
 	const extHostProfileContentHandlers = rpcProtocol.set(ExtHostContext.ExtHostProfileContentHandlers, new ExtHostProfileContentHandlers(rpcProtocol));
 	const extHostChatOutputRenderer = rpcProtocol.set(ExtHostContext.ExtHostChatOutputRenderer, new ExtHostChatOutputRenderer(rpcProtocol, extHostWebviews));
+	const extHostSettingsEditorRenderer = rpcProtocol.set(ExtHostContext.ExtHostSettingsEditorRenderer, new ExtHostSettingsEditorRenderer(rpcProtocol, extHostWebviews));
 	rpcProtocol.set(ExtHostContext.ExtHostInteractive, new ExtHostInteractive(rpcProtocol, extHostNotebook, extHostDocumentsAndEditors, extHostCommands, extHostLogService));
 	const extHostLanguageModelTools = rpcProtocol.set(ExtHostContext.ExtHostLanguageModelTools, new ExtHostLanguageModelTools(rpcProtocol, extHostLanguageModels));
 	const extHostChatSessions = rpcProtocol.set(ExtHostContext.ExtHostChatSessions, new ExtHostChatSessions(extHostCommands, extHostLanguageModels, rpcProtocol, extHostLogService));
@@ -1019,6 +1021,10 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				};
 			}) {
 				return extHostWebviewViews.registerWebviewViewProvider(extension, viewId, provider, options?.webviewOptions);
+			},
+			registerSettingsEditorRenderer(viewType: string, renderer: vscode.SettingsEditorSettingRenderer): vscode.Disposable {
+				checkProposedApiEnabled(extension, 'settingsEditorRenderer');
+				return extHostSettingsEditorRenderer.registerSettingsEditorRenderer(extension, viewType, renderer);
 			},
 			get activeNotebookEditor(): vscode.NotebookEditor | undefined {
 				return extHostNotebook.activeNotebookEditor;

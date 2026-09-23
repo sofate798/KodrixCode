@@ -265,7 +265,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			.pipe(rename(function (path) { path.dirname = path.dirname!.replace(new RegExp('^' + out), 'out'); }))
 			.pipe(util.setExecutableBit(['**/*.sh']));
 
-		const platformSpecificBuiltInExtensionsExclusions = product.builtInExtensions.filter(ext => {
+		const platformSpecificBuiltInExtensionsExclusions = (product.builtInExtensions || []).filter(ext => {
 			if (!(ext as { platforms?: string[] }).platforms) {
 				return false;
 			}
@@ -541,6 +541,17 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 	return task;
 }
 
+async function isWindowsPE(filePath: string): Promise<boolean> {
+	const fh = await fs.promises.open(filePath, 'r');
+	try {
+		const buf = Buffer.alloc(2);
+		await fh.read(buf, 0, 2, 0);
+		return buf[0] === 0x4D && buf[1] === 0x5A; // MZ
+	} finally {
+		await fh.close();
+	}
+}
+
 function hasAuthenticodeSignature(filePath: string): Promise<boolean> {
 	return new Promise((resolve, reject) => {
 		const proc = cp.spawn('signtool.exe', ['verify', '/pa', filePath]);
@@ -591,6 +602,11 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 		const patchPromises = deps.map<Promise<unknown>>(async dep => {
 			const basename = path.basename(dep);
 			const fullPath = path.join(cwd, dep);
+
+			// Skip ELF/Mach-O .node leftovers (e.g. claude-agent-sdk audio-capture).
+			if (!(await isWindowsPE(fullPath))) {
+				return;
+			}
 
 			await stripAuthenticodeSignature(fullPath);
 			await rcedit(fullPath, {

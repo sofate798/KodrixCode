@@ -100,6 +100,7 @@ import './mainThreadChatStatus.js';
 import './mainThreadChatQuota.js';
 import './mainThreadChatInputNotification.js';
 import './mainThreadChatOutputRenderer.js';
+import './mainThreadSettingsEditorRenderer.js';
 import './mainThreadChatSessions.js';
 import './mainThreadDataChannels.js';
 import './mainThreadMeteredConnection.js';

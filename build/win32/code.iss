@@ -8,14 +8,14 @@
 AppId={#AppId}
 AppName={#NameLong}
 AppVerName={#NameVersion}
-AppPublisher=Microsoft Corporation
+AppPublisher=Kodrix
 AppPublisherURL=https://code.visualstudio.com/
 AppSupportURL=https://code.visualstudio.com/
 AppUpdatesURL=https://code.visualstudio.com/
 DefaultGroupName={#NameLong}
 AllowNoIcons=yes
 OutputDir={#OutputDir}
-OutputBaseFilename=VSCodeSetup
+OutputBaseFilename=KodrixSetup
 Compression=lzma
 SolidCompression=yes
 AppMutex={code:GetAppMutex}

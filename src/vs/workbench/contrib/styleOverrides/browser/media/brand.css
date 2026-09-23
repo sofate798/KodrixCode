@@ -26,11 +26,11 @@
  * ========================================================================== */
 
 /*
- * The Minicode brand indicator sits in the status bar as a subtle but
+ * The Kodrix brand indicator sits in the status bar as a subtle but
  * recognisable brand mark. It shows a coloured dot (status-dependent) next
- * to "Minicode" text, and on click opens the Minicode Hub.
+ * to "Kodrix" text, and on click opens the Kodrix Hub.
  */
-.style-override .statusbar-item.minicode-brand-indicator {
+.style-override .statusbar-item.kodrix-brand-indicator {
 	display: inline-flex !important;
 	align-items: center;
 	gap: 6px;
@@ -41,52 +41,52 @@
 	transition: background-color 0.15s var(--motion-easing-standard, ease);
 }
 
-.style-override .statusbar-item.minicode-brand-indicator:hover {
-	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+.style-override .statusbar-item.kodrix-brand-indicator:hover {
+	background-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 10%, transparent);
 }
 
 /* Brand dot — colour changes based on context readiness. */
-.style-override .statusbar-item.minicode-brand-indicator .brand-dot {
+.style-override .statusbar-item.kodrix-brand-indicator .brand-dot {
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
-	background-color: var(--minicode-text-muted, #555555);
+	background-color: var(--kodrix-text-muted, #555555);
 	transition: background-color 0.3s var(--motion-easing-standard, ease);
 	flex-shrink: 0;
 }
 
 /* Ready state — green dot, no pulse. */
-.style-override .statusbar-item.minicode-brand-indicator.ready .brand-dot {
-	background-color: var(--minicode-status-success, #73C991);
+.style-override .statusbar-item.kodrix-brand-indicator.ready .brand-dot {
+	background-color: var(--kodrix-status-success, #73C991);
 }
 
 /* Busy state — brand dot with gentle pulse. */
-.monaco-enable-motion .style-override .statusbar-item.minicode-brand-indicator.busy .brand-dot {
-	background-color: var(--minicode-brand-primary, #3994BC);
+.monaco-enable-motion .style-override .statusbar-item.kodrix-brand-indicator.busy .brand-dot {
+	background-color: var(--kodrix-brand-primary, #3994BC);
 	animation: brand-dot-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes brand-dot-pulse {
-	0%, 100% { opacity: 0.4; transform: scale(1);   box-shadow: 0 0 0 0 color-mix(in srgb, var(--minicode-brand-primary) 30%, transparent); }
-	50%      { opacity: 1;   transform: scale(1.3); box-shadow: 0 0 8px 3px color-mix(in srgb, var(--minicode-brand-primary) 20%, transparent); }
+	0%, 100% { opacity: 0.4; transform: scale(1);   box-shadow: 0 0 0 0 color-mix(in srgb, var(--kodrix-brand-primary) 30%, transparent); }
+	50%      { opacity: 1;   transform: scale(1.3); box-shadow: 0 0 8px 3px color-mix(in srgb, var(--kodrix-brand-primary) 20%, transparent); }
 }
 
 /* Error state — red dot, no pulse. */
-.style-override .statusbar-item.minicode-brand-indicator.error .brand-dot {
-	background-color: var(--minicode-status-error, #F48771);
+.style-override .statusbar-item.kodrix-brand-indicator.error .brand-dot {
+	background-color: var(--kodrix-status-error, #F48771);
 }
 
 /* Brand label text — brand colour when active. */
-.style-override .statusbar-item.minicode-brand-indicator .brand-label {
-	color: var(--minicode-text-secondary, #8C8C8C);
+.style-override .statusbar-item.kodrix-brand-indicator .brand-label {
+	color: var(--kodrix-text-secondary, #8C8C8C);
 	transition: color 0.2s var(--motion-easing-standard, ease);
 }
 
-.style-override .statusbar-item.minicode-brand-indicator.busy .brand-label {
-	color: var(--minicode-brand-primary, #3994BC);
+.style-override .statusbar-item.kodrix-brand-indicator.busy .brand-label {
+	color: var(--kodrix-brand-primary, #3994BC);
 }
 
-.style-override .statusbar-item.minicode-brand-indicator.ready .brand-label {
+.style-override .statusbar-item.kodrix-brand-indicator.ready .brand-label {
 	color: var(--vscode-foreground);
 }
 
@@ -96,20 +96,20 @@
 
 /* Command center gets a subtle brand tint on hover. */
 .style-override .part.titlebar > .titlebar-container > .titlebar-center > .window-title > .command-center .action-item.command-center-center:hover {
-	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 8%, transparent) !important;
-	border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 15%, transparent) !important;
+	background-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 8%, transparent) !important;
+	border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 15%, transparent) !important;
 }
 
 /* Agent status pill gets brand-tinted hover background. */
 .style-override .agent-status-pill:hover {
-	background-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 8%, transparent) !important;
+	background-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 8%, transparent) !important;
 }
 
 /* Primary action buttons (OK / Confirm / Submit in dialogs). */
 .style-override .monaco-dialog-box .monaco-button.primary {
 	background: linear-gradient(135deg,
-		var(--minicode-brand-primary, #3994BC) 0%,
-		var(--minicode-brand-secondary, #58B3D9) 100%) !important;
+		var(--kodrix-brand-primary, #3994BC) 0%,
+		var(--kodrix-brand-secondary, #58B3D9) 100%) !important;
 	color: #FFFFFF !important;
 	border: none !important;
 	font-weight: 600;
@@ -119,7 +119,7 @@
 
 .style-override .monaco-dialog-box .monaco-button.primary:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 4px 16px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 30%, transparent);
+	box-shadow: 0 4px 16px color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 30%, transparent);
 }
 
 .style-override .monaco-dialog-box .monaco-button.primary:active {
@@ -128,12 +128,12 @@
 
 /* Link colours — brand tint. */
 .style-override a {
-	color: var(--minicode-text-link, #48A0C7);
+	color: var(--kodrix-text-link, #48A0C7);
 	transition: color 0.15s var(--motion-easing-standard, ease);
 }
 
 .style-override a:hover {
-	color: var(--minicode-brand-secondary, #58B3D9);
+	color: var(--kodrix-brand-secondary, #58B3D9);
 }
 
 /* =============================================================================
@@ -143,8 +143,8 @@
 /* Getting started / welcome page title gets brand gradient. */
 .style-override.monaco-workbench .part.editor > .content .gettingStartedContainer h1 {
 	background: linear-gradient(135deg,
-		var(--minicode-brand-primary, #3994BC) 0%,
-		var(--minicode-brand-secondary, #58B3D9) 100%);
+		var(--kodrix-brand-primary, #3994BC) 0%,
+		var(--kodrix-brand-secondary, #58B3D9) 100%);
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;

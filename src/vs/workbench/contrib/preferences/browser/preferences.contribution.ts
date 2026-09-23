@@ -51,6 +51,7 @@ import { PreferencesEditor } from './preferencesEditor.js';
 import { preferencesOpenSettingsIcon } from './preferencesIcons.js';
 import { IPreferencesRenderer, UserSettingsRenderer, WorkspaceSettingsRenderer } from './preferencesRenderers.js';
 import { SettingsEditor2, SettingsFocusContext } from './settingsEditor2.js';
+import './settingsEditorRendererService.js';
 
 const SETTINGS_EDITOR_COMMAND_SEARCH = 'settings.action.search';
 

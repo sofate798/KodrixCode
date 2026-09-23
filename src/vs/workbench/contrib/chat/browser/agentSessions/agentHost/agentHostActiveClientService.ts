@@ -127,7 +127,7 @@ export class AgentHostActiveClientService extends Disposable implements IAgentHo
 			this._promptsService.onDidChangeSkills,
 			this._promptsService.onDidChangeInstructions,
 		)(() => scheduleUpdate()));
-		// Re-resolve when MCP servers configured in VS Code change (added,
+		// Re-resolve when MCP servers configured in Kodrix Code change (added,
 		// removed, enabled/disabled, or reconfigured) so they stay in sync.
 		store.add(autorun(reader => {
 			for (const server of this._mcpService.servers.read(reader)) {

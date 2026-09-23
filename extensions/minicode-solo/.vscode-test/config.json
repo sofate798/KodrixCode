@@ -1,7 +1,0 @@
-{
-	"version": "1.90.0",
-	"platform": "desktop",
-	"extensionsDir": "../../.vscode-test/extensions",
-	"reUseMachineInstall": true,
-	"installExtensions": []
-}

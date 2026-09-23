@@ -36,10 +36,16 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { raceTimeout } from '../../../../../base/common/async.js';
 
+const emptyProvider = { id: '', name: '' };
 const defaultChat = {
 	chatExtensionId: product.defaultChatAgent?.chatExtensionId ?? '',
 	publicCodeMatchesUrl: product.defaultChatAgent?.publicCodeMatchesUrl ?? '',
-	provider: product.defaultChatAgent?.provider ?? { default: { id: '', name: '' }, enterprise: { id: '', name: '' }, apple: { id: '', name: '' }, google: { id: '', name: '' } },
+	provider: {
+		default: product.defaultChatAgent?.provider?.default ?? emptyProvider,
+		enterprise: product.defaultChatAgent?.provider?.enterprise ?? emptyProvider,
+		apple: product.defaultChatAgent?.provider?.apple ?? emptyProvider,
+		google: product.defaultChatAgent?.provider?.google ?? emptyProvider
+	},
 	chatRefreshTokenCommand: product.defaultChatAgent?.chatRefreshTokenCommand ?? '',
 	termsStatementUrl: product.defaultChatAgent?.termsStatementUrl ?? '',
 	privacyStatementUrl: product.defaultChatAgent?.privacyStatementUrl ?? ''
@@ -262,21 +268,24 @@ export class ChatSetup {
 			const enterpriseProviderButton: ContinueWithButton = [localize('continueWith', "Continue with {0}", defaultChat.provider.enterprise.name), ChatSetupStrategy.SetupWithEnterpriseProvider, styleButton('continue-button', 'default')];
 			const enterpriseProviderLink: ContinueWithButton = [enterpriseProviderButton[0], enterpriseProviderButton[1], styleButton('link-button')];
 
-			const googleProviderButton: ContinueWithButton = [localize('continueWith', "Continue with {0}", defaultChat.provider.google.name), ChatSetupStrategy.SetupWithGoogleProvider, styleButton('continue-button', 'google')];
-			const appleProviderButton: ContinueWithButton = [localize('continueWith', "Continue with {0}", defaultChat.provider.apple.name), ChatSetupStrategy.SetupWithAppleProvider, styleButton('continue-button', 'apple')];
+			const socialButtons: ContinueWithButton[] = [];
+			if (defaultChat.provider.google.name) {
+				socialButtons.push([localize('continueWith', "Continue with {0}", defaultChat.provider.google.name), ChatSetupStrategy.SetupWithGoogleProvider, styleButton('continue-button', 'google')]);
+			}
+			if (defaultChat.provider.apple.name) {
+				socialButtons.push([localize('continueWith', "Continue with {0}", defaultChat.provider.apple.name), ChatSetupStrategy.SetupWithAppleProvider, styleButton('continue-button', 'apple')]);
+			}
 
 			if (!this.defaultAccountService.getDefaultAccountAuthenticationProvider().enterprise) {
 				buttons = coalesce([
 					defaultProviderButton,
-					googleProviderButton,
-					appleProviderButton,
+					...socialButtons,
 					enterpriseProviderLink
 				]);
 			} else {
 				buttons = coalesce([
 					enterpriseProviderButton,
-					googleProviderButton,
-					appleProviderButton,
+					...socialButtons,
 					defaultProviderLink
 				]);
 			}

@@ -1,19 +1,18 @@
-# Minicode — AI Agent Instructions
+# Kodrix — AI Agent Instructions
 
 ## Project Identity
 
-**Minicode** is an open-source, AI-first IDE forked from VS Code, designed to rival Cursor, Trae, Qoder, Kiro, and Windsurf. It provides local LLM support (Ollama, llama.cpp, LM Studio) via BYOK alongside cloud APIs (DeepSeek, OpenRouter, Anthropic, Gemini), plus a full multi-agent AI coding experience.
+**Kodrix** is an open-source, AI-first IDE forked from VS Code, designed to rival Cursor, Trae, Qoder, Kiro, and Windsurf. It provides local LLM support (Ollama, llama.cpp, LM Studio) via BYOK alongside cloud APIs (DeepSeek, OpenRouter, Anthropic, Gemini), plus a full multi-agent AI coding experience.
 
 ## Architecture Overview
 
 ```
-minicode/
+kodrix/
 ├── src/vs/                    # Core VS Code fork (minimal modifications)
 ├── extensions/
-│   ├── minicode-local/        # Model providers, BYOK, Cursor feature emulation, onboarding, Agents window
-│   ├── minicode-skills/       # Skill marketplace sidebar, skill installation from GitHub/URL
-│   ├── minicode-solo/         # SOLO Builder (4-panel: Plan, Chat, Terminal, Preview), @solo chat participant
-│   └── minicode-agent-os/     # Agent OS: Wiki, Memory, Learning Engine, Spec workbench, Kanban, Router, Arena
+│   ├── kodrix-local/        # Model providers, BYOK, Cursor feature emulation, onboarding, Agents window
+│   ├── kodrix-skills/       # Skill marketplace sidebar, skill installation from GitHub/URL
+│   └── kodrix-agent-os/     # Agent OS: Wiki, Memory, Learning Engine, Spec workbench, Kanban, Router, Arena
 ├── build/                     # Gulp build system + Azure Pipelines CI/CD
 ├── cli/                       # Rust CLI tool for remote/tunnel features
 ├── marketplace/               # Built-in skill packages catalog
@@ -23,9 +22,8 @@ minicode/
 ### Extension Dependency Chain
 
 ```
-minicode-local  ──(commands)──>  minicode-agent-os
-minicode-agent-os  ──(commands)──>  minicode-solo
-minicode-skills  ──(settings)──>  (consumed by other extensions)
+kodrix-local  ──(commands)──>  kodrix-agent-os
+kodrix-skills  ──(settings)──>  (consumed by other extensions)
 ```
 
 Extensions communicate via `vscode.commands.executeCommand()` — there are no formal `extensionDependencies` declared.
@@ -56,27 +54,22 @@ Extensions communicate via `vscode.commands.executeCommand()` — there are no f
 ### Testing
 - ALL new modules require unit tests in `src/test/unit/`.
 - Integration tests for cross-extension command interactions go in `src/test/integration/`.
-- Run `npm run test-extension` before committing to any Minicode extension.
+- Run `npm run test-extension` before committing to any Kodrix extension.
 
 ## Extension-Specific Conventions
 
-### minicode-local
+### kodrix-local
 - Config migration logic lives in `migrateConfig.ts` — never modify user config directly.
 - Provider storage uses `context.globalState` via `providerStore.ts`.
 - Cursor import logic (`cursorImport.ts`) must handle all Cursor versions gracefully with structured error reporting.
 
-### minicode-solo
-- `soloParticipant.ts` is the `@solo` chat participant — keep prompts in `resources/` not inline.
-- `soloBuildTracker.ts` tracks file changes during Agent builds — ensure watchers and timers are properly disposed.
-- SOLO Workbench panels must reset module-level state on dispose.
-
-### minicode-skills
+### kodrix-skills
 - Skill installation MUST validate with `sanitizeSkillName()` and `validateNoPathTraversal()`.
 - Built-in skills are in `marketplace/packages/` and `resources/packages/`.
 - Never overwrite existing skills without user confirmation.
 
-### minicode-agent-os
-- Learning data persists to `~/.minicode/memory/<project-hash>/` — never store in workspace folder.
+### kodrix-agent-os
+- Learning data persists to `~/.kodrix/memory/<project-hash>/` — never store in workspace folder.
 - Memory and learning engines use `withLogLock()` for concurrent write safety.
 - The router (`agentRouter.ts`) is rule-based — add new patterns to the scoring engine, not ad-hoc if/else chains.
 - Panel lifecycle is managed by `utils/panelTracker.ts` — use `createTrackedPanel()` for all webviews.

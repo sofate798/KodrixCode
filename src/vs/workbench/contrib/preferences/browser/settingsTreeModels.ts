@@ -230,7 +230,9 @@ export class SettingsTreeSettingElement extends SettingsTreeElement {
 	}
 
 	private initSettingValueType() {
-		if (isExtensionToggleSetting(this.setting, this.productService)) {
+		if (this.setting.renderer) {
+			this.valueType = SettingValueType.Custom;
+		} else if (isExtensionToggleSetting(this.setting, this.productService)) {
 			this.valueType = SettingValueType.ExtensionToggle;
 		} else if (this.setting.enum && (!this.setting.type || settingTypeEnumRenderable(this.setting.type))) {
 			this.valueType = SettingValueType.Enum;

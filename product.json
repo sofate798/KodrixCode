@@ -1,23 +1,23 @@
 {
-	"nameShort": "Minicode",
-	"nameLong": "Minicode",
-	"applicationName": "minicode",
-	"dataFolderName": ".minicode",
-	"sharedDataFolderName": ".minicode",
-	"serverDataFolderName": ".minicode-server",
-	"win32MutexName": "minicode",
-	"win32DirName": "Minicode",
-	"win32NameVersion": "Minicode",
-	"win32RegValueName": "Minicode",
-	"win32AppUserModelId": "Minicode.Minicode",
-	"win32ShellNameShort": "M&inicode",
+	"nameShort": "Kodrix",
+	"nameLong": "Kodrix Code",
+	"applicationName": "kodrix",
+	"dataFolderName": ".kodrix",
+	"sharedDataFolderName": ".kodrix",
+	"serverDataFolderName": ".kodrix-server",
+	"win32MutexName": "kodrix",
+	"win32DirName": "Kodrix",
+	"win32NameVersion": "Kodrix",
+	"win32RegValueName": "Kodrix",
+	"win32AppUserModelId": "Kodrix.Kodrix",
+	"win32ShellNameShort": "K&odrix",
 	"win32x64AppId": "{7F4A6B2C-9E1D-4F3A-8C7B-5D2E6A1F4C3B}",
 	"win32x64UserAppId": "{7F4A6B2C-9E1D-4F3A-8C7B-5D2E6A1F4C3B}",
 	"win32arm64AppId": "{8A5B7C3D-0F2E-5A4B-9D8C-6E3F7B2A5D4C}",
 	"win32arm64UserAppId": "{8A5B7C3D-0F2E-5A4B-9D8C-6E3F7B2A5D4C}",
-	"win32TunnelMutex": "minicodetunnel",
-	"win32TunnelServiceMutex": "minicodetunnelservice",
-	"tunnelApplicationName": "minicodetunnel",
+	"win32TunnelMutex": "kodrixtunnel",
+	"win32TunnelServiceMutex": "kodrixtunnelservice",
+	"tunnelApplicationName": "kodrixtunnel",
 	"tunnelApplicationConfig": {
 		"editorWebUrl": "https://vscode.dev",
 		"extension": {
@@ -40,21 +40,22 @@
 			}
 		}
 	},
-	"serverApplicationName": "minicode-server",
-	"urlProtocol": "minicode",
+	"serverApplicationName": "kodrix-server",
+	"urlProtocol": "kodrix",
 	"licenseName": "MIT",
 	"licenseFileName": "LICENSE.txt",
-	"linuxIconName": "minicode",
+	"linuxIconName": "kodrix",
 	"quality": "dev",
+	"builtInExtensions": [],
 	"builtInExtensionsEnabledWithAutoUpdates": [],
 	"win32VersionedUpdate": false,
 	"serverGreeting": [],
 	"serverLicense": "https://github.com/microsoft/vscode/blob/main/LICENSE.txt",
 	"serverLicensePrompt": "",
-	"portable": "minicode-portable-data",
+	"portable": "kodrix-portable-data",
 	"crashReporter": {
-		"companyName": "Minicode",
-		"productName": "Minicode"
+		"companyName": "Kodrix",
+		"productName": "Kodrix"
 	},
 	"extensionAllowedBadgeProviders": [
 		"api.bintray.com",
@@ -110,8 +111,12 @@
 		"GitHub.vscode-pull-request-github"
 	],
 	"extensionEnabledApiProposals": {
-		"minicode.minicode-agent-os": [
-			"chatContextProvider"
+		"kodrix.kodrix-local": [
+			"settingsEditorRenderer"
+		],
+		"kodrix.kodrix-agent-os": [
+			"chatContextProvider",
+			"settingsEditorRenderer"
 		],
 		"mrleemurray.theme-2026": [
 			"css"
@@ -714,6 +719,8 @@
 				"name": "GitHub Enterprise"
 			}
 		},
-		"providerScopes": []
+		"providerScopes": [],
+		"completionsAdvancedSetting": "github.copilot.advanced",
+		"providerUriSetting": "github-enterprise.uri"
 	}
 }

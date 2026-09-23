@@ -40,6 +40,7 @@ export enum SettingValueType {
 	LanguageTag = 'language-tag',
 	ExtensionToggle = 'extension-toggle',
 	ComplexObject = 'complex-object',
+	Custom = 'custom',
 }
 
 export interface ISettingsGroup {
@@ -91,6 +92,10 @@ export interface ISetting {
 	validator?: (value: any) => string | null;
 	enumItemLabels?: string[];
 	editPresentation?: EditPresentationTypes;
+	/**
+	 * View type of a custom settings editor renderer, when the setting uses extension-provided UI.
+	 */
+	renderer?: string;
 	nonLanguageSpecificDefaultValueSource?: ConfigurationDefaultValueSource;
 	isLanguageTagSetting?: boolean;
 	categoryLabel?: string;

@@ -7,7 +7,7 @@
 // See protocol.md for the full design rationale.
 //
 // Most types are imported from the auto-generated protocol layer
-// (synced from the agent-host-protocol repo). This file adds VS Code-specific
+// (synced from the agent-host-protocol repo). This file adds Kodrix Code-specific
 // helpers and re-exports.
 
 import { decodeBase64, encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
@@ -336,7 +336,7 @@ export function customizationId(uri: string, range?: TextRange): string {
 	return `${safeUri}#range=${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`;
 }
 
-// ---- VS Code-specific derived types -----------------------------------------
+// ---- Kodrix Code-specific derived types -----------------------------------------
 
 /**
  * A tool call in a terminal state, stored in completed turns.
@@ -701,7 +701,7 @@ export function isAhpChatChannel(uri: string): boolean {
 /**
  * A {@link SessionState} merged with the conversation contents of its default
  * {@link ChatState}. The protocol moved turns and pending/input state off the
- * session and onto a per-chat channel; VS Code recombines the session summary
+ * session and onto a per-chat channel; Kodrix Code recombines the session summary
  * with its single default chat into this composite so consumers can read
  * `turns`/`activeTurn`/pending state through one object as they did before
  * multi-chat.
@@ -761,14 +761,14 @@ export function getDefaultChat(session: SessionState): ChatSummary | undefined {
 // ---- SessionMeta accessors -------------------------------------------------
 
 /**
- * VS Code-side alias for the protocol's open `_meta` property bag on
+ * Kodrix Code-side alias for the protocol's open `_meta` property bag on
  * {@link SessionState}. Keys SHOULD be namespaced (e.g. `git`, `vscode.foo`)
  * to avoid collisions; values MUST be JSON-serializable.
  */
 export type SessionMeta = Record<string, unknown>;
 
 /**
- * VS Code-side alias for the protocol's open `_meta` property bag on
+ * Kodrix Code-side alias for the protocol's open `_meta` property bag on
  * {@link SessionSummary}. Keys SHOULD be namespaced (e.g. `git`, `vscode.foo`)
  * to avoid collisions; values MUST be JSON-serializable.
  */
@@ -777,7 +777,7 @@ export type SessionSummaryMeta = Record<string, unknown>;
 /**
  * Reserved key under {@link SessionMeta} for the well-known git-state
  * payload. Value at this key, when present, MUST be shaped like
- * {@link ISessionGitState}. This is a VS Code-specific convention layered
+ * {@link ISessionGitState}. This is a Kodrix Code-specific convention layered
  * on top of the protocol's generic `_meta` bag — the protocol itself does
  * not know about git state.
  */
@@ -786,7 +786,7 @@ export const SESSION_META_GIT_KEY = 'git';
 /**
  * Reserved key under {@link SessionMeta} for the well-known GitHub-state
  * payload. Value at this key, when present, MUST be shaped like
- * {@link ISessionGitHubState}. This is a VS Code-specific convention layered
+ * {@link ISessionGitHubState}. This is a Kodrix Code-specific convention layered
  * on top of the protocol's generic `_meta` bag — the protocol itself does
  * not know about GitHub state.
  */
@@ -943,7 +943,7 @@ export function withSessionGitHubState(meta: SessionSummaryMeta | undefined, git
 // ---- RootState _meta accessors ---------------------------------------------
 
 /**
- * VS Code-side alias for the protocol's open `_meta` property bag on
+ * Kodrix Code-side alias for the protocol's open `_meta` property bag on
  * {@link RootState}. Keys SHOULD be namespaced to avoid collisions; values MUST
  * be JSON-serializable.
  */
@@ -952,13 +952,13 @@ export type RootMeta = Record<string, unknown>;
 /**
  * Reserved key under {@link RootMeta} for the well-known host-build payload.
  * Value at this key, when present, MUST be shaped like {@link IHostBuildInfo}.
- * This is a VS Code-specific convention layered on top of the protocol's
+ * This is a Kodrix Code-specific convention layered on top of the protocol's
  * generic `_meta` bag — the protocol itself does not know about build info.
  */
 export const ROOT_META_HOST_BUILD_KEY = 'hostBuild';
 
 /**
- * Build information about the program hosting the agent host (the VS Code CLI),
+ * Build information about the program hosting the agent host (the Kodrix Code CLI),
  * carried under {@link RootMeta} at {@link ROOT_META_HOST_BUILD_KEY}. Lets a
  * client see which build is hosting it — useful when inspecting the output of a
  * remote agent host.

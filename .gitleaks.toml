@@ -1,25 +1,25 @@
 [title]
-# Gitleaks config for Minicode
+# Gitleaks config for Kodrix
 # Excludes VS Code build artifacts, test fixtures, and false positives.
 # Custom rules tighten detection for our CI pipelines.
 
 [[rules]]
-id = "minicode-internal-endpoint"
+id = "kodrix-internal-endpoint"
 description = "Detect internal Microsoft/partner endpoints that should not be hardcoded"
 regex = '''https?://(?:[a-z0-9-]+\.)?(?:mai\.microsoft|microsoft\.(?:internal|corp)|msazure)\.(?:com|net|org)(?:/[^\s"'',)]*)'''
-tags = ["endpoint", "minicode"]
+tags = ["endpoint", "kodrix"]
 
 [[rules]]
-id = "minicode-nonpublic-github-api"
+id = "kodrix-nonpublic-github-api"
 description = "Detect non-public GitHub API endpoints (copilot_internal)"
 regex = '''https://api\.github\.com/copilot_internal/[^\s"'',)]+'''
-tags = ["endpoint", "minicode"]
+tags = ["endpoint", "kodrix"]
 
 [[rules]]
-id = "minicode-hardcoded-redirect-uri"
+id = "kodrix-hardcoded-redirect-uri"
 description = "Detect hardcoded OAuth redirect URIs or callback URLs"
 regex = '''(?i)(?:redirect_?uri|callback_?url)\s*[:=]\s*['""]https?://[^\s"'',)]+'''
-tags = ["oauth", "minicode"]
+tags = ["oauth", "kodrix"]
 
 [allowlist]
 description = "Build artifacts, test fixtures, known-safe identifiers, reviewed API endpoints"
@@ -35,10 +35,10 @@ paths = [
     '.vscode-test/**',
 ]
 stopwords = [
-    "Minicode.Editor",
-    "minicode-server",
-    "minicode-tunnel",
-    "com.minicode.editor",
+    "Kodrix.Editor",
+    "kodrix-server",
+    "kodrix-tunnel",
+    "com.kodrix.editor",
 ]
 regexes = [
     '''api\.github\.com/copilot_internal/''',

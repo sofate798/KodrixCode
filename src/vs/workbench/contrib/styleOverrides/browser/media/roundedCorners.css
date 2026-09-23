@@ -38,18 +38,18 @@
 	--vscode-cornerRadius-xLarge: 8px;
 
 	/* Brand colour defaults — overridden by theme when loaded. */
-	--minicode-brand-primary: #3994BC;
-	--minicode-brand-secondary: #58B3D9;
-	--minicode-brand-accent: #3DA8D4;
-	--minicode-brand-glow: #3994BC33;
-	--minicode-status-success: #73C991;
-	--minicode-status-warning: #E5BA7D;
-	--minicode-status-error: #F48771;
-	--minicode-status-info: #58B3D9;
-	--minicode-text-primary: #BFBFBF;
-	--minicode-text-secondary: #8C8C8C;
-	--minicode-text-muted: #555555;
-	--minicode-text-link: #48A0C7;
+	--kodrix-brand-primary: #3994BC;
+	--kodrix-brand-secondary: #58B3D9;
+	--kodrix-brand-accent: #3DA8D4;
+	--kodrix-brand-glow: #3994BC33;
+	--kodrix-status-success: #73C991;
+	--kodrix-status-warning: #E5BA7D;
+	--kodrix-status-error: #F48771;
+	--kodrix-status-info: #58B3D9;
+	--kodrix-text-primary: #BFBFBF;
+	--kodrix-text-secondary: #8C8C8C;
+	--kodrix-text-muted: #555555;
+	--kodrix-text-link: #48A0C7;
 }
 
 /* =============================================================================

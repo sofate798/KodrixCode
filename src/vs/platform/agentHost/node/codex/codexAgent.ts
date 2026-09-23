@@ -86,7 +86,7 @@ import type { McpServerElicitationRequestResponse } from './protocol/generated/v
 
 const CLIENT_INFO = {
 	name: 'vscode_agent_host',
-	title: 'VS Code Agent Host',
+	title: 'Kodrix Code Agent Host',
 	// The codex `clientInfo.version` is informational. Hardcoded to a
 	// non-empty placeholder; bumping it isn't required when our code
 	// changes.
@@ -909,7 +909,7 @@ export class CodexAgent extends Disposable implements IAgent {
 		// other settings (model, MCP servers, etc.) still apply.
 		const providerOverrides = [
 			`model_provider="vscode-proxy"`,
-			`model_providers.vscode-proxy.name="VS Code Proxy"`,
+			`model_providers.vscode-proxy.name="Kodrix Code Proxy"`,
 			`model_providers.vscode-proxy.base_url="${proxyHandle.baseUrl}/v1"`,
 			`model_providers.vscode-proxy.wire_api="responses"`,
 			`model_providers.vscode-proxy.env_key="OPENAI_API_KEY"`,
@@ -1375,12 +1375,12 @@ export class CodexAgent extends Disposable implements IAgent {
 		const ignored = [
 			'thread/started', // thread/start response is authoritative for session materialization.
 			'thread/status/changed', // Codex thread status is not surfaced in Agent Host state yet.
-			'thread/settings/updated', // VS Code owns session config; Codex settings echoes are not consumed yet.
+			'thread/settings/updated', // Kodrix Code owns session config; Codex settings echoes are not consumed yet.
 			'thread/goal/updated', // Goals are not surfaced in the Agent Host UI yet.
 			'thread/goal/cleared', // Goals are not surfaced in the Agent Host UI yet.
 			'account/updated', // Account state is read on connect; live account updates are not surfaced yet.
 			'account/rateLimits/updated', // Rate-limit UI/state is not implemented yet.
-			'remoteControl/status/changed', // Remote-control state is not part of the VS Code integration.
+			'remoteControl/status/changed', // Remote-control state is not part of the Kodrix Code integration.
 			'serverRequest/resolved', // We resolve requests through JSON-RPC responses, so this echo is informational.
 		] as const;
 		for (const method of ignored) {

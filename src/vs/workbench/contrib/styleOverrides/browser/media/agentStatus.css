@@ -39,23 +39,23 @@
 
 /* Idle — muted, no pulse. */
 .style-override .agent-status-pill.status-idle .agent-status-dot {
-	background-color: var(--minicode-text-muted, #555555);
+	background-color: var(--kodrix-text-muted, #555555);
 }
 
 /* Thinking — brand colour with gentle pulse (conceptual work). */
 .monaco-enable-motion .style-override .agent-status-pill.status-thinking .agent-status-dot {
-	background-color: var(--minicode-brand-primary, #3994BC);
+	background-color: var(--kodrix-brand-primary, #3994BC);
 	animation: agent-dot-think 1.4s ease-in-out infinite;
 }
 
 @keyframes agent-dot-think {
-	0%, 100% { opacity: 0.4; transform: scale(1);   box-shadow: 0 0 0 0 color-mix(in srgb, var(--minicode-brand-primary) 40%, transparent); }
-	50%      { opacity: 1;   transform: scale(1.3); box-shadow: 0 0 6px 2px color-mix(in srgb, var(--minicode-brand-primary) 25%, transparent); }
+	0%, 100% { opacity: 0.4; transform: scale(1);   box-shadow: 0 0 0 0 color-mix(in srgb, var(--kodrix-brand-primary) 40%, transparent); }
+	50%      { opacity: 1;   transform: scale(1.3); box-shadow: 0 0 6px 2px color-mix(in srgb, var(--kodrix-brand-primary) 25%, transparent); }
 }
 
 /* Working — green colour with active pulse (file ops in progress). */
 .monaco-enable-motion .style-override .agent-status-pill.status-working .agent-status-dot {
-	background-color: var(--minicode-status-success, #73C991);
+	background-color: var(--kodrix-status-success, #73C991);
 	animation: agent-dot-work 0.6s ease-in-out infinite;
 }
 
@@ -66,7 +66,7 @@
 
 /* Error — red colour with fast shake. */
 .monaco-enable-motion .style-override .agent-status-pill.status-error .agent-status-dot {
-	background-color: var(--minicode-status-error, #F48771);
+	background-color: var(--kodrix-status-error, #F48771);
 	animation: agent-dot-error 0.3s ease-in-out 3;
 }
 
@@ -78,7 +78,7 @@
 
 /* Done — green, steady with a single pop on completion. */
 .monaco-enable-motion .style-override .agent-status-pill.status-done .agent-status-dot {
-	background-color: var(--minicode-status-success, #73C991);
+	background-color: var(--kodrix-status-success, #73C991);
 	animation: agent-dot-done 0.5s var(--motion-easing-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
 }
 
@@ -99,23 +99,23 @@
 }
 
 .style-override .agent-status-pill.status-idle .agent-status-label {
-	color: var(--minicode-text-muted, #555555);
+	color: var(--kodrix-text-muted, #555555);
 }
 
 .style-override .agent-status-pill.status-thinking .agent-status-label {
-	color: var(--minicode-brand-primary, #3994BC);
+	color: var(--kodrix-brand-primary, #3994BC);
 }
 
 .style-override .agent-status-pill.status-working .agent-status-label {
-	color: var(--minicode-status-success, #73C991);
+	color: var(--kodrix-status-success, #73C991);
 }
 
 .style-override .agent-status-pill.status-error .agent-status-label {
-	color: var(--minicode-status-error, #F48771);
+	color: var(--kodrix-status-error, #F48771);
 }
 
 .style-override .agent-status-pill.status-done .agent-status-label {
-	color: var(--minicode-status-success, #73C991);
+	color: var(--kodrix-status-success, #73C991);
 }
 
 /* =============================================================================
@@ -126,16 +126,16 @@
 	height: 2px;
 	border-radius: 1px;
 	overflow: hidden;
-	background: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+	background: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 10%, transparent);
 }
 
 .style-override .agent-status-progress .agent-status-progress-fill {
 	height: 100%;
 	background: linear-gradient(
 		90deg,
-		var(--minicode-brand-primary, #3994BC) 0%,
-		var(--minicode-brand-secondary, #58B3D9) 50%,
-		var(--minicode-brand-primary, #3994BC) 100%
+		var(--kodrix-brand-primary, #3994BC) 0%,
+		var(--kodrix-brand-secondary, #58B3D9) 50%,
+		var(--kodrix-brand-primary, #3994BC) 100%
 	);
 	background-size: 200% 100%;
 }
@@ -162,17 +162,17 @@
 
 .style-override .agent-session-item.status-thinking .agent-session-status-icon,
 .style-override .session-item.status-thinking .session-icon {
-	color: var(--minicode-brand-primary, #3994BC);
+	color: var(--kodrix-brand-primary, #3994BC);
 }
 
 .style-override .agent-session-item.status-working .agent-session-status-icon,
 .style-override .session-item.status-working .session-icon {
-	color: var(--minicode-status-info, #58B3D9);
+	color: var(--kodrix-status-info, #58B3D9);
 }
 
 .style-override .agent-session-item.status-completed .agent-session-status-icon,
 .style-override .session-item.status-completed .session-icon {
-	color: var(--minicode-status-success, #73C991);
+	color: var(--kodrix-status-success, #73C991);
 }
 
 .monaco-enable-motion .style-override .agent-session-item.status-completed .agent-session-status-icon,
@@ -187,7 +187,7 @@
 }
 
 .style-override .agent-session-item.status-error .agent-session-status-icon {
-	color: var(--minicode-status-error, #F48771);
+	color: var(--kodrix-status-error, #F48771);
 }
 
 /* =============================================================================
@@ -208,8 +208,8 @@
 
 /* When files were touched: green tint. */
 .style-override .agent-session-item .agent-file-count-badge.has-changes {
-	background: color-mix(in srgb, var(--minicode-status-success, #73C991) 18%, transparent);
-	color: var(--minicode-status-success, #73C991);
+	background: color-mix(in srgb, var(--kodrix-status-success, #73C991) 18%, transparent);
+	color: var(--kodrix-status-success, #73C991);
 }
 
 /* =============================================================================
@@ -224,22 +224,22 @@
 
 /* File read — blue accent. */
 .style-override .interactive-item-container .tool-invocation-part.tool-read {
-	border-left-color: var(--minicode-brand-primary, #3994BC);
+	border-left-color: var(--kodrix-brand-primary, #3994BC);
 }
 
 /* File write — green accent. */
 .style-override .interactive-item-container .tool-invocation-part.tool-write {
-	border-left-color: var(--minicode-status-success, #73C991);
+	border-left-color: var(--kodrix-status-success, #73C991);
 }
 
 /* Shell command — yellow accent. */
 .style-override .interactive-item-container .tool-invocation-part.tool-shell {
-	border-left-color: var(--minicode-status-warning, #E5BA7D);
+	border-left-color: var(--kodrix-status-warning, #E5BA7D);
 }
 
 /* Error — red accent. */
 .style-override .interactive-item-container .tool-invocation-part.tool-error {
-	border-left-color: var(--minicode-status-error, #F48771);
+	border-left-color: var(--kodrix-status-error, #F48771);
 }
 
 /* =============================================================================
@@ -252,6 +252,6 @@
 }
 
 @keyframes agent-input-border-pulse {
-	0%, 100% { border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 20%, transparent); }
-	50%      { border-color: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 50%, transparent); }
+	0%, 100% { border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 20%, transparent); }
+	50%      { border-color: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 50%, transparent); }
 }

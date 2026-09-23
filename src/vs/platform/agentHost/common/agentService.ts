@@ -229,7 +229,7 @@ export function shouldSurfaceLocalAgentHostProvider(provider: AgentProvider, con
 // shape the agent host downloads on demand from `product.agentSdks.codex`).
 // The agent host spawns the native codex binary from inside that tree as a
 // long-lived child process and speaks JSON-RPC over stdio. The binary is not
-// bundled with VS Code; users either install codex themselves (typically via
+// bundled with Kodrix Code; users either install codex themselves (typically via
 // `npm install -g @openai/codex` or a platform package manager) or rely on
 // the on-demand download.
 
@@ -271,7 +271,7 @@ export const AgentHostCodexAgentBinaryArgsEnvVar = 'VSCODE_AGENT_HOST_CODEX_APP_
 // The `chat.agentHost.otel.*` namespace surfaces the same exporter knobs the CLI
 // runtime documents in `extensions/copilot/docs/monitoring/agent_monitoring.md`,
 // but routes them through the agent host process so the user's settings stay in
-// VS Code instead of leaking via shell env.
+// Kodrix Code instead of leaking via shell env.
 //
 // `chat.agentHost.otel.dbSpanExporter.enabled` switches on the in-process
 // loopback receiver + persistent SQLite span store; the other settings still
@@ -1048,7 +1048,7 @@ export interface IRestoredSubagentSession {
 export interface IActiveClient {
 	/** Client identifier (matches `clientId` from `initialize`). */
 	readonly clientId: string;
-	/** Human-readable client name (e.g. `"VS Code"`), if provided. */
+	/** Human-readable client name (e.g. `"Kodrix Code"`), if provided. */
 	readonly displayName: string | undefined;
 	/** This client's tools. Assigning replaces the set (full replacement). */
 	tools: readonly ToolDefinition[];

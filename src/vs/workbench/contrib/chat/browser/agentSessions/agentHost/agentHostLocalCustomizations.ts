@@ -37,7 +37,7 @@ export const SYNCABLE_PROMPT_TYPES: readonly PromptsType[] = [
 /**
  * Storage sources whose contents are auto-synced. Extension and built-in
  * customizations are included so the agent host has the same skills,
- * instructions, and agents available as the local VS Code client.
+ * instructions, and agents available as the local Kodrix Code client.
  */
 export const SYNCABLE_STORAGE_SOURCES: readonly PromptsStorage[] = [
 	PromptsStorage.plugin,
@@ -64,7 +64,7 @@ export interface ILocalCustomizationFile {
  * Built-in skills bundled with the Agents app (only present when the
  * sessions-aware prompts service is in play) are also enumerated so that
  * `/create-pr`, `/merge`, etc. are available to every agent host without
- * any per-provider plumbing. In the regular VS Code workbench window the
+ * any per-provider plumbing. In the regular Kodrix Code workbench window the
  * built-in lookup returns nothing and this is a no-op.
  */
 export async function enumerateLocalCustomizationsForHarness(
@@ -156,7 +156,7 @@ function launchToMcpServerConfiguration(launch: McpServerLaunch): IMcpServerConf
 }
 
 /**
- * Enumerates MCP servers configured directly in VS Code — i.e. those that
+ * Enumerates MCP servers configured directly in Kodrix Code — i.e. those that
  * are not contributed by an agent plugin — so they can be bundled into the
  * synthetic synced plugin. Plugin-sourced servers are excluded because they
  * are already synced via their owning plugin's customization ref. Disabled
@@ -192,7 +192,7 @@ export function collectNonPluginMcpServers(mcpService: IMcpService): ISyncableMc
  * Every eligible local file is synced unless the user opted out. Files
  * belonging to installed plugins are de-duped to a single plugin ref;
  * remaining loose files — together with MCP servers configured directly in
- * VS Code — are bundled into a synthetic Open Plugin.
+ * Kodrix Code — are bundled into a synthetic Open Plugin.
  */
 export async function resolveCustomizationRefs(
 	fileService: IFileService,

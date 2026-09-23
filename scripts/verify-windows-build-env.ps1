@@ -1,4 +1,4 @@
-# 验证 Windows 上构建 Minicode / VS Code 所需的环境
+# 验证 Windows 上构建 Kodrix / VS Code 所需的环境
 # 用法: .\scripts\verify-windows-build-env.ps1
 # 可选: -SetEnv  将检测到的 VS 路径写入当前 PowerShell 会话的环境变量
 
@@ -34,7 +34,7 @@ function Get-VisualStudioInstall {
 	$requires = @(
 		'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'
 	)
-	$args = @('-latest', '-format', 'json', '-utf8') + ($requires | ForEach-Object { '-requires'; $_ })
+	$args = @('-latest', '-prerelease', '-format', 'json', '-utf8') + ($requires | ForEach-Object { '-requires'; $_ })
 	$json = & $VsWhere @args 2>$null | ConvertFrom-Json
 	if (-not $json) { return $null }
 
@@ -43,6 +43,25 @@ function Get-VisualStudioInstall {
 		InstallationPath  = $json.installationPath
 		ProductLineVersion = $json.catalog.productLineVersion
 	}
+}
+
+function Get-VisualStudioInstallByRegistry {
+	# 兜底：部分预览版实例的注册会在 Installer GUI 操作后丢失（vswhere 找不到），
+	# 但 SxS\VC7 兼容键仍指向工具链，据此恢复检测
+	foreach ($hive in @('HKLM:\SOFTWARE\Microsoft\VisualStudio\SxS\VC7', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VC7')) {
+		$vc = (Get-ItemProperty -Path $hive -Name '14.0' -ErrorAction SilentlyContinue).'14.0'
+		if ($vc) {
+			$install = Split-Path $vc -Parent
+			if ((Test-Path (Join-Path $install 'Common7\IDE\devenv.exe')) -and (Test-Path (Join-Path $vc 'Tools\MSVC'))) {
+				return [PSCustomObject]@{
+					DisplayName        = 'Visual Studio (SxS\VC7 注册表定位)'
+					InstallationPath   = $install
+					ProductLineVersion = '18'
+				}
+			}
+		}
+	}
+	return $null
 }
 
 function Set-VisualStudioEnvVar {
@@ -71,7 +90,7 @@ function Set-VisualStudioEnvVar {
 	Write-Check OK "已设置 `$env:$envName = $InstallationPath"
 }
 
-Write-Host "Minicode Windows 构建环境检查" -ForegroundColor Cyan
+Write-Host "Kodrix Windows 构建环境检查" -ForegroundColor Cyan
 Write-Host ""
 
 # Node.js
@@ -79,7 +98,13 @@ Write-Host "Node.js" -ForegroundColor Cyan
 $nvmrcPath = Join-Path (Join-Path $PSScriptRoot '..') '.nvmrc'
 $requiredNode = if (Test-Path $nvmrcPath) { (Get-Content $nvmrcPath -Raw).Trim() } else { '24.17.0' }
 try {
-	$nodeVersion = (node -v 2>$null).TrimStart('v')
+	# 优先使用机器级 PATH 中的 Node（用户真实安装），避免被会话注入的其他 Node（如豆包运行时）抢占
+	$nodeExe = $null
+	$machineNodeDir = ([Environment]::GetEnvironmentVariable('Path', 'Machine') -split ';' | Where-Object { $_ -and (Test-Path (Join-Path $_ 'node.exe')) } | Select-Object -First 1)
+	if ($machineNodeDir) { $nodeExe = Join-Path $machineNodeDir 'node.exe' }
+	if (-not $nodeExe) { $nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source }
+	if (-not $nodeExe) { throw 'Node.js not found' }
+	$nodeVersion = (& $nodeExe -v 2>$null).TrimStart('v')
 	if ($nodeVersion -match '^(\d+)\.(\d+)\.(\d+)') {
 		$major = [int]$Matches[1]
 		$minor = [int]$Matches[2]
@@ -117,6 +142,7 @@ if (-not $vswhere) {
 	Write-Check Fail "未找到 vswhere.exe，请安装 Visual Studio 或 Build Tools"
 } else {
 	$vs = Get-VisualStudioInstall -VsWhere $vswhere
+	if (-not $vs) { $vs = Get-VisualStudioInstallByRegistry }
 	if (-not $vs) {
 		Write-Check Fail "未找到带 MSVC x64 工具的 Visual Studio 安装"
 		Write-Host "        请在 Visual Studio Installer 中勾选「使用 C++ 的桌面开发」工作负载" -ForegroundColor DarkGray
@@ -148,13 +174,15 @@ if (-not $vswhere) {
 		# Spectre 缓解库（部分原生模块需要）
 		$spectreArgs = @(
 			'-latest',
+			'-prerelease',
 			'-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
-			'-requires', 'Microsoft.VisualStudio.Component.VC.Spectre',
+			'-requires', 'Microsoft.VisualStudio.Component.VC.14.51.x86.x64.Spectre',
 			'-property', 'displayName',
 			'-format', 'value'
 		)
 		$spectreName = & $vswhere @spectreArgs 2>$null
-		if ($spectreName) {
+		$spectreOnDisk = Get-ChildItem (Join-Path $vs.InstallationPath 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'lib\spectre') } | Select-Object -First 1
+		if ($spectreName -or $spectreOnDisk) {
 			Write-Check OK "已安装 Spectre 缓解库"
 		} else {
 			Write-Check Warn "未安装 Spectre 缓解库。完整 npm install 可能失败。"

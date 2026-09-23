@@ -1,4 +1,4 @@
-﻿name: PR Check
+﻿﻿name: PR Check
 
 on:
   pull_request:
@@ -31,17 +31,16 @@ jobs:
         continue-on-error: true
 
   test-extensions:
-    name: Test Minicode Extensions
+    name: Test Kodrix Extensions
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         extension:
-          - minicode-agent-os
-          - minicode-local
-          - minicode-solo
-          - minicode-skills
+          - kodrix-agent-os
+          - kodrix-local
+          - kodrix-skills
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

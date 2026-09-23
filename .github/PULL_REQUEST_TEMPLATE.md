@@ -11,10 +11,9 @@
 - [ ] Security fix
 
 ## Area
-- [ ] minicode-local
-- [ ] minicode-skills
-- [ ] minicode-solo
-- [ ] minicode-agent-os
+- [ ] kodrix-local
+- [ ] kodrix-skills
+- [ ] kodrix-agent-os
 - [ ] Core (src/vs/)
 - [ ] Build / CI
 - [ ] CLI

@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-nXjtuhBilO++r8hfxl5VjEScSmdm07wDAk6jw228DgM=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-LBYo6Ajk6bLNZpEg6M55qWYHTN51ITjV+xHEvMDGT3c=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -34,7 +34,7 @@
 		const webviewOrigin = searchParams.get('origin');
 		const onElectron = searchParams.get('platform') === 'electron';
 		const disableServiceWorker = searchParams.has('disableServiceWorker');
-		const expectedWorkerVersion = parseInt(searchParams.get('swVersion'));
+		const expectedWorkerVersion = parseInt(searchParams.get('swVersion') ?? '', 10);
 
 		/**
 		 * @param {string} name
@@ -218,7 +218,7 @@
 
 						return () => {
 							if (acquired && !${allowMultipleAPIAcquire}) {
-								throw new Error('An instance of the VS Code API has already been acquired');
+								throw new Error('An instance of the Kodrix Code API has already been acquired');
 							}
 							acquired = true;
 							return Object.freeze({
@@ -257,7 +257,7 @@
 				.then(async registration => {
 					if (navigator.serviceWorker.controller) {
 						// A previous SW is already controlling. Force an update
-						// check so we don't serve stale resources after a VS Code
+						// check so we don't serve stale resources after a Kodrix Code
 						// update. register() resolves before the update check
 						// completes, so we must call update() explicitly to wait
 						// for the download + byte-comparison to finish.
@@ -355,6 +355,9 @@
 
 				if (hostname === parentOriginHash || hostname.startsWith(parentOriginHash + '.')) {
 					// validation succeeded!
+					if (!parentOrigin) {
+						throw new Error(`Missing parentOrigin query parameter`);
+					}
 					return start(parentOrigin);
 				}
 
@@ -589,7 +592,7 @@
 		 */
 		const handleInnerKeydown = (e) => {
 			// If the keypress would trigger a browser event, such as copy or paste,
-			// make sure we block the browser from dispatching it. Instead VS Code
+			// make sure we block the browser from dispatching it. Instead Kodrix Code
 			// handles these events and will dispatch a copy/paste back to the webview
 			// if needed
 			if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e)) {
@@ -1040,7 +1043,7 @@
 				// seeing the service worker applying properly.
 				// Fake load an empty on the correct origin and then write real html
 				// into it to get around this.
-				const fakeUrlParams = new URLSearchParams({ id: ID });
+				const fakeUrlParams = new URLSearchParams({ id: ID ?? '' });
 				if (globalThis.crossOriginIsolated) {
 					fakeUrlParams.set('vscode-coi', '3'); /*COOP+COEP*/
 				}
@@ -1049,8 +1052,9 @@
 				newFrame.style.cssText = 'display: block; margin: 0; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: hidden';
 				document.body.appendChild(newFrame);
 
-				newFrame.contentWindow.addEventListener('keydown', handleInnerKeydown);
-				newFrame.contentWindow.addEventListener('keyup', handleInnerKeyup);
+				const contentWindow = assertIsDefined(newFrame.contentWindow);
+				contentWindow.addEventListener('keydown', handleInnerKeydown);
+				contentWindow.addEventListener('keyup', handleInnerKeyup);
 
 				/**
 				 * @param {Document} contentDocument
@@ -1188,7 +1192,7 @@
 						let context = {};
 
 						/** @type {HTMLElement | null} */
-						let el = e.target;
+						let el = e.target instanceof HTMLElement ? e.target : null;
 						while (true) {
 							if (!el) {
 								break;
@@ -1201,7 +1205,10 @@
 							}
 
 							try {
-								context = { ...JSON.parse(el.dataset.vscodeContext), ...context };
+								const vscodeContext = el.dataset.vscodeContext;
+								if (vscodeContext) {
+									context = { ...JSON.parse(vscodeContext), ...context };
+								}
 							} catch (e) {
 								console.error(`Error parsing 'data-vscode-context' as json`, el, e);
 							}

@@ -154,7 +154,7 @@ export function encodeForwardedChatError(forwarded: IForwardedChatError): string
  * Fields from a structured agent-SDK error (notably the Copilot CLI SDK's
  * `ErrorData`) used to build a forwarded chat error directly, without a
  * {@link PROXY_ERROR_PREFIX} marker. The Copilot CLI authenticates with CAPI
- * itself (no VS Code proxy to embed a marker), but its `session.error` event
+ * itself (no Kodrix Code proxy to embed a marker), but its `session.error` event
  * already carries the structured classification we need.
  */
 export interface ISdkChatErrorFields {

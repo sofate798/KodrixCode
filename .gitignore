@@ -45,13 +45,19 @@ sourcemaps/
 stores/snapcraft/insider/*.snap
 stores/snapcraft/stable/*.snap
 
-# --- Minicode user data ---
-.profile-minicode/
+# --- Kodrix user data ---
+.profile-kodrix/
 .profile-oss/
 
-# --- Minicode dev/runtime artifacts ---
+# --- Kodrix dev/runtime artifacts ---
 .langpack-zh/
-.minicode-test/
+.kodrix-test/
 electron-out.log
 *.tsbuildinfo
 *.tsbuildinfo.*
+.eslintcache
+
+
+# CodeGraph local index (regenerate with 'codegraph init')
+.codegraph/
+

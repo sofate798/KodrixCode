@@ -1,216 +1,121 @@
-<div id="vscodium-logo" align="center">
-    <br />
-    <img src="./icons/stable/codium_cnl.svg" alt="VSCodium Logo" width="200"/>
-    <h1>VSCodium</h1>
-    <h3>Free/Libre Open Source Software Binaries of Visual Studio Code</h3>
+<div align="center">
+  <br />
+  <img src="./icons/stable/codium_cnl.svg" alt="Kodrix Logo" width="160"/>
+  <h1>Kodrix Code</h1>
+  <h3>基于 VS Code / VSCodium 的 AI 原生代码编辑器</h3>
 </div>
 
-<div id="badges" align="center">
+**Kodrix** 是在 VS Code / VSCodium 之上的深度定制分支，集成多 Agent 协作、智能补全、Idea Flow 等能力，面向本地可构建、可调试的完整源码工程。
 
-[![current release](https://img.shields.io/github/release/vscodium/vscodium.svg)](https://github.com/vscodium/vscodium/releases)
-[![license](https://img.shields.io/github/license/VSCodium/vscodium.svg)](https://github.com/VSCodium/vscodium/blob/master/LICENSE)
-[![Gitter](https://img.shields.io/gitter/room/vscodium/vscodium.svg)](https://gitter.im/VSCodium/Lobby)
-[![codium](https://snapcraft.io//codium/badge.svg)](https://snapcraft.io/codium)
-[![codium](https://snapcraft.io//codium/trending.svg?name=0)](https://snapcraft.io/codium)
+当前基线：VS Code **1.128.0** · Electron **42.x** · Node **24.17+**（同 major 且 ≥ [`.nvmrc`](.nvmrc)）· 协议 **MIT**
 
-</div>
+## 目录
 
-**This is not a fork. This is a repository of scripts to automatically build [Microsoft's `vscode` repository](https://github.com/microsoft/vscode) into freely-licensed binaries with a community-driven default configuration.**
+- [功能概览](#功能概览)
+- [快速开始](#快速开始)
+- [项目结构](#项目结构)
+- [关键配置](#关键配置)
+- [构建注意](#构建注意)
+- [相关文档](#相关文档)
+- [上游与许可](#上游与许可)
 
-## Table of Contents
+## 功能概览
 
-- [Download/Install](#download-install)
-  - [Install with Brew](#install-with-brew)
-  - [Install with Windows Package Manager (WinGet)](#install-with-winget)
-  - [Install with Chocolatey](#install-with-choco)
-  - [Install with Scoop](#install-with-scoop)
-  - [Install with snap](#install-with-snap)
-  - [Install with Package Manager](#install-with-package-manager)
-  - [Install on Arch Linux](#install-on-arch-linux)
-  - [Flatpak Option](#flatpak)
-- [Build](#build)
-- [Why Does This Exist](#why)
-- [More Info](#more-info)
-- [Supported Platforms](#supported-platforms)
+| 能力 | 说明 |
+|------|------|
+| Tab 补全 / Ctrl+K | Copilot Inline + NES；可选本地 Tab/FIM（默认关） |
+| Composer / Agent | 多文件编辑与 Agent 协作（编排至 Copilot） |
+| @Codebase | 双路径：Copilot `#codebase` · 本地 `kodrix.codebase` |
+| 模型路由 | 多供应商预设（13）与 BYOK |
+| Idea Flow / Agent OS | Spec、看板、记忆、Crew 等本地 Agent 能力 |
+| Skill 市场 | 目录 / GitHub / URL；仓库内 `marketplace/packages` |
+| 中文界面 | 官方 zh-cn 语言包注入 |
 
-## <a id="download-install"></a>Download/Install
+自定义扩展：`kodrix-local` · `kodrix-agent-os` · `kodrix-skills`（另含内置 Copilot 等）。从 Cursor / Cursormini 迁过来见 [`MIGRATION.md`](MIGRATION.md)。
 
-:tada: :tada:
-Download latest release here:
-[stable](https://github.com/VSCodium/vscodium/releases) or
-[insiders](https://github.com/VSCodium/vscodium-insiders/releases)
-:tada: :tada:
+## 快速开始
 
-[More info / helpful tips are here.](https://github.com/VSCodium/vscodium/blob/master/docs/index.md)
+### 环境要求
 
+- **Node.js**：须匹配 [`.nvmrc`](.nvmrc)（`24.17.0`，同 major 且 ≥ 该版本，npm &lt; 12）
+- **Windows**：推荐 PowerShell；打安装包需本机构建工具链
+- 首次依赖安装与 Copilot 扩展打包可能较久，属正常现象
+- Cursor 沙箱 PATH 若指向 Node 22，装依赖请用系统合规 Node 24
 
-#### <a id="install-with-brew"></a>Install with Brew (Mac)
+### 开发入口（根目录）
 
-If you are on a Mac and have [Homebrew](https://brew.sh/) installed:
-```bash
-# stable
-brew install --cask vscodium
+```batch
+# 带实时日志的控制台调试启动（esbuild 快编译）
+.\debug.bat
 
-# insiders
-brew install --cask vscodium@insiders
+# 热更新：改 src/ 后自动增量重编译
+.\debug.bat -Watch
+
+# 一键全量重编译 + 带日志启动（恢复环境 / 排障）
+.\debug-rebuild.bat
+
+# 一键重新编译打包 EXE 安装包（首次约 30–90 分钟）
+.\build.bat
 ```
 
-#### <a id="install-with-winget"></a>Install with Windows Package Manager (WinGet)
-
-If you use Windows and have [Windows Package Manager](https://github.com/microsoft/winget-cli) installed:
-```cmd
-:: stable
-winget install -e --id VSCodium.VSCodium
-
-:: insider
-winget install -e --id VSCodium.VSCodium.Insiders
-```
-
-#### <a id="install-with-choco"></a>Install with Chocolatey (Windows)
-
-If you use Windows and have [Chocolatey](https://chocolatey.org) installed (thanks to [@Thilas](https://github.com/Thilas)):
-```cmd
-:: stable
-choco install vscodium
-
-:: insider
-choco install vscodium-insiders
-```
-
-#### <a id="install-with-scoop"></a>Install with Scoop (Windows)
-
-If you use Windows and have [Scoop](https://scoop.sh) installed:
-```bash
-scoop bucket add extras
-scoop install vscodium
-```
-
-#### <a id="install-with-snap"></a>Install with snap (GNU/Linux)
-
-VSCodium is available in the [Snap Store](https://snapcraft.io/) as [Codium](https://snapcraft.io/codium), thanks to the help of the [Snapcrafters](https://github.com/snapcrafters/codium) community.
-If your GNU/Linux distribution has support for [snaps](https://snapcraft.io/docs/installing-snapd):
+等价 npm 脚本示例：
 
 ```bash
-snap install codium --classic
+npm run dev:prepare          # 准备开发产物（不启动）
+npm run package:win32        # 打 Windows EXE
+npm run compile              # 编译客户端 + Copilot
 ```
 
-#### <a id="install-with-package-manager"></a>Install with Package Manager (GNU/Linux)
+## 项目结构
 
-You can always install using the downloads (deb, rpm, tar) on the releases page for [stable](https://github.com/VSCodium/vscodium/releases) or [insiders](https://github.com/VSCodium/vscodium-insiders/releases), but you can also install using your favorite package manager and get automatic updates.
-
-[@paulcarroty](https://github.com/paulcarroty) has set up a repository with instructions for `apt`, `dnf` and `zypper` [here](https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo).
-
-Any issues installing VSCodium using your package manager should be directed to that repository's issue tracker.
-
-#### <a id="install-on-arch-linux"></a>Install on Arch Linux
-
-VSCodium is available in [AUR](https://wiki.archlinux.org/index.php/Arch_User_Repository), maintained by [@binex-dsk](https://github.com/binex-dsk) as package [vscodium-bin](https://aur.archlinux.org/packages/vscodium-bin/) (stable) and as [vscodium-insiders-bin](https://aur.archlinux.org/packages/vscodium-insiders-bin).
-
-If you want to save disk space by having VSCodium use the Electron system-wide, you also have [vscodium-electron](https://aur.archlinux.org/packages/vscodium-electron),
-maintained by [@m00nw4tch3r](https://aur.archlinux.org/account/m00nw4tch3r).
-
-An alternative package [vscodium-git](https://aur.archlinux.org/packages/vscodium-git/), maintained by [@cedricroijakkers](https://github.com/cedricroijakkers), is also available should you wish to compile from source yourself.
-
-#### <a id="flatpak"></a>Flatpak Option (GNU/Linux)
-
-VSCodium is available as a Flatpak app [here](https://flathub.org/apps/details/com.vscodium.codium) and the build repo is [here](https://github.com/flathub/com.vscodium.codium).
-If your distribution has support for [flatpak](https://flathub.org), and you have enabled the [flathub repo](https://flatpak.org/setup/):
-
-```bash
-flatpak install flathub com.vscodium.codium
-flatpak run com.vscodium.codium
+```
+kodrix/
+├── src/                 # 核心源码 (TypeScript / VS Code 框架)
+├── extensions/          # 内置扩展（含 kodrix-*、copilot、git 等）
+├── marketplace/         # Skill 示例包与 catalog
+├── build/               # gulp + esbuild 构建系统
+├── scripts/             # 开发 / 打包 / 修复脚本
+├── patches/             # VSCodium 上游补丁
+├── test/                # unit / smoke / mcp
+├── docs/                # 文档与体检 / 审计报告
+├── out/                 # 编译输出 (dev)
+└── .build/              # 构建缓存（electron / 扩展等）
 ```
 
-## <a id="build"></a>Build
+更细的目录说明见 [`AGENTS.md`](AGENTS.md)。
 
-Build instructions can be found [here](https://github.com/VSCodium/vscodium/blob/master/docs/howto-build.md)
+## 关键配置
 
-## <a id="why"></a>Why Does This Exist
+| 文件 | 说明 |
+|------|------|
+| `product.json` | 产品品牌与运行时配置 |
+| `.nvmrc` | Node.js 版本要求 |
+| `.npmrc` | npm + Electron 构建配置 |
+| `package.json` | 脚本与依赖 |
+| `.vscode/launch.json` | 调试启动配置 |
 
-This repository contains build files to generate free release binaries of Microsoft's Visual Studio Code. When we speak of "free software", we're talking about freedom, not price.
+## 构建注意
 
-Microsoft's releases of Visual Studio Code are licensed under [this not-FLOSS license](https://code.visualstudio.com/license) and contain telemetry/tracking. According to [this comment](https://github.com/Microsoft/vscode/issues/60#issuecomment-161792005) from a Visual Studio Code maintainer:
+1. **Copilot 扩展首次 esbuild 打包**约需 10–30 分钟（多路并行），不是卡死。
+2. **`preinstall.ts`** 严格校验 Node：同 major 且 ≥ `.nvmrc`；npm &lt; 12。
+3. **Electron** 经 `@vscode/gulp-electron` 下载到 `.build/electron/`。
+4. **`dev-fast.ps1`** 设 `VSCODE_SKIP_PRELAUNCH` 加快启动；客户端过期时走 `build-fast`（`Test-ClientOutFresh`）。
 
-> When we [Microsoft] build Visual Studio Code, we do exactly this. We clone the vscode repository, we lay down a customized product.json that has Microsoft specific functionality (telemetry, gallery, logo, etc.), and then produce a build that we release under our license.
->
-> When you clone and build from the vscode repo, none of these endpoints are configured in the default product.json. Therefore, you generate a "clean" build, without the Microsoft customizations, which is by default licensed under the MIT license
+常见启动 / native 模块 / 中文语言包问题见 [`REPAIR-NOTES.md`](REPAIR-NOTES.md)。
 
-This repo exists so that you don't have to download+build from source. The build scripts in this repo clone Microsoft's vscode repo, run the build commands, and upload the resulting binaries to [GitHub releases](https://github.com/VSCodium/vscodium/releases). __These binaries are licensed under the MIT license. Telemetry is disabled.__
+## 相关文档
 
-If you want to build from source yourself, head over to [Microsoft's vscode repo](https://github.com/Microsoft/vscode) and follow their [instructions](https://github.com/Microsoft/vscode/wiki/How-to-Contribute#build-and-run). This repo exists to make it easier to get the latest version of MIT-licensed Visual Studio Code.
+| 文档 | 用途 |
+|------|------|
+| [`AGENTS.md`](AGENTS.md) | AI / 开发者项目导读 |
+| [`REPAIR-NOTES.md`](REPAIR-NOTES.md) | 启动卡死、native 模块、语言包等排障 |
+| [`SECURITY.md`](SECURITY.md) | 漏洞报告与安全实践 |
+| [`MIGRATION.md`](MIGRATION.md) | Cursor / Cursormini 能力迁移对照 |
+| [`docs/项目体检与Cursor方向升级报告-2026-09-21.md`](docs/项目体检与Cursor方向升级报告-2026-09-21.md) | 体检与升级报告 |
+| [`docs/项目缺陷与Bug深度审计报告-2026-09-23-复核版.md`](docs/项目缺陷与Bug深度审计报告-2026-09-23-复核版.md) | 缺陷审计复核（最新闭环） |
 
-Microsoft's build process (which we are running to build the binaries) does download additional files. Those packages downloaded during build are:
+## 上游与许可
 
-- Pre-built extensions from the GitHub:
-  - [ms-vscode.js-debug-companion](https://github.com/microsoft/vscode-js-debug-companion)
-  - [ms-vscode.js-debug](https://github.com/microsoft/vscode-js-debug)
-  - [ms-vscode.vscode-js-profile-table](https://github.com/microsoft/vscode-js-profile-visualizer)
-- From [Electron releases](https://github.com/electron/electron/releases) (using [gulp-atom-electron](https://github.com/joaomoreno/gulp-atom-electron))
-  - electron
-  - ffmpeg
-
-## <a id="more-info"></a>More Info
-
-### Documentation
-
-For more information on getting all the telemetry disabled, tips for migrating from Visual Studio Code to VSCodium and more, have a look at [the Docs page](https://github.com/VSCodium/vscodium/blob/master/docs/index.md) page.
-
-### Troubleshooting
-
-If you have any issue, please check [the Troubleshooting page](https://github.com/VSCodium/vscodium/blob/master/docs/troubleshooting.md) or the existing issues.
-
-### Extensions and the Marketplace
-
-According to the Visual Studio Marketplace [Terms of Use](https://aka.ms/vsmarketplace-ToU), _you may only install and use Marketplace Offerings with Visual Studio Products and Services._ For this reason, VSCodium uses [open-vsx.org](https://open-vsx.org/), an open source registry for Visual Studio Code extensions. See the [Extensions + Marketplace](https://github.com/VSCodium/vscodium/blob/master/docs/index.md#extensions-marketplace) section on the Docs page for more details.
-
-Please note that some Visual Studio Code extensions have licenses that restrict their use to the official Visual Studio Code builds and therefore do not work with VSCodium. See [this note](https://github.com/VSCodium/vscodium/blob/master/docs/extensions.md#proprietary-debugging-tools) on the Docs page for what's been found so far and possible workarounds.
-
-### How are the VSCodium binaries built?
-
-If you would like to see the commands we run to build `vscode` into VSCodium binaries, have a look at the workflow files in `.github/workflows` for Windows, GNU/Linux and macOS. These build files call all the other scripts in the repo. If you find something that doesn't make sense, feel free to ask about it [on Gitter](https://gitter.im/VSCodium/Lobby).
-
-The builds are run every day, but exit early if there isn't a new release from Microsoft.
-
-## <a id="supported-platforms"></a>Supported Platforms
-
-The minimal version is limited by the core component Electron, you may want to check its [platform prerequisites](https://www.electronjs.org/docs/latest/development/build-instructions-gn#platform-prerequisites).
-
-- [x] macOS (`zip`, `dmg`) macOS 12 or newer x64
-- [x] macOS (`zip`, `dmg`) macOS 12 or newer arm64
-- [x] GNU/Linux x64 (`deb`, `rpm`, `AppImage`, `snap`, `tar.gz`)
-- [x] GNU/Linux arm64 (`deb`, `rpm`, `snap`, `tar.gz`)
-- [x] GNU/Linux armhf (`deb`, `rpm`, `tar.gz`)
-- [x] GNU/Linux riscv64 (`tar.gz`)
-- [x] GNU/Linux loong64 (`tar.gz`)
-- [x] GNU/Linux ppc64le (`tar.gz`)
-- [x] Windows 10 / Server 2012 R2 or newer x64
-- [x] Windows 10 / Server 2012 R2 or newer arm64
-
-## <a id="thanks"></a>Special thanks
-
-<table>
-  <tr>
-    <td><a href="https://github.com/jaredreich" target="_blank">@jaredreich</a></td>
-    <td>for the logo</td>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/PalinuroSec" target="_blank">@PalinuroSec</a></td>
-    <td>for CDN and domain name</td>
-  </tr>
-  <tr>
-    <td><a href="https://www.macstadium.com" target="_blank"><img src="https://images.prismic.io/macstadium/66fbce64-707e-41f3-b547-241908884716_MacStadium_Logo.png?w=128&q=75" width="128" height="49" alt="MacStadium logo" /></a></td>
-    <td>for providing a Mac mini M1</td>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/daiyam" target="_blank">@daiyam</a></td>
-    <td>for macOS certificate</td>
-  </tr>
-  <tr>
-    <td><a href="https://signpath.org/" target="_blank"><img src="https://avatars.githubusercontent.com/u/34448643" height="30" alt="SignPath logo" /></a></td>
-    <td>free code signing on Windows provided by <a href="https://signpath.io/" target="_blank">SignPath.io</a>, certificate by <a href="https://signpath.org/" target="_blank">SignPath Foundation</a></td>
-  </tr>
-</table>
-
-## <a id="license"></a>License
-
-[MIT](https://github.com/VSCodium/vscodium/blob/master/LICENSE)
+- 基于 [Microsoft vscode](https://github.com/microsoft/vscode) 与 [VSCodium](https://github.com/VSCodium/vscodium) 构建体系与补丁实践。
+- 本仓库产品二进制与源码许可为 **[MIT](LICENSE.txt)**（以仓库内 LICENSE 文件为准）。
+- 部分上游扩展或市场条款可能限制其仅用于官方 Visual Studio Code；Kodrix 侧扩展市场策略与 VSCodium 类似，以本地 / Open VSX 等配置为准。

@@ -217,6 +217,12 @@ export interface IConfigurationPropertySchema extends IJSONSchema {
 	editPresentation?: EditPresentationTypes;
 
 	/**
+	 * When specified, the Settings editor hosts a custom webview for this setting
+	 * provided by an extension via `registerSettingsEditorRenderer` for the given view type.
+	 */
+	renderer?: string;
+
+	/**
 	 * When specified, gives an order number for the setting
 	 * within the settings editor. Otherwise, the setting is placed at the end.
 	 */

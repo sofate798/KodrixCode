@@ -1,258 +1,175 @@
-# Minicode — Cursormini 迁移指南
+# Kodrix — 迁移指南
 
-**Minicode** 是基于 VS Code 的本地 AI 编程 IDE，整合了原 Cursormini 核心能力，替代 Python + pywebview 架构。
+从 **Cursormini**（`~/.cursormini` / `~/.kodrix`）与 **Cursor**（`~/.cursor`）迁到 **Kodrix Code**。
 
-## 已迁移能力
+Kodrix = VS Code / Electron 源码树 + `extensions/kodrix-*`，不再使用 Python + pywebview。
 
-| 能力 | 扩展 | 说明 |
+| 项 | 值 |
+|----|-----|
+| 基线 | VS Code **1.128.0** · Electron **42.x** · Node 见 `.nvmrc`（`24.17.0`） |
+| 产品数据目录 | `product.json` → `.kodrix` |
+| 迁移配置目录 | `~/.kodrix`（或遗留 `~/.cursormini`）；可设 `KODRIX_CONFIG_DIR` / `CURSORMINI_CONFIG_DIR`（须落在用户主目录内） |
+
+日常开发与排障：`AGENTS.md`、`REPAIR-NOTES.md`、`README.md`。
+
+## 扩展分工
+
+| 扩展 | 职责 |
+|------|------|
+| `kodrix-local` | 模型供应商 / BYOK、Cursormini 配置迁移、Cursor 导入、快捷键与 Cursor 对标默认（多数能力编排到 Copilot） |
+| `kodrix-skills` | Skill 市场（侧栏 + URL / GitHub / 导入 `~/.cursor/skills`） |
+| `kodrix-agent-os` | Idea Flow、Spec、Wiki、Crew、Router、Learning、Hub、本地 `@codebase` / 可选 Tab FIM 等 |
+| Copilot（内置） | Chat / Agent / NES / `#codebase` / Background & Cloud Agent 会话类型 |
+
+## 已迁移能力（Cursormini → Kodrix）
+
+| 能力 | 落点 | 说明 |
 |------|------|------|
-| 本地大模型（Ollama / llama.cpp / LM Studio） | `minicode-local` | Copilot BYOK Custom Endpoint + Ollama 端点 |
-| 云端 API（DeepSeek / Anthropic / Gemini / 智谱 / 通义等） | `minicode-local` | Copilot BYOK Custom Endpoint / 原生供应商 |
-| 多模型路由 `model_routes` | `minicode-local` | `minicode.modelRoutes` + Plan/Implement 模型设置 |
-| MCP 服务器 | `minicode-local` | 迁移到用户配置 `User/mcp.json`（合并已有 servers） |
-| Skill 技能市场 | `minicode-skills` | 侧边栏「Skill 市场」+ GitHub/URL 安装 |
-| TRAE SOLO 模式 | `minicode-solo` | Chat 参与者 `@solo`：规划 → 确认 → **Agent 模式构建** |
-| Agent 模式 | Copilot 内置 | Plan Agent、`/plan`、Explore 子代理、MCP、Skill 工具 |
-| **Agents 窗口** | VS Code Sessions 工作台 | 多 Agent 并行会话、`minicode-local` 默认启用 Local Agent |
-| 首次启动引导 | `minicode-local` | 欢迎向导 + 自动配置迁移 |
+| 本地模型（Ollama / llama.cpp / LM Studio） | `kodrix-local` | Copilot BYOK（Ollama / Custom Endpoint） |
+| 云端 API（DeepSeek / OpenAI / Anthropic / Gemini / 智谱 / 通义等） | `kodrix-local` | 预设 + Custom Endpoint / 原生供应商 |
+| 多模型路由 `model_routes` | `kodrix.modelRoutes` + Copilot 模型键 | 见下方对照表 |
+| MCP 服务器 | `%APPDATA%/Kodrix/User/mcp.json`（dev：`code-oss-dev`） | 合并已有 `servers` |
+| Skill | `kodrix-skills` → `~/.agents/skills/` | 市场 / URL / GitHub / Cursor skills 导入 |
+| Agent / Plan | Copilot | Ask / Edit / Agent、`/plan`、工具与 Skill |
+| Agents 窗口 | VS Code Sessions + `kodrix-local` 封装 | 多 Agent 并行、Local / CLI / Cloud |
+| 首次启动 | 欢迎向导 | `kodrix.migrateOnFirstRun` / `kodrix.importCursorOnFirstRun`（默认开） |
 
-## Cursor 对标能力（`minicode-local`）
+## Cursor 对标（`kodrix-local` + Copilot）
 
-| Cursor 能力 | Minicode 实现 | 命令 / 配置 |
-|-------------|---------------|-------------|
-| Cursor Tab 补全 | Copilot Inline + **NES** | `minicode.features.tabCompletion` |
-| Background Agent | Copilot CLI (`copilotcli`) | `Minicode: 在 Background Agent 中继续` |
-| Cloud Agent | Copilot Coding Agent | `Minicode: 在 Cloud Agent 中继续` |
-| Composer 多文件 UI | Agent + 检查点 + Diff 审阅 + 会话侧栏 | `Minicode: 打开 Composer` · `minicode.features.composerUI` |
-| User Rules | `.cursor/rules` + `.cursorrules` + **SQLite** `state.vscdb` | `Minicode: 从 Cursor 导入` → `~/.minicode/instructions/` |
-| @Codebase 向量索引 | Copilot semantic workspace index | `#codebase` · `Minicode: 构建代码库语义索引` |
-| **Agents 窗口** | VS Code `vs/sessions` 工作台 | `Ctrl+Shift+A` · 紫色药丸 · `minicode.features.agentsWindow` |
-| **Cursor 3.0 Agent 中心** | 全套默认 + 布局编排 | `Minicode: 应用 Cursor 3.0 Agent 中心体验` |
-| **并行会话 / Handoff** | 会话侧栏 + 输入框提示 | `agentFirstLayout` · `handoffTip` · `agentHostPriority` |
+多数「Cursor 同款」是 **命令 / 键位 / 默认配置编排到 Copilot**，不是在 `kodrix-local` 内重写一套。
 
-从 Cursor 导入时会合并：
+| Cursor | Kodrix | 命令 / 配置 |
+|--------|--------|-------------|
+| Tab 补全 + NES | **默认**：Copilot Inline + NES | `kodrix.features.tabCompletion` |
+| （可选）本地 Tab/FIM | `kodrix-agent-os`，**默认关** | `kodrix.tabCompletion.enabled`（避免与 Copilot 冲突） |
+| Ctrl+K 行内编辑 | Inline Chat | `Kodrix: 行内编辑（Cursor Ctrl+K）` · `Ctrl+K` |
+| Ctrl+L / Ctrl+I | 打开 Chat / Agent | `Ctrl+L` · `Ctrl+I`（`mode: agent`） |
+| Composer | Agent + 检查点 + Diff + 会话侧栏 | `Kodrix: 打开 Composer（多文件 Agent）` · `kodrix.features.composerUI` |
+| Background Agent | Copilot CLI 会话 | `Kodrix: 在 Background Agent 中继续` |
+| Cloud Agent | Copilot Coding Agent | `Kodrix: 在 Cloud Agent 中继续` |
+| @Codebase | **双路径**（见下） | |
+| User Rules | instructions + SQLite | `Kodrix: 从 Cursor 导入（Rules / MCP / Skills）` |
+| Agents 窗口 | Sessions + `kodrix-local` | `Ctrl+Shift+A` · `kodrix.features.agentsWindow` |
+| Cursor 3.0 布局 | 默认配置编排 | `Kodrix: 应用 Cursor 3.0 Agent 中心体验` |
 
-- `~/.cursor/mcp.json` → Minicode `User/mcp.json`
-- `~/.cursor/skills/` → `~/.agents/skills/`
-- `.cursor/rules` / `~/.cursor/rules` → `chat.instructionsFilesLocations`
-- `state.vscdb` 键 `aicontext.personalContext` → `cursor-user-rules.instructions.md`
+### @Codebase 双路径
 
-## 首次启动
+| 路径 | 入口 | 说明 |
+|------|------|------|
+| Copilot `#codebase` / workspace index | `Kodrix: 添加 @Codebase 上下文` · `构建代码库语义索引` | 走 Copilot；通常需 GitHub 登录 |
+| 本地 `kodrix.codebase` | 聊天参与者 `@kodrix.codebase`（`/def` `/refs` 等）· `kodrix.codebase.buildIndex` | `kodrix-agent-os` 本地索引，不依赖 GitHub |
 
-1. 构建并启动 Minicode（见下方「开发构建」）
-2. 首次启动会显示欢迎向导，并自动从 `~/.cursormini/`、`~/.minicode/` 或 **Cursor**（`~/.cursor`）迁移配置（API Key 会等待 Copilot 就绪后写入 BYOK；Agent 默认开关仅首次自动迁移时应用）
-3. 也可手动执行：**Minicode: 迁移配置** 或 **Minicode: 从 Cursor 导入**
+一键套用对标默认：`Kodrix: 应用 Cursor 对标功能默认配置`。
 
-### 配置对照
+相关开关（`kodrix.features.*`，均默认 `true`）：`tabCompletion`、`backgroundAgents`、`cloudAgents`、`composerUI`、`codebaseIndex`、`codebaseIndexAutoBuild`、`agentsWindow`、`agentFirstLayout`、`agentHostPriority`、`handoffTip`。
 
-| 遗留配置 (`~/.cursormini/` 或 `~/.minicode/`) | Minicode (VS Code) |
-|-----------------------------------------------|-------------------|
-| `providers.json` + `config.json` | BYOK Ollama / Custom Endpoint |
-| `model_routes.plan` | `chat.planAgent.defaultModel` |
+## 首次启动与手动迁移
+
+1. `.\debug.bat`（或打包版）启动 Kodrix  
+2. 欢迎向导会尝试：
+   - 从 `~/.kodrix/` 或 `~/.cursormini/` 迁模型 / 路由 / MCP / Agent 开关  
+   - 从 `~/.cursor` 导入 Rules / MCP / Skills / SQLite User Rules  
+3. 手动命令：
+   - `Kodrix: 迁移配置（Cursormini / Kodrix）`
+   - `Kodrix: 从 Cursor 导入（Rules / MCP / Skills）`
+   - `Kodrix: 打开欢迎向导`
+
+注意：
+
+- API Key 在 Copilot 就绪后写入 BYOK。  
+- **Agent 相关默认开关仅在首次自动迁移时写入**（`applyAgentDefaults: true`）；手动「迁移配置」不会重写这批开关。
+
+### Cursormini 配置对照
+
+| 遗留（`~/.cursormini/` 或 `~/.kodrix/`） | Kodrix |
+|-----------------------------------------|--------|
+| `providers.json` + `config.json` | BYOK Ollama / Custom Endpoint（全部供应商，不仅 active） |
+| `model_routes.plan` | `chat.planAgent.defaultModel` + `kodrix.modelRoutes` |
 | `model_routes.agent` | `github.copilot.chat.implementAgent.model` |
 | `model_routes.code` | `chat.exploreAgent.defaultModel` |
 | `model_routes.fast` | `chat.utilitySmallModel` |
-| `mcp_servers` | `%APPDATA%/Minicode/User/mcp.json`（`servers` 字段） |
+| `mcp_servers` | `User/mcp.json` → `servers` |
 | `agent_plan_mode: review` | `github.copilot.chat.switchAgent.enabled` |
-| `plugins/` | `~/.agents/skills/<name>/SKILL.md` |
+| `plugins/` | **未自动迁移**；请手动拷到 `~/.agents/skills/<name>/SKILL.md` |
 
-## 使用说明
+### Cursor 导入映射
 
-### 模型供应商
+| Cursor | Kodrix |
+|--------|--------|
+| `~/.cursor/mcp.json` | `User/mcp.json`（合并） |
+| `~/.cursor/skills/` | `~/.agents/skills/` |
+| `.cursor/rules`、`~/.cursor/rules` | `chat.instructionsFilesLocations`；副本可落 `~/.kodrix/instructions/` |
+| 工作区 `.cursorrules` | `.github/copilot-instructions.md` |
+| `state.vscdb`（含 `aicontext.personalContext` 等） | `~/.kodrix/instructions/cursor-user-rules.instructions.md` |
+| 部分 `settings.json` 提示项 | 如 inlineSuggest / chat.repoInfo 等（见 `cursorImport.ts`） |
 
-- 命令面板：`Minicode: 浏览模型供应商预设` 或 `Minicode: AI 供应商管理`
-- 应用预设后会自动同步 Copilot 默认模型与 `minicode.modelRoutes`（空路由项）
-- 「设为当前」会重新注册 BYOK 并同步默认模型
-- `providers.json` 中**全部供应商**都会迁移（不仅 active）
-- Copilot 聊天面板：Manage Models → 选择 Ollama、Custom Endpoint 或原生供应商
+## 模型供应商
 
-### Skill 市场
+预设共 **13** 个（`extensions/kodrix-local/resources/presets.json`）：
 
-- 资源管理器 → **Skill 市场**
-- 命令：`Minicode: 从 URL 安装 Skill`、`Minicode: 导入 ~/.cursor/skills`
+- **本地（4）**：llama.cpp、Ollama、LM Studio、自定义本地  
+- **云端（9）**：DeepSeek、OpenAI、Anthropic、Gemini、OpenRouter、硅基流动、智谱、通义、自定义  
 
-### SOLO Builder
+命令：
 
-- 命令：`Minicode: 启动 SOLO Builder`
-- 或在聊天中：`@solo 用 React 做一个待办应用`
-- 子命令：`@solo /plan`（仅规划）、`@solo /build`（切换 Agent 模式构建）、`@solo /templates`（模板列表）
+- `Kodrix: 浏览模型供应商预设` / `AI 供应商管理` / `应用模型预设`  
+- 应用后会同步 Copilot 默认模型与空的 `kodrix.modelRoutes` 项  
+- Chat → Manage Models → 选 Ollama、Custom Endpoint 或原生供应商  
 
-构建阶段不会在当前 `@solo` 对话里直接写文件，而是打开 **Copilot Agent** 并注入构建提示词，由 Agent 调用编辑/终端工具完成。
+## Skill 市场（`kodrix-skills`）
 
-### Agent 模式
+- 侧栏 **Skill 市场**  
+- `Kodrix: 从 URL 安装 Skill` · `搜索 GitHub Skills` · `导入 ~/.cursor/skills`  
+- 仓库内示例包：`marketplace/packages/`（`catalog.json`）
 
-- **Ask**：聊天面板 Ask 模式
-- **Edit**：Inline Chat / 编辑模式
-- **Agent**：Agent 模式 + 工具调用
-- **Plan 审阅**：`/plan` 或 Plan Agent，确认后再执行
-- **Skills**：对话中 `@skill` 或自动匹配 `SKILL.md`
+## Agent OS（`kodrix-agent-os`，超出 Cursor 基线）
 
-## Windows 构建环境（必读）
+| 能力 | 示例命令 |
+|------|----------|
+| Idea Canvas / Vibe | `打开 Idea Canvas（想法→产品）` · `Vibe Coding — 一句话生成项目` |
+| Spec 工作台 | `新建 Spec（需求→设计→任务）` · Spec 三栏工作台相关命令 |
+| Repo Wiki / Memory | `生成 Repo Wiki` · `查看项目 Memory` |
+| Crew / Hub / Router | `创建 Agent Crew（多智能体编排）` · `打开 Kodrix Hub（Agent 指挥中心）` · `智能路由（自动选 Spec/Plan/Agent/Ask）` |
+| Learning | `Learning 学习仪表盘` · Session Learning Hook 相关命令 |
+| 本地 @codebase | 聊天参与者 `kodrix.codebase`（`/def` `/refs` 等） |
+| 其它（按需） | Kanban、Arena、ACP、Checkpoint、Terminal AI、Subagent 等（命令面板搜 `Kodrix`） |
 
-在 Windows 上 `npm install` 失败时，日志里若出现 **`gyp ERR! find VS`** 或 **`@vscode/windows-mutex` node-gyp rebuild**，说明缺少 **C++ 原生模块编译环境**。`npm warn deprecated` 和 `.npmrc` 的 `Unknown project config` **可忽略**。
+## 快捷键（Kodrix 默认）
 
-### 1. 安装 Visual Studio Build Tools（必须）
+| 键 | 作用 |
+|----|------|
+| `Ctrl+L` | 打开 Chat |
+| `Ctrl+I` | 打开 Agent 模式 Chat |
+| `Ctrl+K` | 行内编辑 |
+| `Ctrl+Shift+L` | 选区加入聊天 |
+| `Ctrl+Shift+A` | 打开 Agents 窗口 |
+| `Ctrl+Shift+Alt+A` | 在 Agents 窗口打开当前工作区 |
 
-任选一种方式：
+## 开发构建（摘要）
 
-**方式 A — Visual Studio Installer（推荐）**
-
-1. 下载 [Visual Studio Build Tools 2026](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-2. 勾选工作负载：**使用 C++ 的桌面开发**（Desktop development with C++）
-3. 右侧确保包含 **MSVC**、**Windows SDK**、**C++ CMake tools**
-4. 安装完成后 **重启电脑**
-
-**方式 B — winget（管理员 PowerShell）**
-
-```powershell
-winget install Microsoft.VisualStudio.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```batch
+.\debug.bat              rem 日常：esbuild + 启动
+.\debug.bat -Watch       rem 改 src 热更新
+.\debug-rebuild.bat      rem 全量编译后启动
+.\build.bat              rem Windows 安装包
 ```
 
-安装后验证（推荐一键脚本）：
-
-```powershell
-.\scripts\verify-windows-build-env.ps1
-```
-
-或手动用 vswhere（**`-property` 每次只能查一个字段**，不能用逗号拼接）：
-
-```powershell
-# 名称
-& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property displayName
-# 路径
-& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-# 一次看全部（JSON）
-& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json
-```
-
-应输出类似 `Visual Studio Build Tools 2026` 或 `Visual Studio Community 2026`。
-
-**VS 2026 安装在 D: 等非默认盘符时**，安装依赖前先设置环境变量：
-
-```powershell
-.\scripts\verify-windows-build-env.ps1 -SetEnv   # 自动写入当前会话
-# 或手动（路径以 vswhere 输出为准）：
-$env:vs2026_install = "D:\Program Files\Microsoft Visual Studio\18\Community"
-```
-
-若你安装的是较旧版本，同样支持 Visual Studio 2022 / 2019（`npm install` 会通过 vswhere 或 `%ProgramFiles%\Microsoft Visual Studio\{2026|18|2022|17|2019|16}` 检测）。
-
-### 2. Node.js 版本
-
-项目 `.nvmrc` 为 **24.17.0**。你当前的 24.14.1 通常可用；若仍异常可安装 [Node 24.17.0](https://nodejs.org/) 或使用 nvm-windows。
-
-另需 **Python 3.x**（node-gyp 用，你已有 3.13 即可）。
-
-### 3. 清理被占用的 node_modules（EBUSY）
-
-若出现 `EBUSY: resource busy or locked`：
-
-1. 关闭所有打开本仓库的程序（含 Cursor、其他终端、正在运行的 Code/Electron）
-2. 在新 PowerShell 中执行：
-
-```powershell
-cd D:\minicode
-# 若仍删不掉，可先结束 node 进程
-Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue
-npm install
-```
-
-### 4. 完整构建流程
-
-```powershell
-cd D:\minicode
-npm install          # 首次约 10–30 分钟，需联网
-npm run compile      # 完整编译（较慢）
-.\scripts\code.bat   # 启动 Minicode 开发版
-```
-
-### 4b. 免编译快速调试（推荐日常开发）
-
-首次或 `out/` 不存在时自动走 **esbuild 快速构建**（`build-fast`，比 `compile` 快很多）：
-
-```powershell
-.\debug.bat              # 快速准备 + 启动（跳过已禁用的内置扩展下载）
-.\watch-dev.bat          # 后台 watch-transpile + 启动（改 src 自动增量编译）
-.\compile-ext.bat        # 仅重编译四个 minicode-* 扩展
-.\debug.bat -FullCompile # 强制完整 compile（排障用）
-```
-
-### 4c. 一键打包 Windows 安装程序 (.exe)
-
-```powershell
-.\build.bat                        # 自动检测 x64/arm64，生成用户版安装包
-.\build.bat -Target system         # 系统级安装包
-npm run package:win32              # 同上（npm 入口）
-```
-
-产物路径：
-
-- 便携目录：`..\VSCode-win32-x64\`（仓库同级）
-- 安装包：`dist\Minicode-<version>-x64-UserSetup.exe`
-
-### 5. 无本地编译环境的替代方案
-
-若暂时不想装 VS Build Tools，可用 **Dev Container**（需 Docker Desktop，8GB+ 内存）：
-
-- 在 VS Code 中：**Dev Containers: Clone Repository in Container Volume**
-- 见 `.devcontainer/README.md`
-
-## 开发构建
+仅编 Kodrix 扩展：
 
 ```bash
-npm install
-npm run compile
-# 或仅编译 Minicode 扩展：
-npx gulp compile-extension:minicode-local
-npx gulp compile-extension:minicode-skills
-npx gulp compile-extension:minicode-solo
+npx gulp compile-extension:kodrix-local
+npx gulp compile-extension:kodrix-skills
+npx gulp compile-extension:kodrix-agent-os
 ```
 
-启动开发版：
+Node 需匹配 `.nvmrc`（同 major 且 ≥ `24.17.0`，npm &lt; 12）。Windows 缺 VS Build Tools / native 模块时见 `REPAIR-NOTES.md`。
 
-```bash
-# Windows — 快速调试（推荐）
-.\debug.bat
-# 或增量 watch + 启动
-.\watch-dev.bat
-# 完整预检启动
-.\scripts\code.bat
-# macOS / Linux
-./scripts/code.sh
-```
+## 按设计未自研迁移
 
-打包 Windows 安装程序：
+由 VS Code / Copilot 承担，或已用对等能力替代：
 
-```bash
-.\build.bat
-# 或
-npm run package:win32
-```
+- CodeGeeX Tab → Copilot 补全 + NES（可选再开 `kodrix.tabCompletion`）  
+- 自研 Keep/Undo 审查条 → Copilot Diff + 检查点  
+- pywebview 桌面壳 → Electron  
 
-## 扩展目录
-
-```
-extensions/
-├── minicode-local/    # 模型供应商 + 配置迁移 + 欢迎向导
-├── minicode-skills/   # Skill 市场
-└── minicode-solo/     # SOLO Builder
-```
-
-## 按设计未迁移
-
-以下能力由 VS Code / Copilot 原生提供，或暂不纳入 Minicode 自研实现：
-
-- CodeGeeX Tab 补全（可用 Copilot 补全 + NES 替代）
-- 自研审查条 Keep/Undo（可用 Copilot diff 审阅 + 检查点替代）
-- pywebview 桌面壳（已由 Electron 替代）
-
-以下能力已通过 Copilot 对标启用（见 `minicode.features.*`）：
-
-- **@Codebase** 向量索引 → Copilot `#codebase` + workspace semantic index
-- **Background / Cloud Agent** → Copilot CLI / Copilot Coding Agent
-- **Composer 多文件 UI** → Agent 模式 + 检查点 + Diff 审阅
-
-原 `Cursormini/app/` 已在 Phase 5 移除；仓库为 VS Code 源码树 + `marketplace/packages/` + `extensions/minicode-*`。
-
+原 `Cursormini/app/` 已移除；能力在 `marketplace/packages/` 与 `extensions/kodrix-*`。

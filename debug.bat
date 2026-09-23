@@ -1,17 +1,20 @@
 @echo off
 rem ============================================================================
-rem  Minicode Development Launcher
+rem  Kodrix Development Launcher（需求1：带实时日志的控制台调试启动）
 rem
 rem  用法:
 rem    .\debug.bat                   快速启动 (esbuild transpile)
-rem    .\debug.bat -Prepare          仅准备环境，不启动应用
 rem    .\debug.bat -Watch            启动 + 文件监听自动重编译
-rem    .\debug.bat -FullCompile      强制全量 recompile 后启动
+rem
+rem  相关入口:
+rem    .\debug-rebuild.bat           全量重编译后启动（需求3）
+rem    .\build.bat                   一键打 EXE 安装包（需求2）
 rem
 rem  内部委托: scripts/dev-fast.ps1
+rem  高级参数仍可用: -Prepare / -FullCompile（debug-rebuild.bat 即 -FullCompile）
 rem ============================================================================
 chcp 65001 > nul 2>&1
-title Minicode Fast Debug
+title Kodrix Fast Debug
 setlocal
 
 pushd %~dp0

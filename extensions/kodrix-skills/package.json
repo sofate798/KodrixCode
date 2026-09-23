@@ -1,0 +1,124 @@
+{
+  "name": "kodrix-skills",
+  "displayName": "Kodrix Skill 市场",
+  "description": "Skill 技能插件市场 — 内置目录、GitHub/npm 搜索、从 URL 安装",
+  "version": "1.0.0",
+  "publisher": "kodrix",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:kodrix.skillsMarketplace",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension",
+  "contributes": {
+    "localizations": [
+      {
+        "languageId": "zh-cn",
+        "languageName": "Chinese (Simplified)",
+        "localizedLanguageName": "简体中文",
+        "translations": [
+          {
+            "id": "kodrix.kodrix-skills",
+            "path": "package.nls.zh-cn.json"
+          }
+        ]
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "kodrix.skillsMarketplace",
+          "name": "Skill 市场",
+          "when": "true"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "kodrix.skills.refresh",
+        "title": "刷新",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "kodrix.skills.install",
+        "title": "安装 Skill",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "kodrix.skills.installFromUrl",
+        "title": "从 URL 安装 Skill",
+        "category": "Kodrix"
+      },
+      {
+        "command": "kodrix.skills.importCursor",
+        "title": "导入 ~/.cursor/skills",
+        "category": "Kodrix"
+      },
+      {
+        "command": "kodrix.skills.searchGithub",
+        "title": "搜索 GitHub Skills",
+        "category": "Kodrix"
+      },
+      {
+        "command": "kodrix.skills.openMarketplace",
+        "title": "打开 Skill 市场",
+        "category": "Kodrix"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "kodrix.skills.refresh",
+          "when": "view == kodrix.skillsMarketplace",
+          "group": "navigation"
+        },
+        {
+          "command": "kodrix.skills.installFromUrl",
+          "when": "view == kodrix.skillsMarketplace",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "kodrix.skills.install",
+          "when": "view == kodrix.skillsMarketplace && viewItem == skillItem",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Kodrix Skills",
+      "properties": {
+        "kodrix.skills.installDir": {
+          "type": "string",
+          "default": "~/.agents/skills",
+          "description": "Skill 安装目录（每个 Skill 为子文件夹，内含 SKILL.md）"
+        },
+        "kodrix.skills.registryUrls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "额外远程 Skill 目录 URL"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:kodrix-skills",
+    "watch": "gulp watch-extension:kodrix-skills"
+  },
+  "devDependencies": {
+    "@types/node": "24.x"
+  },
+  "dependencies": {
+    "@parcel/watcher": "^2.5.6"
+  }
+}

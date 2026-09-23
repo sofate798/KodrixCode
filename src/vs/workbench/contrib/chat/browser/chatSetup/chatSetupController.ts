@@ -32,12 +32,18 @@ import { IDefaultAccount } from '../../../../../base/common/defaultAccount.js';
 import { IDefaultAccountService } from '../../../../../platform/defaultAccount/common/defaultAccount.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 
+const emptyProvider = { id: '', name: '' };
 const defaultChat = {
 	chatExtensionId: product.defaultChatAgent?.chatExtensionId ?? '',
-	provider: product.defaultChatAgent?.provider ?? { default: { id: '', name: '' }, enterprise: { id: '', name: '' }, apple: { id: '', name: '' }, google: { id: '', name: '' } },
+	provider: {
+		default: product.defaultChatAgent?.provider?.default ?? emptyProvider,
+		enterprise: product.defaultChatAgent?.provider?.enterprise ?? emptyProvider,
+		apple: product.defaultChatAgent?.provider?.apple ?? emptyProvider,
+		google: product.defaultChatAgent?.provider?.google ?? emptyProvider
+	},
 	providerUriSetting: product.defaultChatAgent?.providerUriSetting ?? '',
 	completionsAdvancedSetting: product.defaultChatAgent?.completionsAdvancedSetting ?? '',
-};
+}
 
 export interface IChatSetupControllerOptions {
 	readonly forceSignIn?: boolean;

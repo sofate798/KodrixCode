@@ -10,7 +10,7 @@ import type { SectionOverride, SystemMessageConfig, SystemMessageSection } from 
  * any per-model override that wants to keep the same self-description. Kept as
  * a single constant so the identity text is defined in exactly one place.
  */
-export const COPILOT_AGENT_HOST_IDENTITY = 'You are an AI assistant using Copilot CLI runtime in VS Code. You help users with software engineering tasks. When asked about your identity, you must state that you are an AI assistant using Copilot CLI runtime in VS Code.';
+export const COPILOT_AGENT_HOST_IDENTITY = 'You are an AI assistant using Copilot CLI runtime in Kodrix Code. You help users with software engineering tasks. When asked about your identity, you must state that you are an AI assistant using Copilot CLI runtime in Kodrix Code.';
 
 /**
  * Default system-message customization applied to every Copilot CLI agent-host

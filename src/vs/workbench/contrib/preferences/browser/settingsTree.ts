@@ -24,6 +24,7 @@ import { ObjectTreeModel } from '../../../../base/browser/ui/tree/objectTreeMode
 import { ITreeFilter, ITreeModel, ITreeNode, ITreeRenderer, TreeFilterResult, TreeVisibility } from '../../../../base/browser/ui/tree/tree.js';
 import { Action, IAction, Separator } from '../../../../base/common/actions.js';
 import { distinct } from '../../../../base/common/arrays.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -72,6 +73,7 @@ import { ISettingOverrideClickEvent, SettingsTreeIndicatorsLabel, getIndicatorsL
 import { ITOCEntry, ITOCFilter } from './settingsLayout.js';
 import { ISettingsEditorViewState, SettingsTreeElement, SettingsTreeGroupChild, SettingsTreeGroupElement, SettingsTreeNewExtensionsElement, SettingsTreeSettingElement, inspectSetting, objectSettingSupportsRemoveDefaultValue, settingKeyToDisplayFormat } from './settingsTreeModels.js';
 import { ExcludeSettingWidget, IBoolObjectDataItem, IIncludeExcludeDataItem, IListDataItem, IObjectDataItem, IObjectEnumOption, IObjectKeySuggester, IObjectValueSuggester, IncludeSettingWidget, ListSettingWidget, ObjectSettingCheckboxWidget, ObjectSettingDropdownWidget, ObjectValue, SettingListEvent } from './settingsWidgets.js';
+import { ISettingsEditorRendererService, RenderedSettingsEditorPart } from './settingsEditorRendererService.js';
 
 const $ = DOM.$;
 
@@ -742,6 +744,11 @@ interface ISettingExtensionToggleItemTemplate extends ISettingItemTemplate<undef
 	dismissButton: Button;
 }
 
+interface ISettingCustomItemTemplate extends ISettingItemTemplate<undefined> {
+	webviewParent: HTMLElement;
+	placeholderElement: HTMLElement;
+}
+
 interface ISettingTextItemTemplate extends ISettingItemTemplate<string> {
 	inputBox: InputBox;
 	validationErrorMessageElement: HTMLElement;
@@ -804,6 +811,7 @@ const SETTINGS_COMPLEX_OBJECT_TEMPLATE_ID = 'settings.complexObject.template';
 const SETTINGS_NEW_EXTENSIONS_TEMPLATE_ID = 'settings.newExtensions.template';
 const SETTINGS_ELEMENT_TEMPLATE_ID = 'settings.group.template';
 const SETTINGS_EXTENSION_TOGGLE_TEMPLATE_ID = 'settings.extensionToggle.template';
+const SETTINGS_CUSTOM_TEMPLATE_ID = 'settings.custom.template';
 
 export interface ISettingChangeEvent {
 	key: string;
@@ -2196,6 +2204,109 @@ class SettingsExtensionToggleRenderer extends AbstractSettingRenderer implements
 	}
 }
 
+class SettingCustomRenderer extends AbstractSettingRenderer implements ITreeRenderer<SettingsTreeSettingElement, never, ISettingCustomItemTemplate> {
+	templateId = SETTINGS_CUSTOM_TEMPLATE_ID;
+
+	constructor(
+		settingActions: IAction[],
+		disposableActionFactory: (setting: ISetting, settingTarget: SettingsTarget) => IAction[],
+		@IThemeService themeService: IThemeService,
+		@IContextViewService contextViewService: IContextViewService,
+		@IOpenerService openerService: IOpenerService,
+		@IInstantiationService instantiationService: IInstantiationService,
+		@ICommandService commandService: ICommandService,
+		@IContextMenuService contextMenuService: IContextMenuService,
+		@IKeybindingService keybindingService: IKeybindingService,
+		@IConfigurationService configService: IConfigurationService,
+		@IExtensionService extensionsService: IExtensionService,
+		@IExtensionsWorkbenchService extensionsWorkbenchService: IExtensionsWorkbenchService,
+		@IProductService productService: IProductService,
+		@ITelemetryService telemetryService: ITelemetryService,
+		@IHoverService hoverService: IHoverService,
+		@IMarkdownRendererService markdownRendererService: IMarkdownRendererService,
+		@ISettingsEditorRendererService private readonly _settingsEditorRendererService: ISettingsEditorRendererService,
+	) {
+		super(settingActions, disposableActionFactory, themeService, contextViewService, openerService, instantiationService, commandService, contextMenuService, keybindingService, configService, extensionsService, extensionsWorkbenchService, productService, telemetryService, hoverService, markdownRendererService);
+	}
+
+	renderTemplate(_container: HTMLElement): ISettingCustomItemTemplate {
+		const common = super.renderCommonTemplate(null, _container, 'custom');
+		const webviewParent = DOM.append(common.controlElement, $('.setting-item-custom-webview'));
+		webviewParent.classList.add(AbstractSettingRenderer.CONTROL_CLASS);
+		webviewParent.style.minHeight = '120px';
+		webviewParent.style.width = '100%';
+
+		const placeholderElement = DOM.append(common.controlElement, $('.setting-item-custom-placeholder'));
+		placeholderElement.style.display = 'none';
+
+		const template: ISettingCustomItemTemplate = {
+			...common,
+			webviewParent,
+			placeholderElement,
+		};
+		this.addSettingElementFocusHandler(template);
+		return template;
+	}
+
+	renderElement(element: ITreeNode<SettingsTreeSettingElement, never>, index: number, templateData: ISettingCustomItemTemplate): void {
+		super.renderSettingElement(element, index, templateData);
+	}
+
+	protected renderValue(dataElement: SettingsTreeSettingElement, template: ISettingCustomItemTemplate, onChange: (_: undefined) => void): void {
+		template.elementDisposables.clear();
+		DOM.clearNode(template.webviewParent);
+		template.placeholderElement.style.display = 'none';
+		template.placeholderElement.textContent = '';
+
+		const viewType = dataElement.setting.renderer;
+		if (!viewType) {
+			this.showPlaceholder(template, localize('settings.customRendererMissing', "No custom renderer is configured for this setting."));
+			return;
+		}
+
+		const cts = new CancellationTokenSource();
+		template.elementDisposables.add(toDisposable(() => cts.dispose(true)));
+
+		let rendered: RenderedSettingsEditorPart | undefined;
+		template.elementDisposables.add(toDisposable(() => {
+			rendered?.dispose();
+			rendered = undefined;
+		}));
+
+		this._settingsEditorRendererService.renderSetting(viewType, template.webviewParent, {
+			key: dataElement.setting.key,
+			value: dataElement.value,
+		}, cts.token).then(part => {
+			if (cts.token.isCancellationRequested) {
+				part.dispose();
+				return;
+			}
+			rendered = part;
+			template.elementDisposables.add(part);
+			template.elementDisposables.add(part.onDidChangeHeight(() => {
+				const height = template.containerElement.clientHeight;
+				if (height) {
+					this._onDidChangeSettingHeight.fire({
+						element: dataElement,
+						height,
+					});
+				}
+			}));
+		}, err => {
+			if (cts.token.isCancellationRequested) {
+				return;
+			}
+			onUnexpectedError(err);
+			this.showPlaceholder(template, localize('settings.customRendererFailed', "Failed to load custom settings UI for {0}.", viewType));
+		});
+	}
+
+	private showPlaceholder(template: ISettingCustomItemTemplate, message: string): void {
+		template.placeholderElement.style.display = '';
+		template.placeholderElement.textContent = message;
+	}
+}
+
 export class SettingTreeRenderers extends Disposable {
 	readonly onDidClickOverrideElement: Event<ISettingOverrideClickEvent>;
 
@@ -2248,6 +2359,7 @@ export class SettingTreeRenderers extends Disposable {
 		const actionFactory = (setting: ISetting, settingTarget: SettingsTarget) => this.getActionsForSetting(setting, settingTarget);
 		const emptyActionFactory = (_: ISetting) => [];
 		const extensionRenderer = this._instantiationService.createInstance(SettingsExtensionToggleRenderer, [], emptyActionFactory);
+		const customRenderer = this._instantiationService.createInstance(SettingCustomRenderer, this.settingActions, actionFactory);
 		const settingRenderers = [
 			this._instantiationService.createInstance(SettingBoolRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingNumberRenderer, this.settingActions, actionFactory),
@@ -2261,7 +2373,8 @@ export class SettingTreeRenderers extends Disposable {
 			this._instantiationService.createInstance(SettingEnumRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingObjectRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingBoolObjectRenderer, this.settingActions, actionFactory),
-			extensionRenderer
+			extensionRenderer,
+			customRenderer,
 		];
 
 		this.onDidClickOverrideElement = Event.any(...settingRenderers.map(r => r.onDidClickOverrideElement));
@@ -2539,6 +2652,10 @@ class SettingsTreeDelegate extends CachedListVirtualDelegate<SettingsTreeGroupCh
 				return SETTINGS_EXTENSION_TOGGLE_TEMPLATE_ID;
 			}
 
+			if (element.valueType === SettingValueType.Custom) {
+				return SETTINGS_CUSTOM_TEMPLATE_ID;
+			}
+
 			const invalidTypeError = element.isConfigured && getInvalidTypeError(element.value, element.setting.type);
 			if (invalidTypeError) {
 				return SETTINGS_COMPLEX_TEMPLATE_ID;
@@ -2614,7 +2731,9 @@ class SettingsTreeDelegate extends CachedListVirtualDelegate<SettingsTreeGroupCh
 			return 42;
 		}
 
-		return element instanceof SettingsTreeSettingElement && element.valueType === SettingValueType.Boolean ? 78 : 104;
+		return element instanceof SettingsTreeSettingElement && element.valueType === SettingValueType.Boolean ? 78
+			: element instanceof SettingsTreeSettingElement && element.valueType === SettingValueType.Custom ? 200
+				: 104;
 	}
 }
 

@@ -6,7 +6,7 @@ This document describes the AI customization experience: a management editor and
 
 ### File Structure
 
-The management editor lives in `vs/workbench` (shared between core VS Code and sessions):
+The management editor lives in `vs/workbench` (shared between core Kodrix Code and sessions):
 
 ```
 src/vs/workbench/contrib/chat/browser/aiCustomization/
@@ -24,7 +24,7 @@ src/vs/workbench/contrib/chat/browser/aiCustomization/
 ├── promptsServiceCustomizationItemProvider.ts  # Adapts IPromptsService → ICustomizationItemProvider
 ├── aiCustomizationListWidgetUtils.ts           # List item helpers (truncation, etc.)
 ├── aiCustomizationDebugPanel.ts                # Debug diagnostics panel
-├── aiCustomizationWorkspaceService.ts          # Core VS Code workspace service impl
+├── aiCustomizationWorkspaceService.ts          # Core Kodrix Code workspace service impl
 ├── customizationHarnessService.ts              # Core harness service impl (agent-gated)
 ├── customizationCreatorService.ts              # AI-guided creation flow
 ├── customizationGroupHeaderRenderer.ts         # Collapsible group header renderer
@@ -73,7 +73,7 @@ The first sidebar entry is a static `Overview` navigation item. It is styled lik
 
 The `IAICustomizationWorkspaceService` interface controls per-window behavior:
 
-| Property / Method | Core VS Code | Agent Sessions Window |
+| Property / Method | Core Kodrix Code | Agent Sessions Window |
 |----------|-------------|----------|
 | `managementSections` | All sections except Models | All sections except Models |
 | `isSessionsWindow` | `false` | `true` |
@@ -88,7 +88,7 @@ Storage answers "where did this come from?"; harness answers "who consumes it?".
 The service is defined in `common/customizationHarnessService.ts` which also provides:
 - **`CustomizationHarnessServiceBase`** — reusable base class handling active-harness state, the observable list
 - **`ISectionOverride`** — per-section UI customization: `commandId` (command invocation), `rootFile` + `label` (root-file creation), `typeLabel` (custom type name), `fileExtension` (override default), `rootFileShortcuts` (dropdown shortcuts).
-- **Factory functions** — `createVSCodeHarnessDescriptor`, `createCliHarnessDescriptor`, `createClaudeHarnessDescriptor`. The VS Code harness receives `[AICustomizationSources.extension, AICustomizationSources.builtin]` as extras; CLI and Claude in core receive `[]` (no extension source). Sessions CLI receives `[AICustomizationSources.builtin]`.
+- **Factory functions** — `createVSCodeHarnessDescriptor`, `createCliHarnessDescriptor`, `createClaudeHarnessDescriptor`. The Kodrix Code harness receives `[AICustomizationSources.extension, AICustomizationSources.builtin]` as extras; CLI and Claude in core receive `[]` (no extension source). Sessions CLI receives `[AICustomizationSources.builtin]`.
 - **Well-known root helpers** — `getCliUserRoots(userHome)` and `getClaudeUserRoots(userHome)` centralize the `~/.copilot`, `~/.claude`, `~/.agents` path knowledge.
 - **Filter helpers** — `matchesWorkspaceSubpath()` for segment-safe subpath matching; `matchesInstructionFileFilter()` for filename/path-prefix pattern matching.
 
@@ -100,7 +100,7 @@ Available harnesses:
 | `cli` | Copilot CLI | Restricts user roots to `~/.copilot`, `~/.claude`, `~/.agents` |
 | `claude` | Claude | Restricts user roots to `~/.claude`; hides Prompts + Plugins sections |
 
-In core VS Code, all three harnesses are registered but CLI and Claude only appear when their respective agents are registered (`requiredAgentId` checked via `IChatAgentService`). VS Code is the default.
+In core Kodrix Code, all three harnesses are registered but CLI and Claude only appear when their respective agents are registered (`requiredAgentId` checked via `IChatAgentService`). Kodrix Code is the default.
 In sessions, harnesses are accepted for any session type that has a registered content provider (checked via `IChatSessionsService.getContentProviderSchemes()`). AHP remote servers register directly via `registerExternalHarness`.
 
 Remote agent hosts can also register **external harnesses** dynamically. Each remote agent harness may contribute:
@@ -110,7 +110,7 @@ Remote agent hosts can also register **external harnesses** dynamically. Each re
 
 The Plugins section renders remote harness `itemProvider` entries with `type: 'plugin'` directly. This is separate from the prompt-file pipeline used for Agents, Skills, Instructions, Prompts, and Hooks.
 
-Local plugin discovery is aggregated by `IAgentPluginService` from priority-ordered discovery providers: configured paths, VS Code marketplace installs, extension-contributed plugins, and Copilot CLI installs. Each provider reports `undefined` until its initial scan completes; the service waits for every provider to complete before exposing plugins. Once ready, plugins are canonicalized into collision groups so the same plugin discovered from multiple install roots (for example a VS Code marketplace install and a Copilot CLI direct install) remains visible but only the highest-priority copy is enabled by default. Enabling one copy disables the other copies in the same collision group.
+Local plugin discovery is aggregated by `IAgentPluginService` from priority-ordered discovery providers: configured paths, Kodrix Code marketplace installs, extension-contributed plugins, and Copilot CLI installs. Each provider reports `undefined` until its initial scan completes; the service waits for every provider to complete before exposing plugins. Once ready, plugins are canonicalized into collision groups so the same plugin discovered from multiple install roots (for example a Kodrix Code marketplace install and a Copilot CLI direct install) remains visible but only the highest-priority copy is enabled by default. Enabling one copy disables the other copies in the same collision group.
 
 ### IHarnessDescriptor
 
@@ -147,7 +147,7 @@ The shared `applyStorageSourceFilter()` helper applies this filter to any `{uri,
 | Prompts | `[local, user, plugin, builtin]` |
 | Agents, Skills, Instructions | `[local, user, plugin, builtin]` |
 
-**Core VS Code filter behavior:**
+**Core Kodrix Code filter behavior:**
 
 Local harness: all types use `[local, user, extension, plugin, builtin]`. Items from the default chat extension (`productService.defaultChatAgent.chatExtensionId`) are grouped under "Built-in" via `groupKey` override in the list widget.
 
@@ -173,9 +173,9 @@ Claude additionally applies:
 - `workspaceSubpaths: ['.claude']` (instruction files matching `instructionFileFilter` are exempt)
 - `sectionOverrides`: Hooks → `copilot.claude.hooks` command; Instructions → "Add CLAUDE.md" primary, "Rule" type label, `.md` file extension
 
-### Built-in Extension Grouping (Core VS Code)
+### Built-in Extension Grouping (Core Kodrix Code)
 
-In core VS Code, customization items contributed by the default chat extension (`productService.defaultChatAgent.chatExtensionId`, typically `GitHub.copilot-chat`) are grouped under the "Built-in" header in the management editor list widget, separate from third-party "Extensions".
+In core Kodrix Code, customization items contributed by the default chat extension (`productService.defaultChatAgent.chatExtensionId`, typically `GitHub.copilot-chat`) are grouped under the "Built-in" header in the management editor list widget, separate from third-party "Extensions".
 
 `PromptsServiceCustomizationItemProvider` handles this via `applyBuiltinGroupKeys()`: it builds a URI→extension-ID lookup from prompt file metadata, then sets `groupKey: BUILTIN_STORAGE` on items whose extension matches the chat extension ID (checked via the shared `isChatExtensionItem()` utility). The underlying `storage` remains `PromptsStorage.extension` — the grouping is a `groupKey` override that keeps `applyStorageSourceFilter` working while visually distinguishing chat-extension items from third-party extension items.
 
@@ -229,7 +229,7 @@ Sessions overrides `PromptsService` via `AgenticPromptsService` (in `promptsServ
 - **Discovery**: `AgenticPromptFilesLocator` scopes workspace folders to the active session's worktree
 - **Built-in skills**: Discovers bundled `SKILL.md` files from `vs/sessions/skills/{name}/` and surfaces them with `PromptsStorage.builtin` storage type
 - **User override**: Built-in skills are omitted when a user or workspace skill with the same name exists
-- **Creation targets**: `getSourceFolders()` override replaces VS Code profile user roots with `~/.copilot/{subfolder}` for CLI compatibility
+- **Creation targets**: `getSourceFolders()` override replaces Kodrix Code profile user roots with `~/.copilot/{subfolder}` for CLI compatibility
 - **Hook folders**: Falls back to `.github/hooks` in the active worktree
 
 ### Built-in Skills

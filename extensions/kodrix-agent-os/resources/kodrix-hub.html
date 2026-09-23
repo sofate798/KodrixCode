@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
+	<link rel="stylesheet" href="{{codiconsCssUri}}">
+	<style>
+		.codicon { vertical-align: -0.15em; }
+		.qs-icon .codicon, .section-icon .codicon, .ac-icon .codicon, .sr-icon .codicon,
+		.es-icon .codicon, .step-icon .codicon, .empty-icon .codicon { font-size: 1em; }
+		.ki-ok { color: var(--success, #40c969); }
+		.ki-mid { color: var(--warn, #cca700); }
+		.ki-warn { color: #f5a623; }
+		.btn .codicon, button .codicon { margin-right: 4px; }
+		.ws-tag .codicon { margin-right: 4px; }
+	</style>
+<title>Kodrix Hub</title>
+	<style>
+		:root {
+			--bg: var(--vscode-editor-background, #1e1e1e);
+			--bg-elevated: var(--vscode-sideBar-background, #252526);
+			--fg: var(--vscode-editor-foreground, #cccccc);
+			--fg-dim: var(--vscode-descriptionForeground, #999999);
+			--border: var(--vscode-panel-border, #454545);
+			--accent: var(--vscode-button-background, #0e639c);
+			--accent-hover: var(--vscode-button-hoverBackground, #1177bb);
+			--accent-fg: var(--vscode-button-foreground, #ffffff);
+			--card-bg: rgba(128,128,128,0.06);
+			--card-hover: rgba(128,128,128,0.1);
+			--success: #40c969;
+			--warn: #cca700;
+			--danger: #f14c4c;
+			--info: #3794ff;
+			--radius: 8px;
+			--radius-sm: 6px;
+			--transition-fast: 150ms ease;
+			--transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+			font-size: 13px;
+			background: var(--bg);
+			color: var(--fg);
+			line-height: 1.5;
+			padding: 0;
+			-webkit-font-smoothing: antialiased;
+		}
+
+		/* Layout */
+		.app {
+			display: flex;
+			flex-direction: column;
+			min-height: 100vh;
+		}
+
+		/* Hero */
+		.hero {
+			padding: 24px 28px 20px;
+			border-bottom: 1px solid var(--border);
+			background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
+		}
+		.hero-top {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 12px;
+			flex-wrap: wrap;
+		}
+		.hero h1 {
+			font-size: 24px;
+			font-weight: 700;
+			letter-spacing: -0.02em;
+			background: linear-gradient(135deg, var(--info), var(--accent-hover));
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+			background-clip: text;
+		}
+		.hero .ws-tag {
+			font-size: 11px;
+			color: var(--accent-fg);
+			background: var(--accent);
+			padding: 4px 12px;
+			border-radius: 20px;
+			font-weight: 600;
+		}
+		.hero .subtitle { color: var(--fg-dim); font-size: 13px; max-width: 600px; margin-bottom: 14px; }
+
+		/* Quick Stats Row */
+		.quick-stats {
+			display: flex;
+			gap: 16px;
+			flex-wrap: wrap;
+		}
+		.quick-stat {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 14px;
+			background: var(--card-bg);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+			font-size: 12px;
+		}
+		.quick-stat .qs-icon { font-size: 16px; }
+		.quick-stat .qs-value { font-weight: 700; font-size: 14px; }
+		.quick-stat .qs-label { color: var(--fg-dim); font-size: 10px; }
+
+		/* Smart Bar */
+		.smart-bar-wrap {
+			padding: 16px 28px;
+			border-bottom: 1px solid var(--border);
+		}
+		.smart-bar {
+			display: flex;
+			gap: 10px;
+			align-items: center;
+		}
+		.smart-bar input {
+			flex: 1;
+			background: var(--card-bg);
+			border: 1.5px solid var(--border);
+			color: var(--fg);
+			padding: 12px 16px;
+			border-radius: var(--radius);
+			font-size: 14px;
+			font-family: inherit;
+			outline: none;
+			transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+		}
+		.smart-bar input:focus {
+			border-color: var(--accent);
+			box-shadow: 0 0 0 3px rgba(14,99,156,0.15);
+		}
+		.smart-bar input::placeholder { color: var(--fg-dim); }
+		.smart-bar button {
+			background: var(--accent);
+			color: var(--accent-fg);
+			border: none;
+			padding: 12px 22px;
+			border-radius: var(--radius);
+			cursor: pointer;
+			font-size: 13px;
+			font-weight: 600;
+			font-family: inherit;
+			white-space: nowrap;
+			transition: background var(--transition-fast), transform var(--transition-fast);
+		}
+		.smart-bar button:hover { background: var(--accent-hover); transform: translateY(-0.5px); }
+		.intent-preview {
+			font-size: 11px;
+			color: var(--fg-dim);
+			margin-top: 6px;
+			padding-left: 4px;
+			min-height: 16px;
+			transition: color var(--transition-fast);
+		}
+		.intent-preview.active { color: var(--info); }
+
+		/* Content Grid */
+		.content {
+			flex: 1;
+			padding: 20px 28px 32px;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			grid-template-rows: auto auto;
+			gap: 20px;
+		}
+		@media (max-width: 700px) { .content { grid-template-columns: 1fr; } }
+
+		/* Cards */
+		.card-section {
+			background: var(--card-bg);
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			padding: 16px;
+			transition: border-color var(--transition-fast);
+		}
+		.card-section:hover { border-color: rgba(128,128,128,0.25); }
+		.card-section h3 {
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+			color: var(--fg-dim);
+			margin-bottom: 14px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+		.card-section h3 .section-icon { font-size: 15px; }
+
+		/* Feature Toggles */
+		.toggles {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+		}
+		.toggle-item {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 10px;
+			border-radius: var(--radius-sm);
+			cursor: pointer;
+			transition: background var(--transition-fast);
+			font-size: 12px;
+		}
+		.toggle-item:hover { background: var(--card-hover); }
+		.toggle-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			flex-shrink: 0;
+			transition: all var(--transition-normal);
+		}
+		.toggle-dot.on { background: var(--success); box-shadow: 0 0 8px rgba(64,201,105,0.4); }
+		.toggle-dot.off { background: var(--fg-dim); opacity: 0.35; }
+
+		/* Quick Actions */
+		.actions-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 8px;
+		}
+		.action-card {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 6px;
+			padding: 12px 8px;
+			background: var(--card-bg);
+			border: 1px solid transparent;
+			border-radius: var(--radius-sm);
+			cursor: pointer;
+			text-align: center;
+			transition: all var(--transition-fast);
+		}
+		.action-card:hover {
+			border-color: var(--accent);
+			background: var(--card-hover);
+			transform: translateY(-2px);
+			box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+		}
+		.action-card .ac-icon { font-size: 22px; }
+		.action-card .ac-label { font-size: 11px; font-weight: 600; }
+		.action-card .ac-kbd {
+			font-size: 9px;
+			color: var(--fg-dim);
+			font-family: var(--vscode-editor-font-family, monospace);
+		}
+
+		/* Context Preview */
+		.context-box {
+			background: rgba(0,0,0,0.2);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+			padding: 10px 12px;
+			font-family: var(--vscode-editor-font-family, monospace);
+			font-size: 10px;
+			max-height: 100px;
+			overflow-y: auto;
+			white-space: pre-wrap;
+			color: var(--fg-dim);
+			margin-bottom: 10px;
+		}
+		.context-box::-webkit-scrollbar { width: 4px; }
+		.context-box::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 2px; }
+
+		/* Learning Timeline */
+		.timeline { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; }
+		.timeline::-webkit-scrollbar { width: 4px; }
+		.timeline::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 2px; }
+		.timeline-item {
+			display: flex;
+			align-items: flex-start;
+			gap: 10px;
+			padding: 6px 0;
+			border-bottom: 1px solid rgba(128,128,128,0.06);
+			font-size: 11px;
+		}
+		.timeline-item:last-child { border-bottom: none; }
+		.tl-cat {
+			font-size: 9px;
+			font-weight: 700;
+			text-transform: uppercase;
+			padding: 2px 6px;
+			border-radius: 3px;
+			flex-shrink: 0;
+			letter-spacing: 0.03em;
+		}
+		.tl-cat.architecture { background: rgba(55,148,255,0.2); color: #7ec8ff; }
+		.tl-cat.convention { background: rgba(64,201,105,0.2); color: #7dffb2; }
+		.tl-cat.pattern { background: rgba(200,120,255,0.2); color: #d4a0ff; }
+		.tl-cat.pitfall { background: rgba(241,76,76,0.2); color: #ff7b7b; }
+		.tl-cat.preference { background: rgba(204,167,0,0.2); color: #ffd700; }
+		.tl-cat.other { background: rgba(128,128,128,0.2); color: var(--fg-dim); }
+		.tl-date { color: var(--fg-dim); font-size: 10px; flex-shrink: 0; white-space: nowrap; }
+
+		/* Scenarios */
+		.scenario-list { display: flex; flex-direction: column; gap: 6px; }
+		.scenario-row {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 10px 14px;
+			background: var(--card-bg);
+			border: 1px solid transparent;
+			border-radius: var(--radius-sm);
+			cursor: pointer;
+			transition: all var(--transition-fast);
+		}
+		.scenario-row:hover {
+			border-color: var(--accent);
+			background: var(--card-hover);
+		}
+		.scenario-row .sr-icon { font-size: 18px; flex-shrink: 0; }
+		.scenario-row .sr-body { flex: 1; min-width: 0; }
+		.scenario-row .sr-title { font-weight: 600; font-size: 12px; }
+		.scenario-row .sr-desc { font-size: 11px; color: var(--fg-dim); }
+		.scenario-row .sr-arrow { color: var(--fg-dim); font-size: 14px; }
+
+		/* Empty states */
+		.empty-note { color: var(--fg-dim); font-size: 11px; font-style: italic; padding: 8px 0; }
+
+		/* Skeleton */
+		.skeleton {
+			background: linear-gradient(90deg, rgba(128,128,128,0.05) 25%, rgba(128,128,128,0.1) 50%, rgba(128,128,128,0.05) 75%);
+			background-size: 200% 100%;
+			animation: shimmer 1.8s ease-in-out infinite;
+			border-radius: var(--radius-sm);
+		}
+		@keyframes shimmer {
+			0% { background-position: 200% 0; }
+			100% { background-position: -200% 0; }
+		}
+		@keyframes fadeIn {
+			from { opacity: 0; transform: translateY(4px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		.fade-in { animation: fadeIn var(--transition-normal) forwards; }
+
+		/* Pulse for active agents */
+		@keyframes pulse {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.4; }
+		}
+		.agent-active { animation: pulse 2s ease-in-out infinite; }
+
+		.footer {
+			padding: 12px 28px;
+			font-size: 10px;
+			color: var(--fg-dim);
+			text-align: center;
+			border-top: 1px solid var(--border);
+		}
+	</style>
+</head>
+<body>
+<div class="app">
+	<!-- Hero -->
+	<div class="hero">
+		<div class="hero-top">
+			<h1>Kodrix Hub</h1>
+			<div class="ws-tag" id="wsTag" style="display:none"></div>
+		</div>
+		<p class="subtitle">Agent 指挥中心 · Idea Flow 想法→产品全自动 · 越用越聪明。大厂整合：Lovable · Devin · Cursor · Windsurf · Trae。</p>
+		<div class="quick-stats" id="quickStats">
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span><div><div class="qs-value" id="statLearning">—</div><div class="qs-label">学习条目</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-notebook" aria-hidden="true"></i></span><div><div class="qs-value" id="statSpecs">—</div><div class="qs-label">Spec 文档</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-graph" aria-hidden="true"></i></span><div><div class="qs-value" id="statKanban">—</div><div class="qs-label">看板任务</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-book" aria-hidden="true"></i></span><div><div class="qs-value" id="statWiki">—</div><div class="qs-label">Repo Wiki</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-refresh" aria-hidden="true"></i></span><div><div class="qs-value" id="statSessions">—</div><div class="qs-label">已学习会话</div></div></div>
+		</div>
+	</div>
+
+	<!-- Smart Bar -->
+	<div class="smart-bar-wrap">
+		<div class="smart-bar">
+			<input id="quickPrompt" type="text" placeholder="描述你的想法，AI 全自动变为现实… 如：做一个 AI 知识管理工具，支持双向链接和图谱视图" autocomplete="off" />
+			<button id="quickGo"><i class="codicon codicon-compass" aria-hidden="true"></i> 智能路由</button>
+		</div>
+		<div class="intent-preview" id="intentPreview"></div>
+	</div>
+
+	<!-- Main Content -->
+	<div class="content">
+		<!-- Left Column: Scenarios + Features -->
+		<div style="display:flex;flex-direction:column;gap:20px;">
+			<div class="card-section">
+				<h3><span class="section-icon"><i class="codicon codicon-target" aria-hidden="true"></i></span> 按任务选路径</h3>
+				<div class="scenario-list" id="scenarios"></div>
+			</div>
+			<div class="card-section">
+				<h3><span class="section-icon"><i class="codicon codicon-settings-gear" aria-hidden="true"></i></span> 功能开关</h3>
+				<div class="toggles" id="toggles"></div>
+			</div>
+		</div>
+
+		<!-- Right Column: Actions + Intelligence -->
+		<div style="display:flex;flex-direction:column;gap:20px;">
+			<div class="card-section">
+				<h3><span class="section-icon"><i class="codicon codicon-flame" aria-hidden="true"></i></span> 快速操作</h3>
+				<div class="actions-grid" id="actions"></div>
+			</div>
+			<div class="card-section">
+				<h3><span class="section-icon"><i class="codicon codicon-radio-tower" aria-hidden="true"></i></span> 项目 Intelligence</h3>
+				<div class="context-box" id="contextPreview">加载中…</div>
+				<div style="display:flex;gap:6px;">
+					<button class="btn-sm" id="btnRefreshCtx" style="font-size:10px;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);color:var(--fg);border-radius:4px;cursor:pointer;"><i class="codicon codicon-refresh" aria-hidden="true"></i> 刷新上下文</button>
+					<button class="btn-sm" id="btnBuildWiki" style="font-size:10px;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);color:var(--fg);border-radius:4px;cursor:pointer;"><i class="codicon codicon-book" aria-hidden="true"></i> 重建 Wiki</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Bottom Left: Recent Learning -->
+		<div class="card-section">
+			<h3><span class="section-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span> 最近学习（越用越聪明）</h3>
+			<div class="timeline" id="recentLearning"><div class="empty-note">加载中…</div></div>
+		</div>
+
+		<!-- Bottom Right: Keyboard Shortcuts -->
+		<div class="card-section">
+			<h3><span class="section-icon"><i class="codicon codicon-record-keys" aria-hidden="true"></i></span> 快捷键速查</h3>
+			<div id="shortcuts" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;"></div>
+		</div>
+	</div>
+
+	<div class="footer">Kodrix · Idea Flow · Agent OS — 让软件开发回归想法本身</div>
+</div>
+
+<script>
+	const vscode = acquireVsCodeApi();
+	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
+	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
+
+	// Scenarios (Idea Flow first as primary)
+	const scenarios = [
+		{ id: 'idea', icon: 'lightbulb', title: 'Idea Flow — 想法→产品', desc: '全自动流水线：分析 → 规划 → 多 Agent 构建 → 预览', route: 'idea' },
+		{ id: 'spec', icon: 'symbol-ruler', title: 'Spec 驱动开发', desc: 'Kiro 三栏 — 需求 → 设计 → 任务', route: 'spec' },
+		{ id: 'agent', icon: 'hubot', title: '多文件 Agent 编辑', desc: 'Cursor Composer — Agent + 检查点', route: 'agent' },
+		{ id: 'ask', icon: 'lightbulb', title: '探索问答', desc: '理解代码库、查逻辑、学技术', route: 'ask' },
+		{ id: 'router', icon: 'compass', title: '智能路由（推荐）', desc: '输入需求，Agent OS 自动选最佳模式', route: null },
+	];
+	const scEl = document.getElementById('scenarios');
+	scenarios.forEach(s => {
+		const el = document.createElement('div');
+		el.className = 'scenario-row';
+		el.style.cssText = s.id === 'idea' ? 'border-left:3px solid var(--accent);margin-bottom:4px;' : '';
+		el.innerHTML = `<span class="sr-icon">${ki(s.icon)}</span><div class="sr-body"><div class="sr-title">${s.title}</div><div class="sr-desc">${s.desc}</div></div><span class="sr-arrow">${ki('arrow-right')}</span>`;
+		el.onclick = () => post('scenario', { id: s.id });
+		scEl.appendChild(el);
+	});
+
+	// Actions
+	const actions = [
+		{ id: 'ideaCanvas', icon: 'lightbulb', label: 'Idea', kbd: 'Ctrl+Shift+I' },
+		{ id: 'specWorkbench', icon: 'notebook', label: 'Spec', kbd: 'Ctrl+Shift+Alt+K' },
+		{ id: 'agentsWindow', icon: 'hubot', label: 'Agents', kbd: 'Ctrl+Shift+A' },
+		{ id: 'chat', icon: 'comment-discussion', label: 'Chat', kbd: 'Ctrl+L' },
+		{ id: 'agentMode', icon: 'flame', label: 'Agent', kbd: 'Ctrl+I' },
+		{ id: 'wiki', icon: 'book', label: 'Wiki', kbd: 'Qoder' },
+		{ id: 'kanban', icon: 'graph', label: '看板', kbd: 'Devin' },
+		{ id: 'learning', icon: 'beaker', label: '学习', kbd: 'Ctrl+Shift+Alt+M' },
+		{ id: 'arena', icon: 'law', label: 'Arena', kbd: '对比' },
+		{ id: 'providers', icon: 'plug', label: '模型', kbd: '供应商' },
+		{ id: 'importCursor', icon: 'cloud-download', label: '导入', kbd: 'Cursor' },
+		{ id: 'refreshContext', icon: 'refresh', label: '刷新', kbd: '上下文' },
+	];
+	const actEl = document.getElementById('actions');
+	actions.forEach(a => {
+		const el = document.createElement('div');
+		el.className = 'action-card';
+		el.innerHTML = `<span class="ac-icon">${ki(a.icon)}</span><span class="ac-label">${a.label}</span><span class="ac-kbd">${a.kbd}</span>`;
+		el.onclick = () => post('action', { id: a.id });
+		actEl.appendChild(el);
+	});
+
+	// Keyboard shortcuts
+	const shortcuts = [
+		['Ctrl+Shift+I', 'Idea Flow 主入口'], ['Ctrl+Shift+Alt+I', 'Idea Canvas'],
+		['Ctrl+Shift+H', 'Hub 指挥中心'],
+		['Ctrl+Shift+A', 'Agents 窗口'], ['Ctrl+Shift+Alt+K', 'Spec 三栏'],
+		['Ctrl+Shift+Alt+R', '智能路由'], ['Ctrl+Shift+Alt+M', '沉淀知识'],
+		['Ctrl+I', 'Agent 模式'], ['Ctrl+L', 'Chat 面板'],
+	];
+	const kbdEl = document.getElementById('shortcuts');
+	shortcuts.forEach(([k, v]) => {
+		const el = document.createElement('div');
+		el.style.cssText = 'display:flex;gap:6px;align-items:center;';
+		el.innerHTML = `<code style="background:rgba(128,128,128,0.15);padding:2px 6px;border-radius:3px;font-size:10px;">${k}</code><span style="color:var(--fg-dim)">${v}</span>`;
+		kbdEl.appendChild(el);
+	});
+
+	// Smart bar
+	const quickInput = document.getElementById('quickPrompt');
+	const intentPreview = document.getElementById('intentPreview');
+
+	// Real-time intent detection on typing
+	let intentTimer;
+	quickInput.addEventListener('input', () => {
+		clearTimeout(intentTimer);
+		const text = quickInput.value.trim();
+		if (!text) {
+			intentPreview.textContent = '';
+			intentPreview.classList.remove('active');
+			return;
+		}
+		intentTimer = setTimeout(() => {
+			post('detectIntent', { prompt: text });
+		}, 300);
+	});
+
+	document.getElementById('quickGo').onclick = () => {
+		const prompt = quickInput.value.trim();
+		if (prompt) post('quickRoute', { prompt });
+	};
+	quickInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			const prompt = quickInput.value.trim();
+			if (prompt) post('quickRoute', { prompt });
+		}
+	});
+
+	// Refresh buttons
+	document.getElementById('btnRefreshCtx').onclick = () => post('action', { id: 'refreshContext' });
+	document.getElementById('btnBuildWiki').onclick = () => post('action', { id: 'rebuildWiki' });
+
+	// Toggle click handler (delegated)
+	document.getElementById('toggles').addEventListener('click', (e) => {
+		const item = e.target.closest('[data-feature]');
+		if (item) post('toggleFeature', { feature: item.dataset.feature });
+	});
+
+	// Message handler
+	window.addEventListener('message', (e) => {
+		const msg = e.data;
+
+		if (msg.type === 'dashboard') {
+			const d = msg.data;
+
+			// Workspace tag
+			const wsEl = document.getElementById('wsTag');
+			if (d.workspaceName) { wsEl.innerHTML = ki('folder') + ' ' + d.workspaceName; wsEl.style.display = 'inline-block'; }
+			else wsEl.style.display = 'none';
+
+			// Quick stats
+			document.getElementById('statLearning').textContent = d.learningTotal ?? '—';
+			document.getElementById('statSpecs').textContent = d.specCount ?? 0;
+			document.getElementById('statKanban').textContent = d.kanbanCount ?? 0;
+			document.getElementById('statWiki').innerHTML = d.hasWiki ? ki('check') : '—';
+			document.getElementById('statSessions').textContent = d.sessionLearningProcessed ?? '—';
+
+			// Toggles
+			const togglesEl = document.getElementById('toggles');
+			togglesEl.innerHTML = '';
+			(d.features || []).forEach(f => {
+				const el = document.createElement('div');
+				el.className = 'toggle-item';
+				el.dataset.feature = f.key;
+				el.innerHTML = `<span class="toggle-dot ${f.on ? 'on' : 'off'}"></span><span>${f.label}</span>`;
+				if (f.on) el.innerHTML += '<span style="margin-left:auto;font-size:10px;color:var(--success);">' + ki('check') + '</span>';
+				togglesEl.appendChild(el);
+			});
+
+			// Context preview
+			document.getElementById('contextPreview').textContent = d.contextPreview || '（打开工作区后将自动生成 Wiki + Memory 上下文）';
+
+			// Learning timeline
+			const learnEl = document.getElementById('recentLearning');
+			learnEl.innerHTML = '';
+			if (d.recentLearning && d.recentLearning.length) {
+				d.recentLearning.forEach(item => {
+					const el = document.createElement('div');
+					el.className = 'timeline-item';
+					el.innerHTML = `<span class="tl-cat ${item.category}">${item.category}</span><span style="flex:1;min-width:0;">${item.content}</span><span class="tl-date">${item.date}</span>`;
+					learnEl.appendChild(el);
+				});
+			} else {
+				learnEl.innerHTML = '<div class="empty-note">暂无学习记录 — 完成 Agent 任务后将自动蒸馏，或按 Ctrl+Shift+Alt+M 手动沉淀</div>';
+			}
+		}
+
+		if (msg.type === 'intentResult') {
+			intentPreview.replaceChildren();
+			if (msg.label) {
+				const icon = document.createElement('i');
+				icon.className = 'codicon codicon-location';
+				icon.setAttribute('aria-hidden', 'true');
+				intentPreview.appendChild(icon);
+				intentPreview.appendChild(document.createTextNode(` 检测意图 → ${msg.label}（${msg.reason || ''}）`));
+			}
+			intentPreview.classList.toggle('active', !!msg.label);
+		}
+	});
+
+	post('ready');
+</script>
+</body>
+</html>

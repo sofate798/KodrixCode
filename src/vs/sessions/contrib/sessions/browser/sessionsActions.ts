@@ -332,7 +332,7 @@ registerAction2(class FocusActiveSessionAction extends Action2 {
 });
 
 // -- Focus Nth Session in the Grid (Cmd/Ctrl+1..9) --
-// Mirrors VS Code's "Focus Editor Group N": Ctrl/Cmd+1..8 focus that grid slot
+// Mirrors Kodrix Code's "Focus Editor Group N": Ctrl/Cmd+1..8 focus that grid slot
 // and Ctrl/Cmd+9 focuses the LAST slot. Does nothing when the slot doesn't exist.
 
 for (let index = 0; index < 9; index++) {

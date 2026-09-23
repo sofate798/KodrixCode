@@ -386,7 +386,7 @@ export function migrateLegacyAutopilotConfig<T extends Record<string, unknown> |
 export const AgentHostTelemetryLevelConfigKey = 'telemetryLevel';
 
 /**
- * Root config key forwarded from the renderer when VS Code's
+ * Root config key forwarded from the renderer when Kodrix Code's
  * `chat.sessionSync.enabled` setting changes. Controls the `remote` flag
  * passed to the copilot-sdk `CopilotClientOptions`.
  */
@@ -400,21 +400,21 @@ export const AgentHostSessionSyncEnabledConfigKey = 'sessionSyncEnabled';
 export const AgentHostCodexEnabledConfigKey = 'codexAgentEnabled';
 
 /**
- * Root config key forwarded from the renderer when VS Code's
+ * Root config key forwarded from the renderer when Kodrix Code's
  * `chat.tools.terminal.enableAutoApprove` setting changes. Controls whether
  * agent-host shell permission checks may apply terminal auto-approve rules.
  */
 export const AgentHostTerminalAutoApproveEnabledConfigKey = 'terminalAutoApproveEnabled';
 
 /**
- * The VS Code setting ID for terminal auto approve enablement. Defined here so
+ * The Kodrix Code setting ID for terminal auto approve enablement. Defined here so
  * renderer-side agent-host clients can forward it without importing from
  * workbench terminal contributions.
  */
 export const TERMINAL_AUTO_APPROVE_ENABLED_SETTING_ID = 'chat.tools.terminal.enableAutoApprove';
 
 /**
- * Root config key forwarded from the renderer when VS Code's
+ * Root config key forwarded from the renderer when Kodrix Code's
  * `chat.tools.global.autoApprove` setting changes. When `true`, the global
  * auto-approve ("approve everything") setting is enabled and the agent host
  * treats every tool call as auto-approved — equivalent to a session running
@@ -423,13 +423,13 @@ export const TERMINAL_AUTO_APPROVE_ENABLED_SETTING_ID = 'chat.tools.terminal.ena
 export const AgentHostGlobalAutoApproveEnabledConfigKey = 'globalAutoApproveEnabled';
 
 /**
- * The VS Code setting ID for global auto approve. Defined here so renderer-side
+ * The Kodrix Code setting ID for global auto approve. Defined here so renderer-side
  * agent-host clients can forward it without importing from `workbench/contrib/chat`.
  */
 export const GLOBAL_AUTO_APPROVE_SETTING_ID = 'chat.tools.global.autoApprove';
 
 /**
- * Root config key forwarded from the renderer when VS Code's `chat.autoReply`
+ * Root config key forwarded from the renderer when Kodrix Code's `chat.autoReply`
  * setting changes. When `true`, the agent host auto-answers `ask_user`
  * questions instead of blocking on the user — the user is treated as
  * unavailable and the agent is told to use its best judgment, mirroring the
@@ -438,13 +438,13 @@ export const GLOBAL_AUTO_APPROVE_SETTING_ID = 'chat.tools.global.autoApprove';
 export const AgentHostAutoReplyEnabledConfigKey = 'autoReplyEnabled';
 
 /**
- * The VS Code setting ID for auto-reply. Defined here so renderer-side
+ * The Kodrix Code setting ID for auto-reply. Defined here so renderer-side
  * agent-host clients can forward it without importing from `workbench/contrib/chat`.
  */
 export const AUTO_REPLY_SETTING_ID = 'chat.autoReply';
 
 /**
- * Root config key forwarded from the renderer when VS Code's
+ * Root config key forwarded from the renderer when Kodrix Code's
  * `chat.tools.terminal.autoApprove` setting changes. Holds the effective
  * terminal auto-approve rule object for agent-host shell permission checks.
  */
@@ -459,7 +459,7 @@ export type AgentHostTerminalAutoApproveRuleValue = boolean | null | IAgentHostT
 export type AgentHostTerminalAutoApproveRules = Record<string, AgentHostTerminalAutoApproveRuleValue>;
 
 /**
- * The VS Code setting IDs for terminal auto approve rules. Defined here so
+ * The Kodrix Code setting IDs for terminal auto approve rules. Defined here so
  * renderer-side agent-host clients can forward them without importing from
  * workbench terminal contributions.
  */
@@ -543,7 +543,7 @@ export const AgentHostMcpServersConfigKey = 'mcpServers';
 export type AgentHostMcpServers = Record<string, IMcpServerConfiguration>;
 
 /**
- * The VS Code setting ID for session sync. Defined here so the platform
+ * The Kodrix Code setting ID for session sync. Defined here so the platform
  * layer (renderer-side forwarding) can reference it without importing from
  * `workbench/contrib/chat`.
  */
@@ -672,13 +672,13 @@ export const platformRootSchema = createSchema({
 	[AgentHostGlobalAutoApproveEnabledConfigKey]: schemaProperty<boolean>({
 		type: 'boolean',
 		title: localize('agentHost.config.globalAutoApproveEnabled.title', "Global Auto Approve"),
-		description: localize('agentHost.config.globalAutoApproveEnabled.description', "Whether VS Code's global auto-approve setting is enabled. When `true`, every tool call is auto-approved, equivalent to a session using Bypass Approvals."),
+		description: localize('agentHost.config.globalAutoApproveEnabled.description', "Whether Kodrix Code's global auto-approve setting is enabled. When `true`, every tool call is auto-approved, equivalent to a session using Bypass Approvals."),
 		default: false,
 	}),
 	[AgentHostAutoReplyEnabledConfigKey]: schemaProperty<boolean>({
 		type: 'boolean',
 		title: localize('agentHost.config.autoReplyEnabled.title', "Auto Reply"),
-		description: localize('agentHost.config.autoReplyEnabled.description', "Whether VS Code's auto-reply setting is enabled. When `true`, `ask_user` questions are auto-answered instead of blocking on the user, mirroring autopilot mode."),
+		description: localize('agentHost.config.autoReplyEnabled.description', "Whether Kodrix Code's auto-reply setting is enabled. When `true`, `ask_user` questions are auto-answered instead of blocking on the user, mirroring autopilot mode."),
 		default: false,
 	}),
 	[AgentHostTerminalAutoApproveRulesConfigKey]: schemaProperty<AgentHostTerminalAutoApproveRules>({

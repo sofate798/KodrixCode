@@ -63,7 +63,7 @@
 
 /* Brand-coloured variant for primary empty states (e.g. no agent sessions). */
 .style-override .empty-state.brand .empty-state-icon {
-	color: var(--minicode-brand-primary, #3994BC);
+	color: var(--kodrix-brand-primary, #3994BC);
 	opacity: 0.5;
 }
 
@@ -88,7 +88,7 @@
 
 .style-override .empty-state .empty-state-description {
 	font-size: 13px;
-	color: var(--minicode-text-secondary, var(--vscode-descriptionForeground));
+	color: var(--kodrix-text-secondary, var(--vscode-descriptionForeground));
 	max-width: 320px;
 	line-height: 1.5;
 }
@@ -107,8 +107,8 @@
 	padding: 8px 24px;
 	border-radius: 6px;
 	background: linear-gradient(135deg,
-		var(--minicode-brand-primary, #3994BC) 0%,
-		var(--minicode-brand-secondary, #58B3D9) 100%);
+		var(--kodrix-brand-primary, #3994BC) 0%,
+		var(--kodrix-brand-secondary, #58B3D9) 100%);
 	color: #FFFFFF;
 	font-size: 13px;
 	font-weight: 600;
@@ -121,7 +121,7 @@
 
 .style-override .empty-state .empty-state-action:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 4px 16px color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 35%, transparent);
+	box-shadow: 0 4px 16px color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 35%, transparent);
 }
 
 .style-override .empty-state .empty-state-action:active {
@@ -138,12 +138,12 @@
 /* Secondary style action — outlined instead of filled. */
 .style-override .empty-state .empty-state-action.secondary {
 	background: transparent;
-	color: var(--minicode-brand-primary, #3994BC);
-	border: 1px solid color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 40%, transparent);
+	color: var(--kodrix-brand-primary, #3994BC);
+	border: 1px solid color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 40%, transparent);
 }
 
 .style-override .empty-state .empty-state-action.secondary:hover {
-	background: color-mix(in srgb, var(--minicode-brand-primary, #3994BC) 10%, transparent);
+	background: color-mix(in srgb, var(--kodrix-brand-primary, #3994BC) 10%, transparent);
 	box-shadow: none;
 }
 
@@ -160,7 +160,7 @@
 	font-size: 11px;
 	font-weight: 500;
 	background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
-	color: var(--minicode-text-secondary, var(--vscode-descriptionForeground));
+	color: var(--kodrix-text-secondary, var(--vscode-descriptionForeground));
 }
 
 .style-override .empty-state .empty-state-keybinding .codicon {
