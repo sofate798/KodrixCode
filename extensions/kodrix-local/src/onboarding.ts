@@ -4,15 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
-import { logWarn } from './logger';
+import { logger } from './logger';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { detectEnvironment, EnvInfo } from './envDetect';
 import { detectCursorImportables, importFromCursor } from './cursorImport';
+import { resolveConfigDir } from './migrateConfig';
 
 let activePanel: vscode.WebviewPanel | undefined;
 let envCache: EnvInfo | undefined;
-let importScanCache: { items: string[] } | undefined;
+let importScanCache: { items: string[]; notes: string[] } | undefined;
 
 async function scanEnv(): Promise<EnvInfo> {
 	if (!envCache) {
@@ -26,33 +27,52 @@ function safePost(panel: vscode.WebviewPanel, msg: unknown): void {
 	try {
 		void panel.webview.postMessage(msg);
 	} catch (err) {
-		logWarn('onboarding: 面板已关闭，消息发送失败', err);
+		logger.warn('onboarding: 面板已关闭，消息发送失败', err);
 	}
 }
 
 /**
- * 只读扫描：仅检测有哪些可导入项，**不执行任何写入**。
- * 实际导入由用户在向导中点击「导入」（doImport）显式触发。
+ * 只读扫描：Cursor 可导入项 + Cursormini/Kodrix 状态说明。
+ * 按钮「导入」只跑 Cursor；Cursormini 已在扩展 activate 时静默迁移。
  */
-async function scanImport(): Promise<{ items: string[] }> {
+async function scanImport(context: vscode.ExtensionContext): Promise<{ items: string[]; notes: string[] }> {
 	if (!importScanCache) {
 		try {
-			importScanCache = { items: detectCursorImportables().items };
+			const cursor = detectCursorImportables();
+			const notes: string[] = [];
+			const dir = resolveConfigDir();
+			const hasLegacy =
+				fs.existsSync(path.join(dir, 'config.json'))
+				|| fs.existsSync(path.join(dir, 'providers.json'))
+				|| fs.existsSync(path.join(dir, 'plugins'));
+			const already = context.globalState.get<boolean>('kodrix.configMigrated', false);
+			if (already) {
+				notes.push('Cursormini / Kodrix 配置已在首次启动时自动迁移');
+			} else if (hasLegacy) {
+				notes.push(`检测到 ${dir} — 将在后台自动迁移（或运行「Kodrix: 迁移配置」）`);
+			}
+			importScanCache = { items: cursor.items, notes };
 		} catch (err) {
-			logWarn('扫描 Cursor 配置失败', err);
-			importScanCache = { items: [] };
+			logger.warn('扫描导入配置失败', err);
+			importScanCache = { items: [], notes: [] };
 		}
 	}
 	return importScanCache;
 }
 
 function getHtml(webview: vscode.Webview, extensionPath: string): string {
-	const htmlPath = path.join(extensionPath, 'resources', 'onboarding-welcome.html');
+	const resourcesDir = path.join(extensionPath, 'resources');
+	const htmlPath = path.join(resourcesDir, 'onboarding-welcome.html');
 	try {
 		const html = fs.readFileSync(htmlPath, 'utf-8');
-		return html.replace(/\{\{cspSource\}\}/g, webview.cspSource);
+		const codiconsCssUri = webview.asWebviewUri(
+			vscode.Uri.file(path.join(resourcesDir, 'codicons', 'codicon.css')),
+		);
+		return html
+			.replace(/\{\{cspSource\}\}/g, webview.cspSource)
+			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString());
 	} catch (err) {
-		logWarn('加载 onboarding HTML 资源失败', err);
+		logger.warn('加载 onboarding HTML 资源失败', err);
 		return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`
 			+ `<body style="font-family:sans-serif;padding:24px">`
 			+ `<h2>Welcome to Kodrix</h2>`
@@ -78,14 +98,14 @@ async function handleMessage(
 				})
 				.catch(err => {
 					clearTimeout(envBackstop);
-					logWarn('环境扫描失败', err);
+					logger.warn('环境扫描失败', err);
 					safePost(panel, { type: 'envResult', data: null, error: true });
 				});
-			scanImport()
+			scanImport(context)
 				.then(summary => {
 					safePost(panel, { type: 'importSummary', data: summary });
 				})
-				.catch(err => logWarn('扫描 Cursor 配置失败', err));
+				.catch(err => logger.warn('扫描导入配置失败', err));
 			break;
 		}
 
@@ -99,7 +119,7 @@ async function handleMessage(
 				});
 				await context.globalState.update('kodrix.cursorImported', true);
 			} catch (err) {
-				logWarn('从 Cursor 导入失败', err);
+				logger.warn('从 Cursor 导入失败', err);
 				panel.webview.postMessage({ type: 'imported', count: 0, items: [], error: true });
 			}
 			break;
@@ -125,7 +145,7 @@ async function handleMessage(
 			break;
 
 		default:
-			logWarn(`onboarding: 未知消息类型 "${(msg as { command: string }).command}"`, msg);
+			logger.warn(`onboarding: 未知消息类型 "${(msg as { command: string }).command}"`, msg);
 	}
 }
 
@@ -152,7 +172,7 @@ export async function openOnboardingWizard(context: vscode.ExtensionContext): Pr
 	context.subscriptions.push(
 		panel,
 		panel.webview.onDidReceiveMessage(msg => {
-			handleMessage(msg, panel, context).catch(err => logWarn('onboarding 消息处理失败', err));
+			handleMessage(msg, panel, context).catch(err => logger.warn('onboarding 消息处理失败', err));
 		}),
 		panel.onDidDispose(() => {
 			activePanel = undefined;
@@ -160,7 +180,7 @@ export async function openOnboardingWizard(context: vscode.ExtensionContext): Pr
 			importScanCache = undefined;
 			context.globalState.update('kodrix.welcomed', true).then(
 				undefined,
-				err => logWarn('onboarding: 标记已欢迎失败', err),
+				err => logger.warn('onboarding: 标记已欢迎失败', err),
 			);
 		}),
 	);

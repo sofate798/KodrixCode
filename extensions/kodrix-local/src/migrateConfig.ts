@@ -164,6 +164,49 @@ function mergeMcpConfig(mcpPath: string, servers: Record<string, unknown>): bool
 	}
 }
 
+/** 将 Cursormini/Kodrix `plugins/` 中带 SKILL.md 的目录拷到 `~/.agents/skills/`（已存在则跳过） */
+function migratePluginsFromDir(configDir: string): number {
+	const pluginsDir = path.join(configDir, 'plugins');
+	if (!fs.existsSync(pluginsDir)) {
+		return 0;
+	}
+	const destRoot = path.join(os.homedir(), '.agents', 'skills');
+	fs.mkdirSync(destRoot, { recursive: true });
+	let count = 0;
+	for (const entry of fs.readdirSync(pluginsDir, { withFileTypes: true })) {
+		if (!entry.isDirectory()) {
+			continue;
+		}
+		const src = path.join(pluginsDir, entry.name);
+		if (!fs.existsSync(path.join(src, 'SKILL.md'))) {
+			continue;
+		}
+		const dest = path.join(destRoot, entry.name);
+		if (fs.existsSync(dest)) {
+			continue;
+		}
+		try {
+			fs.cpSync(src, dest, { recursive: true });
+			count++;
+		} catch (err) {
+			logWarn(`迁移 plugin 失败: ${entry.name}`, err);
+		}
+	}
+	return count;
+}
+
+async function applyIfUnset(key: string, value: unknown, target: vscode.ConfigurationTarget): Promise<boolean> {
+	const inspected = vscode.workspace.getConfiguration().inspect(key);
+	const alreadySet =
+		inspected?.globalValue !== undefined
+		|| inspected?.workspaceValue !== undefined
+		|| inspected?.workspaceFolderValue !== undefined;
+	if (alreadySet) {
+		return false;
+	}
+	return safeUpdateConfiguration(key, value, target);
+}
+
 function storageKeyForLegacy(legacy: LegacyProvider): string {
 	const slug = (legacy.preset_id || legacy.id || legacy.name || 'custom')
 		.toLowerCase()
@@ -240,8 +283,9 @@ export async function migrateFromLegacy(
 	const providersStore = readJson<{ active_id?: string; providers?: LegacyProvider[] }>(
 		path.join(dir, 'providers.json'),
 	);
+	const hasPlugins = fs.existsSync(path.join(dir, 'plugins'));
 
-	if (!config && !providersStore) {
+	if (!config && !providersStore && !hasPlugins) {
 		return {
 			migrated: false,
 			message: `未找到可迁移配置（已检查 ~/.kodrix 与 ~/.cursormini）`,
@@ -269,14 +313,14 @@ export async function migrateFromLegacy(
 				}
 			}
 		}
-	} else {
+	} else if (config) {
 		const legacy: LegacyProvider = {
 			id: 'default',
-			api_type: config?.api_type,
-			base_url: config?.base_url,
-			model: config?.model,
-			api_key: config?.api_key,
-			preset_id: config?.active_provider_id,
+			api_type: config.api_type,
+			base_url: config.base_url,
+			model: config.model,
+			api_key: config.api_key,
+			preset_id: config.active_provider_id,
 		};
 		const line = await migrateLegacyProviderEntry(legacy, presets, context);
 		applied.push(`供应商：${line}`);
@@ -321,6 +365,26 @@ export async function migrateFromLegacy(
 		applied.push('Plan 审阅模式');
 	}
 
+	if (config?.agent_native_tools === true) {
+		let n = 0;
+		if (await applyIfUnset('github.copilot.chat.skillTool.enabled', true, configTarget)) { n++; }
+		if (await applyIfUnset('chat.useAgentSkills', true, configTarget)) { n++; }
+		if (n > 0) {
+			applied.push(`原生工具 / Skills（${n} 项）`);
+		}
+	}
+
+	if (config?.agent_auto_rag === true) {
+		let n = 0;
+		if (await applyIfUnset('chat.repoInfo.enabled', true, configTarget)) { n++; }
+		if (await applyIfUnset('kodrix.features.codebaseIndex', true, configTarget)) { n++; }
+		if (n > 0) {
+			applied.push(`自动 RAG / @Codebase（${n} 项）`);
+		}
+	}
+
+	// ponytail: agent_context_chars 无 Copilot 对等项，忽略
+
 	const mcpServers = config?.mcp_servers;
 	if (Array.isArray(mcpServers) && mcpServers.length > 0) {
 		const mcpPath = resolveUserMcpJsonPath();
@@ -330,6 +394,12 @@ export async function migrateFromLegacy(
 		if (written && Object.keys(record).length > 0) {
 			applied.push(`MCP 服务器（${Object.keys(record).length} 个）→ ${mcpPath}`);
 		}
+	}
+
+	const pluginCount = migratePluginsFromDir(dir);
+	if (pluginCount > 0) {
+		applied.push(`Plugins（${pluginCount} 个）→ ~/.agents/skills`);
+		await mergeConfigLocationsForSkills();
 	}
 
 	if (options?.applyAgentDefaults) {
@@ -347,19 +417,9 @@ export async function migrateFromLegacy(
 			['github.copilot.chat.exploreAgent.enabled', true],
 			['chat.agent.maxRequests', 50],
 		];
-		const rootCfg = vscode.workspace.getConfiguration();
 		let appliedCount = 0;
 		for (const [key, value] of defaults) {
-			// 仅当用户尚未显式设置时写入，避免覆盖现有配置
-			const inspected = rootCfg.inspect(key);
-			const alreadySet =
-				inspected?.globalValue !== undefined
-				|| inspected?.workspaceValue !== undefined
-				|| inspected?.workspaceFolderValue !== undefined;
-			if (alreadySet) {
-				continue;
-			}
-			if (await safeUpdateConfiguration(key, value, configTarget)) {
+			if (await applyIfUnset(key, value, configTarget)) {
 				appliedCount++;
 			}
 		}
@@ -368,11 +428,32 @@ export async function migrateFromLegacy(
 		}
 	}
 
+	if (applied.length === 0) {
+		return {
+			migrated: false,
+			message: `未找到可迁移配置（已检查 ${dir}）`,
+			settingsApplied: [],
+		};
+	}
+
 	return {
 		migrated: true,
 		message: `Kodrix：已从 ${dir} 迁移配置`,
 		settingsApplied: applied,
 	};
+}
+
+async function mergeConfigLocationsForSkills(): Promise<void> {
+	const target = vscode.ConfigurationTarget.Global;
+	const existing = vscode.workspace.getConfiguration('chat').get<Record<string, boolean>>('agentSkillsLocations') || {};
+	if (existing['~/.agents/skills']) {
+		return;
+	}
+	await vscode.workspace.getConfiguration('chat').update(
+		'agentSkillsLocations',
+		{ ...existing, '~/.agents/skills': true },
+		target,
+	);
 }
 
 export function loadPresets(extensionPath: string): ProviderPreset[] {

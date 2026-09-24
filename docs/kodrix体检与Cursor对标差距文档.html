@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>kodrix体检与Cursor对标差距总览</title>
+<style>
+	:root{
+		--bg:#0f1318; --panel:#161c24; --panel2:#1b2330; --line:#263040;
+		--tx:#e8eaed; --sub:#98a1ae; --faint:#6b7480;
+		--ok:#3fb950; --wait:#d29922; --cloud:#f85149; --no:#6e7681;
+		--accent:#58a6ff; --teal:#3fb950;
+	}
+	*{box-sizing:border-box;margin:0;padding:0}
+	html{scroll-behavior:smooth}
+	body{background:var(--bg);color:var(--tx);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;padding:0 0 60px}
+	.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+	.cover{padding:48px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#141a24 0%,var(--bg) 100%)}
+	.kicker{font-size:12px;color:var(--accent);font-weight:600;letter-spacing:1px;margin-bottom:8px}
+	h1{font-size:26px;font-weight:700}
+	.sub{color:var(--sub);font-size:13px;margin-top:8px;max-width:860px}
+	.baseline{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+	.bl{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13px}
+	.bl b{color:var(--accent);font-weight:600}
+	.overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:24px 0 0}
+	.ov{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+	.ov .num{font-size:28px;font-weight:700;line-height:1.1}
+	.ov .lab{font-size:12px;color:var(--sub);margin-top:6px}
+	.ov.ok .num{color:var(--ok)} .ov.wait .num{color:var(--wait)} .ov.cloud .num{color:var(--cloud)} .ov.no .num{color:var(--no)} .ov.accent .num{color:var(--accent)}
+	nav.toc{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 0;position:sticky;top:0;z-index:10}
+	nav.toc .wrap{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px}
+	nav.toc a{color:var(--sub);text-decoration:none}
+	nav.toc a:hover{color:#fff}
+	section{padding:40px 0;border-bottom:1px solid var(--line)}
+	h2{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+	.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+	.desc{color:var(--sub);font-size:12.5px;margin-bottom:14px}
+	.desc a{color:var(--accent)}
+	.cards{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px}
+	.card{flex:1;min-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+	.card h3{font-size:13px;font-weight:700;margin-bottom:8px}
+	.card.ok h3{color:var(--ok)} .card.fix h3{color:var(--accent)} .card.wait h3{color:var(--wait)} .card.cloud h3{color:var(--cloud)}
+	.card p,.card li{font-size:13px;color:var(--tx);line-height:1.85}
+	.card ul{margin:0;padding-left:18px}
+	.arch{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+	.arch-item{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+	.arch-item .t{font-weight:700;font-size:13px;color:var(--accent)}
+	.arch-item .d{font-size:12px;color:var(--sub);margin-top:4px}
+	table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+	colgroup col:nth-child(1){width:17%}
+	colgroup col:nth-child(2){width:31%}
+	colgroup col:nth-child(3){width:34%}
+	colgroup col:nth-child(4){width:18%}
+	th{text-align:left;color:var(--faint);font-weight:600;padding:9px 10px;border-bottom:2px solid var(--line);font-size:12px}
+	td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+	.domain{font-weight:600}
+	.cur{color:var(--sub)}
+	.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:9px;white-space:nowrap;margin-top:2px}
+	.t-ok{background:rgba(63,185,80,.12);color:var(--ok);border:1px solid rgba(63,185,80,.35)}
+	.t-wait{background:rgba(210,153,34,.12);color:var(--wait);border:1px solid rgba(210,153,34,.35)}
+	.t-cloud{background:rgba(248,81,73,.12);color:var(--cloud);border:1px solid rgba(248,81,73,.35)}
+	.t-no{background:rgba(110,118,129,.12);color:var(--no);border:1px solid rgba(110,118,129,.35)}
+	.t-p0{background:rgba(248,81,73,.15);color:#ff7b72;border:1px solid rgba(248,81,73,.4)}
+	.t-p1{background:rgba(210,153,34,.15);color:var(--wait);border:1px solid rgba(210,153,34,.4)}
+	.t-p2{background:rgba(63,185,80,.12);color:var(--ok);border:1px solid rgba(63,185,80,.3)}
+	.phase{margin:18px 0;border-left:3px solid var(--ok);padding:4px 0 4px 20px}
+	.phase.wait{border-color:var(--wait)}
+	.phase.cloud{border-color:var(--cloud)}
+	.phase.accent{border-color:var(--accent)}
+	.phase h3{font-size:15px;margin-bottom:4px}
+	.phase .meta{font-size:12px;color:var(--faint);margin-bottom:8px}
+	.phase p{font-size:13px;color:var(--sub)}
+	.note{margin-top:8px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:14px 18px;font-size:13px;color:var(--sub);line-height:1.8}
+	.note a{color:var(--accent)}
+	.doclinks{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+	.doclinks a{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--accent);text-decoration:none}
+	.doclinks a:hover{border-color:var(--accent)}
+	.doclinks a span{display:block;color:var(--faint);font-size:11px;margin-top:2px}
+	footer{padding:28px 0;color:var(--faint);font-size:12px}
+	@media (max-width:640px){
+		.wrap{padding:0 14px}
+		.table-scroll{overflow-x:auto}
+		table{min-width:560px}
+		h1{font-size:22px}
+	}
+</style>
+</head>
+<body>
+<header class="cover">
+	<div class="wrap">
+		<div class="kicker">KODRIX · HEALTH + CURSOR ALIGNMENT</div>
+		<h1>体检与 Cursor 对标总览</h1>
+		<div class="sub">按 <b>2026-09-24</b> 文档合流更新。Cursor 式基线能力已齐；代码侧 P1–P3 审计已闭环。当前主线不再是「补 Cursor 按钮」，而是修产品债务 + 落地 Learning / 主动上下文 / Crew 等差异化能力。</div>
+		<div class="baseline">
+			<span class="bl">基线 <b>VS Code 1.128 / Electron 42</b></span>
+			<span class="bl">编译 <b>tsc=0</b></span>
+			<span class="bl">审计代码项 <b>P1–P3 闭环</b></span>
+			<span class="bl">开放缺陷档 <b>D1–D4</b></span>
+			<span class="bl">必做新功能 <b>P0→P2</b></span>
+		</div>
+		<div class="overview">
+			<div class="ov ok"><div class="num">✔</div><div class="lab">Cursor 对标基线已齐</div></div>
+			<div class="ov ok"><div class="num">18+</div><div class="lab">Bug 审计项已修</div></div>
+			<div class="ov wait"><div class="num">8</div><div class="lab">D3 产品债务开放</div></div>
+			<div class="ov cloud"><div class="num">3</div><div class="lab">P0 必做体验项</div></div>
+			<div class="ov accent"><div class="num">⚠1</div><div class="lab">git 基线待授权提交</div></div>
+		</div>
+		<div class="doclinks">
+			<a href="./项目总共已更新修复完善的全部内容.md">已更新 / 修复 / 完善<span>含修复日期 · 迁移与对标闭环</span></a>
+			<a href="./项目新发现待修复的缺陷问题审计总报告.md">待修复缺陷总报告<span>D1 运维 · D2 环境 · D3 债务 · D4 基建</span></a>
+			<a href="./项目非常有必要新实现的核心功能总报告.md">必做核心新功能<span>P0–P3 优先级与 Phase 节奏</span></a>
+			<a href="../MIGRATION.md">迁移指南<span>Cursormini / Cursor → Kodrix</span></a>
+		</div>
+	</div>
+</header>
+
+<nav class="toc">
+	<div class="wrap">
+		<a href="#health">① 工程健康</a>
+		<a href="#arch">② 架构</a>
+		<a href="#gap-ok">③ 对标已齐</a>
+		<a href="#debt">④ 待修债务</a>
+		<a href="#roadmap">⑤ 必做新功能</a>
+		<a href="#cloud">⑥ 云 / 不追</a>
+		<a href="#docs">⑦ 文档索引</a>
+	</div>
+</nav>
+
+<section id="health">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--ok)"></span>① 工程健康检查</h2>
+		<div class="desc">来源：2026-09-21 体检 · 2026-09-23 Bug 审计与 23:10 复核 · 2026-09-24 三份 MD 合流。</div>
+		<div class="cards">
+			<div class="card ok">
+				<h3>● 正常</h3>
+				<ul>
+					<li>三扩展激活（local / agent-os / skills）</li>
+					<li><code>kodrix.codebase</code> 参与者 + PredictiveCompletion</li>
+					<li>ProjectIndexer / Copilot / zh-cn 语言包</li>
+					<li>三扩展 <code>tsc --noEmit</code> exit 0</li>
+					<li>Node 系统 v24.21.0（≥ .nvmrc 24.17）</li>
+					<li>dev-fast：扩展 + 客户端 out 新鲜度</li>
+				</ul>
+			</div>
+			<div class="card fix">
+				<h3>● 已修闭环（摘要）</h3>
+				<ul>
+					<li><b>09-21</b>：chatParticipants / tunnel 配置 / nls 噪音 / git init</li>
+					<li><b>09-23</b>：路径穿越 · ACP 流式 · CTS 泄漏 · LLM 超时 · 终端误报等 P1×5</li>
+					<li><b>09-23</b>：快照 dirty · diff 内存 · 原子索引 · 迁移不覆盖等 P2</li>
+					<li><b>09-23 23:10</b>：agentLoop 注释 · 脚本路径 · stderr 1MB · proposals</li>
+				</ul>
+			</div>
+			<div class="card wait">
+				<h3>● 仍开放（非代码阻断为主）</h3>
+				<ul>
+					<li><b>D1-1</b> git ~1151 未提交 — 待授权基线 commit</li>
+					<li><b>D2</b> ENOPRO / cargo ENOENT / GitHub 登录 / Node 沙箱</li>
+					<li><b>D3</b> Wiki/Learning/Spec/Crew/上下文半成品面</li>
+					<li><b>D4</b> e2e 未接入 · UI 全路径待冒烟</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section id="arch">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--accent)"></span>② 工程架构（核心 + 3 扩展）</h2>
+		<div class="desc">L0 上游框架 · L1 BYOK 模型 · L2 编排与产品体验。产品定制优先改 <code>kodrix-*</code>。</div>
+		<div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;font-weight:700;font-size:14px;margin-bottom:4px">
+			核心：VS Code 1.128 框架（Chat / Inline / MCP / Agent Host）+ Copilot Chat
+		</div>
+		<div class="arch">
+			<div class="arch-item">
+				<div class="t">kodrix-local</div>
+				<div class="d">体验层：Tab/Ctrl+K/Composer · 13 供应商 · BYOK · Cursor 导入 · 欢迎向导</div>
+			</div>
+			<div class="arch-item">
+				<div class="t">kodrix-agent-os</div>
+				<div class="d">智能层：codebase · Router · Spec/Wiki/Learning · Crew/Hub · Checkpoint · ACP</div>
+			</div>
+			<div class="arch-item">
+				<div class="t">kodrix-skills</div>
+				<div class="d">Skill 市场：侧栏 / URL / GitHub / 导入 ~/.cursor/skills</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section id="gap-ok">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--ok)"></span>③ Cursor 对标基线已齐</h2>
+		<div class="desc">相对 Cursor 主线：补全 · 行内编辑 · Composer/Agent · @Codebase 双路径 · Rules 导入 · 模型路由均已具备。详情与日期见 <a href="./项目总共已更新修复完善的全部内容.md">已更新修复完善清单</a> · <a href="../MIGRATION.md">MIGRATION.md</a>。</div>
+		<div class="table-scroll">
+		<table>
+			<colgroup><col/><col/><col/><col/></colgroup>
+			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>状态</th></tr>
+			<tr><td class="domain">Tab + NES</td><td>Copilot Inline + NES；可选本地 Tab/FIM（默认关）</td><td class="cur">Tab 智能补全</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Ctrl+K / Chat</td><td>Inline Chat · Ctrl+L/I · Composer 封装</td><td class="cur">行内编辑 / Composer</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">@Codebase</td><td>Copilot #codebase + 本地 kodrix.codebase</td><td class="cur">语义问答</td><td><span class="tag t-ok">双路径</span></td></tr>
+			<tr><td class="domain">Rules / MCP / Skills</td><td>首次静默迁移 + 欢迎向导导入</td><td class="cur">.cursor/*</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">模型供应商</td><td>13 预设 + modelRoutes + BYOK</td><td class="cur">多模型</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Background / Cloud</td><td>Copilot CLI / Coding Agent 命令封装</td><td class="cur">长时 / 云 Agent</td><td><span class="tag t-ok">本地编排</span></td></tr>
+			<tr><td class="domain">Plan / Agent / Ask</td><td>四模式 + 智能路由</td><td class="cur">Plan / Agent</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Checkpoint</td><td>回滚路径校验 + operations 滚动（审计已加固）</td><td class="cur">历史回退</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Agent OS 超集</td><td>Idea / Spec / Wiki / Crew 壳 / Learning / Hub / Arena</td><td class="cur">部分无对等</td><td><span class="tag t-ok">超集骨架</span></td></tr>
+			<tr><td class="domain">Remote Tunnels</td><td>product tunnelApplicationConfig 已补</td><td class="cur">远程</td><td><span class="tag t-wait">dev 需 Rust / 用打包版</span></td></tr>
+		</table>
+		</div>
+		<div class="note" style="margin-top:14px">
+			<b>结论</b>：账号生态（GitHub / Cursor 订阅）仍是云端能力门槛；本地模型链路可独立使用。真正差距已转到「语义深度 · Agent 真协作 · 大厂级体验」，见下两节。
+		</div>
+	</div>
+</section>
+
+<section id="debt">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--wait)"></span>④ 待修复缺陷与产品债务</h2>
+		<div class="desc">完整条目见 <a href="./项目新发现待修复的缺陷问题审计总报告.md">待修复缺陷总报告</a>。原审计代码项已关；下列为仍开放档。</div>
+		<div class="cards">
+			<div class="card cloud">
+				<h3>D1 运维（1）</h3>
+				<ul>
+					<li><b>D1-1</b> git 工作树大量未提交（~1151）— 说「提交」后拆批基线</li>
+				</ul>
+			</div>
+			<div class="card wait">
+				<h3>D2 环境 / 上游</h3>
+				<ul>
+					<li>Agent Host ENOPRO（上游噪音）</li>
+					<li>dev <code>cargo ENOENT</code> · GitHub 未登录</li>
+					<li>沙箱 Node 22 · native-keymap 降级（接受）</li>
+				</ul>
+			</div>
+			<div class="card wait">
+				<h3>D3 产品债务（8）</h3>
+				<ul>
+					<li>本地索引优先未默认 · nls 硬编码</li>
+					<li>Wiki 静态 · Learning 关键词 · Spec 无执行追踪</li>
+					<li>Crew 不协作 · Context 被动 · Webview 粗糙</li>
+				</ul>
+			</div>
+			<div class="card fix">
+				<h3>D4 质量基建</h3>
+				<ul>
+					<li>扩展 e2e / @vscode/test-electron 未接入</li>
+					<li>重大合并前补 debug.bat 冒烟</li>
+				</ul>
+			</div>
+		</div>
+		<div class="note" style="margin-top:14px">
+			<b>建议顺序</b>：① 授权 git 基线 → ② 本地索引优先 + Spec 执行追踪最小闭环 → ③ Learning 语义 / Wiki 语义 / 主动上下文 → ④ 并行上关键路径集成测试。
+		</div>
+	</div>
+</section>
+
+<section id="roadmap">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--accent)"></span>⑤ 非常有必要新实现的核心功能</h2>
+		<div class="desc">不再按「~95 人天 Cursor 缺口」推进。主线见 <a href="./项目非常有必要新实现的核心功能总报告.md">必做核心新功能总报告</a>：越用越聪明 + 真协作 + 大厂级体验。</div>
+
+		<div class="phase cloud">
+			<h3>Phase 1 · 0–2 周 · P0 体验门槛</h3>
+			<div class="meta">渐进式首次引导 · Chat/@mention 增强 · Spec/Hub Webview 现代化</div>
+			<p>转化与每日路径；骨架屏 / 导入摘要 / 冲突选择 / Token 与 diff stat。</p>
+		</div>
+		<div class="phase wait">
+			<h3>Phase 2 · 2–4 周 · P1 核心壁垒</h3>
+			<div class="meta">Learning 2.0 向量记忆 · 主动上下文 · Event Bus/Store · Checkpoint 时间线 + Diff 画廊</div>
+			<p>不做则「有功能无记忆」；跨扩展实时状态底座一并落地。</p>
+		</div>
+		<div class="phase accent">
+			<h3>Phase 3–4 · 4–8 周 · P2 差异化</h3>
+			<div class="meta">Agent Crew 真协作 · 语义 Wiki/调用图 · 本地索引默认优先 · Vibe Coding 深化</div>
+			<p>对标 Windsurf Memories / Qoder Wiki / Kiro Spec 驱动的「必须追上或超越」项。</p>
+		</div>
+		<div class="phase">
+			<h3>Phase 5 · 8–10 周 · P3 加分</h3>
+			<div class="meta">Code Lens for Agents · 自然语言命令面板 · 跨项目知识迁移 · 性能打磨</div>
+			<p>体验加分，不挡主线壁垒。</p>
+		</div>
+
+		<div class="table-scroll" style="margin-top:8px">
+		<table>
+			<colgroup><col/><col/><col/><col/></colgroup>
+			<tr><th>优先级</th><th>功能</th><th>工期感</th><th>必要性</th></tr>
+			<tr><td><span class="tag t-p0">P0</span></td><td class="domain">首次引导 / Chat 增强 / Webview</td><td class="cur">~3–5 天/项</td><td>转化 · 每日路径 · 体感</td></tr>
+			<tr><td><span class="tag t-p1">P1</span></td><td class="domain">Learning 2.0 · 主动上下文 · Bus · 时间线</td><td class="cur">~3–7 天/项</td><td><b>核心壁垒</b></td></tr>
+			<tr><td><span class="tag t-p2">P2</span></td><td class="domain">Crew 协作 · Wiki 2.0 · Vibe</td><td class="cur">~7–14 天/项</td><td>差异化杀手锏</td></tr>
+		</table>
+		</div>
+
+		<div class="note" style="margin-top:14px">
+			<b>定位</b>：「越用越聪明的 Agent OS」+「大厂级打磨的 IDE 体验」。Quick Wins（1–2 天）：Spec 骨架屏、按钮涟漪、Router 审查/测试意图、Chat 上次模式提示。
+		</div>
+	</div>
+</section>
+
+<section id="cloud">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--no)"></span>⑥ 云设施 · 待定触发 · 不追</h2>
+		<div class="desc">不纳入当前本地迭代主线；与 D2 环境项、闭源私有能力区分。</div>
+
+		<h2 style="font-size:15px;margin:18px 0 8px"><span class="dot" style="background:var(--wait)"></span>待定（规模/生态触发）</h2>
+		<div class="table-scroll">
+		<table>
+			<colgroup><col/><col/><col/><col/></colgroup>
+			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>触发条件</th></tr>
+			<tr><td class="domain">文本 rerank</td><td>API 可用，未接入</td><td class="cur">检索后重排</td><td><span class="tag t-wait">长查询变多 / 命中率降</span></td></tr>
+			<tr><td class="domain">Embedding 粒度</td><td>文件 / 符号级</td><td class="cur">语法块级</td><td><span class="tag t-wait">代码库显著增大</span></td></tr>
+			<tr><td class="domain">ACP 生态对接</td><td>协议基础版就绪</td><td class="cur">外部 agent 互通</td><td><span class="tag t-wait">外部生态成熟</span></td></tr>
+		</table>
+		</div>
+
+		<h2 style="font-size:15px;margin:22px 0 8px"><span class="dot" style="background:var(--cloud)"></span>需云 / 协作</h2>
+		<div class="table-scroll">
+		<table>
+			<colgroup><col/><col/><col/><col/></colgroup>
+			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>前置</th></tr>
+			<tr><td class="domain">Background 远程执行</td><td>本地队列 / Copilot CLI 封装</td><td class="cur">云端沙箱</td><td><span class="tag t-cloud">服务端</span></td></tr>
+			<tr><td class="domain">团队协作</td><td>单机</td><td class="cur">Teams Rules/权限</td><td><span class="tag t-cloud">账号 + 服务端</span></td></tr>
+			<tr><td class="domain">多端覆盖</td><td>桌面（code-server 可扩）</td><td class="cur">Web / 远程</td><td><span class="tag t-cloud">独立部署层</span></td></tr>
+		</table>
+		</div>
+
+		<h2 style="font-size:15px;margin:22px 0 8px"><span class="dot" style="background:var(--no)"></span>不追 · 闭源私有</h2>
+		<div class="table-scroll">
+		<table>
+			<colgroup><col/><col/><col/><col/></colgroup>
+			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>说明</th></tr>
+			<tr><td class="domain">专有索引内核</td><td>自研索引 + embedding</td><td class="cur">闭源 Merkle</td><td><span class="tag t-no">无公开路径</span></td></tr>
+			<tr><td class="domain">专有补全训练</td><td>Copilot / DeepSeek FIM / 自定义</td><td class="cur">自家 Tab 模型</td><td><span class="tag t-no">需自训算力</span></td></tr>
+			<tr><td class="domain">云端推理编排</td><td>BYOK 双协议</td><td class="cur">专用集群</td><td><span class="tag t-no">需云资源</span></td></tr>
+			<tr><td class="domain">闭源编辑器内核</td><td>VS Code / VSCodium</td><td class="cur">自研内核</td><td><span class="tag t-no">不适用分支形态</span></td></tr>
+		</table>
+		</div>
+	</div>
+</section>
+
+<section id="docs">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--accent)"></span>⑦ 文档索引与合并说明</h2>
+		<div class="desc">2026-09-24 起以三份 MD 为权威源；本 HTML 为可视化总览。</div>
+		<div class="cards">
+			<div class="card ok">
+				<h3>权威 Markdown</h3>
+				<ul>
+					<li><a href="./项目总共已更新修复完善的全部内容.md" style="color:var(--accent)">已更新修复完善的全部内容</a></li>
+					<li><a href="./项目新发现待修复的缺陷问题审计总报告.md" style="color:var(--accent)">新发现待修复缺陷总报告</a></li>
+					<li><a href="./项目非常有必要新实现的核心功能总报告.md" style="color:var(--accent)">必做核心新功能总报告</a></li>
+					<li><a href="../MIGRATION.md" style="color:var(--accent)">MIGRATION.md</a> · README / AGENTS 已挂链</li>
+				</ul>
+			</div>
+			<div class="card fix">
+				<h3>已归档删除（勿再引用）</h3>
+				<ul>
+					<li>项目体检与Cursor方向升级报告-2026-09-21.md</li>
+					<li>项目Bug与缺陷审计报告-2026-09-23.md</li>
+					<li>项目缺陷与Bug深度审计报告-复核版.md</li>
+					<li>improvement-plan.md · 当前项目的已更新已修复的全部内容.md</li>
+				</ul>
+			</div>
+		</div>
+		<div class="note" style="margin-top:16px">
+			<b>验证局限</b>：合流整理未在 09-24 重跑全量 Electron UI；开放项状态以最近一次报告为准。未代为 git commit。
+			<br/><b>本页历史</b>：曾合并三份 HTML 仪表盘/差距/路线图；现按三份新 MD 重写结论（纠正「本地缺口=0」过时表述）。
+		</div>
+	</div>
+</section>
+
+<footer>
+	<div class="wrap">
+		Kodrix 体检与 Cursor 对标总览 · 更新 2026-09-24 · 对齐 docs 三份合流报告
+	</div>
+</footer>
+</body>
+</html>

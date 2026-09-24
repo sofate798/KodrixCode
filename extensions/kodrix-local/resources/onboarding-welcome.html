@@ -3,9 +3,17 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}};">
+	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<title>Welcome to Kodrix</title>
 	<style>
+		.codicon { vertical-align: -0.15em; }
+		.logo .codicon { font-size: 48px; color: var(--accent, #3994BC); }
+		.ei-icon .codicon { font-size: 18px; }
+		.qc-icon .codicon { font-size: 34px; }
+		h3 .codicon { margin-right: 6px; }
+		.btn .codicon { font-size: 14px; }
+		.env-empty .codicon, .import-item .codicon, .suggestion .codicon { margin-right: 4px; }
 		:root {
 			--bg: var(--vscode-editor-background, #1e1e1e);
 			--bg-elevated: var(--vscode-sideBar-background, #252526);
@@ -49,10 +57,10 @@
 
 		/* Logo / Header */
 		.logo {
-			font-size: 48px;
 			margin-bottom: 12px;
 			filter: drop-shadow(0 4px 12px rgba(57, 148, 188, 0.3));
 			animation: logoFloat 2s ease-in-out infinite;
+			line-height: 1;
 		}
 		@keyframes logoFloat {
 			0%, 100% { transform: translateY(0); }
@@ -182,7 +190,7 @@
 		.env-item.ok { border-left: 3px solid var(--success); }
 		.env-item.warn { border-left: 3px solid var(--warn); }
 		.env-item.missing { border-left: 3px solid var(--fg-dim); opacity: 0.7; }
-		.env-item .ei-icon { font-size: 18px; flex-shrink: 0; }
+		.env-item .ei-icon { flex-shrink: 0; display: flex; align-items: center; color: var(--fg); }
 		.env-item .ei-label { color: var(--fg-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
 		.env-item .ei-value { font-weight: 600; }
 
@@ -266,7 +274,7 @@
 			box-shadow: 0 12px 32px rgba(57,148,188,0.12);
 		}
 		.quick-card:active { transform: translateY(-1px) scale(0.98); transition: transform 80ms ease; }
-		.quick-card .qc-icon { font-size: 34px; transition: transform var(--transition); }
+		.quick-card .qc-icon { transition: transform var(--transition); line-height: 1; color: var(--accent); }
 		.quick-card:hover .qc-icon { transform: scale(1.1); }
 		.quick-card .qc-title { font-weight: 600; font-size: 14px; }
 		.quick-card .qc-desc { font-size: 11px; color: var(--fg-dim); }
@@ -383,7 +391,7 @@
 </head>
 <body>
 <div class="container">
-	<div class="logo">🦾</div>
+	<div class="logo"><i class="codicon codicon-robot" aria-hidden="true"></i></div>
 	<h1>Welcome to Kodrix</h1>
 	<p class="tagline">Agent-First IDE · 本地优先 · 越用越聪明<br>3 步配置，即刻开启 AI 编程新时代</p>
 
@@ -399,7 +407,7 @@
 	<!-- Step 1: Environment -->
 	<div class="step-panel active" id="step1">
 		<div class="card">
-			<h3 id="envTitle">🔍 正在扫描你的开发环境…</h3>
+			<h3 id="envTitle"><i class="codicon codicon-search" aria-hidden="true"></i> 正在扫描你的开发环境…</h3>
 			<div class="env-empty" id="envEmpty"></div>
 			<div class="env-grid" id="envGrid">
 				<div class="skeleton skel-env"></div>
@@ -412,7 +420,7 @@
 			<div class="suggestions" id="suggestions"></div>
 		</div>
 		<div class="btn-row">
-			<button class="btn secondary tiny" id="btnSkipEnv">跳过 →</button>
+			<button class="btn secondary tiny" id="btnSkipEnv">跳过 <i class="codicon codicon-arrow-right" aria-hidden="true"></i></button>
 			<button class="btn primary" id="btnNext1" disabled>正在扫描…</button>
 		</div>
 	</div>
@@ -420,40 +428,41 @@
 	<!-- Step 2: Import -->
 	<div class="step-panel" id="step2">
 		<div class="card">
-			<h3>📥 从已有工具导入</h3>
+			<h3><i class="codicon codicon-cloud-download" aria-hidden="true"></i> 从 Cursor 导入</h3>
+			<p style="color:var(--fg-dim);font-size:12px;margin:-4px 0 12px;">Cursormini / Kodrix 配置在首次启动时已自动迁移；此处仅导入 Cursor Rules / MCP / Skills。</p>
 			<div id="importStatus">
-				<p style="color:var(--fg-dim);font-size:12px;">正在检测 Cursor / Cursormini 配置…</p>
+				<p style="color:var(--fg-dim);font-size:12px;">正在检测 Cursor 配置…</p>
 			</div>
 		</div>
 		<div class="btn-row">
-			<button class="btn secondary" id="btnBack2">← 上一步</button>
+			<button class="btn secondary" id="btnBack2"><i class="codicon codicon-arrow-left" aria-hidden="true"></i> 上一步</button>
 			<button class="btn secondary" id="btnSkipImport">跳过</button>
-			<button class="btn primary" id="btnImport">导入配置</button>
+			<button class="btn primary" id="btnImport">导入 Cursor</button>
 		</div>
 	</div>
 
 	<!-- Step 3: Quick Start -->
 	<div class="step-panel" id="step3">
 		<div class="card" style="text-align:center;">
-			<h3>🚀 准备就绪！选择你的第一步</h3>
+			<h3><i class="codicon codicon-rocket" aria-hidden="true"></i> 准备就绪！选择你的第一步</h3>
 			<p style="color:var(--fg-dim);font-size:12px;margin-bottom:18px;">
 				环境已配置，<span id="importSummary"></span>
 			</p>
 			<div class="quick-grid">
 				<div class="quick-card" data-action="agent">
-					<span class="qc-icon">🤖</span>
+					<span class="qc-icon"><i class="codicon codicon-hubot" aria-hidden="true"></i></span>
 					<span class="qc-title">Agent Chat</span>
 					<span class="qc-desc">多文件编辑 + 工具调用</span>
 					<span class="qc-tag agent">推荐</span>
 				</div>
 				<div class="quick-card" data-action="models">
-					<span class="qc-icon">🔌</span>
+					<span class="qc-icon"><i class="codicon codicon-plug" aria-hidden="true"></i></span>
 					<span class="qc-title">配置模型</span>
 					<span class="qc-desc">Ollama / API 供应商</span>
 					<span class="qc-tag models">模型</span>
 				</div>
 				<div class="quick-card" data-action="import">
-					<span class="qc-icon">📥</span>
+					<span class="qc-icon"><i class="codicon codicon-cloud-download" aria-hidden="true"></i></span>
 					<span class="qc-title">Cursor 导入</span>
 					<span class="qc-desc">Rules / MCP / Skills</span>
 					<span class="qc-tag import">迁移</span>
@@ -461,7 +470,7 @@
 			</div>
 		</div>
 		<div class="btn-row">
-			<button class="btn secondary" id="btnBack3">← 上一步</button>
+			<button class="btn secondary" id="btnBack3"><i class="codicon codicon-arrow-left" aria-hidden="true"></i> 上一步</button>
 			<button class="btn secondary" id="btnFinish">稍后再说</button>
 		</div>
 	</div>
@@ -472,6 +481,7 @@
 <script>
 	const vscode = acquireVsCodeApi();
 	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
+	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
 
 	let currentStep = 1;
 	let envData = null;
@@ -508,38 +518,38 @@
 			// 扫描失败/超时：同样结束“正在扫描”状态并放行，绝不卡死
 			grid.innerHTML = '';
 			sugEl.innerHTML = '';
-			titleEl.textContent = '环境检测未完成';
-			emptyEl.innerHTML = '⚠️ 系统不存在可用的开发环境（环境扫描未返回结果）。可点击「继续 →」直接使用，或安装 Git / Python 等开发工具后重新打开向导。';
+			titleEl.innerHTML = ki('warning') + ' 环境检测未完成';
+			emptyEl.innerHTML = ki('warning') + ' 系统不存在可用的开发环境（环境扫描未返回结果）。可点击「继续」直接使用，或安装 Git / Python 等开发工具后重新打开向导。';
 			emptyEl.classList.add('show');
 			return;
 		}
 
-		titleEl.textContent = '环境检测完成';
+		titleEl.innerHTML = ki('pass') + ' 环境检测完成';
 		const items = [
-			{ icon: '💻', label: 'System', value: data.platform.split(' ')[0] + ' ' + data.arch, ok: true },
-			{ icon: '🧠', label: 'CPU Cores', value: data.cpus + ' cores', ok: true },
-			{ icon: '💾', label: 'Memory', value: data.totalMemoryGB + ' GB', ok: data.totalMemoryGB >= 8, warn: data.totalMemoryGB < 8 },
-			{ icon: '🎮', label: 'GPU', value: data.hasGPU ? data.gpuInfo.slice(0, 30) : '未检测到', ok: data.hasGPU },
-			{ icon: '🦙', label: 'Ollama', value: data.hasOllama ? (data.ollamaModels.length ? data.ollamaModels.length + ' models' : '已安装（无模型）') : '未安装', ok: data.hasOllama },
-			{ icon: '🐍', label: 'Python', value: data.hasPython ? data.pythonVersion : '未安装', ok: data.hasPython },
-			{ icon: '🔧', label: 'Git', value: data.hasGit ? '✓ 已安装' : '✗ 未安装', ok: data.hasGit },
-			{ icon: '🐳', label: 'Docker', value: data.hasDocker ? '✓ 已安装' : '✗ 未安装', ok: data.hasDocker },
-			{ icon: '📦', label: 'Node.js', value: data.nodeVersion, ok: true },
-			{ icon: '💿', label: 'Free Disk', value: data.freeDiskGB > 0 ? data.freeDiskGB + ' GB' : '未知', ok: data.freeDiskGB >= 10, warn: data.freeDiskGB > 0 && data.freeDiskGB < 10 },
+			{ icon: 'device-desktop', label: 'System', value: data.platform.split(' ')[0] + ' ' + data.arch, ok: true },
+			{ icon: 'chip', label: 'CPU Cores', value: data.cpus + ' cores', ok: true },
+			{ icon: 'database', label: 'Memory', value: data.totalMemoryGB + ' GB', ok: data.totalMemoryGB >= 8, warn: data.totalMemoryGB < 8 },
+			{ icon: 'circuit-board', label: 'GPU', value: data.hasGPU ? data.gpuInfo.slice(0, 30) : '未检测到', ok: data.hasGPU },
+			{ icon: 'server', label: 'Ollama', value: data.hasOllama ? (data.ollamaModels.length ? data.ollamaModels.length + ' models' : '已安装（无模型）') : '未安装', ok: data.hasOllama },
+			{ icon: 'python', label: 'Python', value: data.hasPython ? data.pythonVersion : '未安装', ok: data.hasPython },
+			{ icon: 'source-control', label: 'Git', value: data.hasGit ? '已安装' : '未安装', ok: data.hasGit },
+			{ icon: 'layers', label: 'Docker', value: data.hasDocker ? '已安装' : '未安装', ok: data.hasDocker },
+			{ icon: 'package', label: 'Node.js', value: data.nodeVersion, ok: true },
+			{ icon: 'file-binary', label: 'Free Disk', value: data.freeDiskGB > 0 ? data.freeDiskGB + ' GB' : '未知', ok: data.freeDiskGB >= 10, warn: data.freeDiskGB > 0 && data.freeDiskGB < 10 },
 		];
 
 		grid.innerHTML = '';
 		items.forEach(it => {
 			const el = document.createElement('div');
 			el.className = 'env-item' + (it.ok ? ' ok' : it.warn ? ' warn' : ' missing');
-			el.innerHTML = '<span class="ei-icon">' + it.icon + '</span><div style="flex:1;min-width:0;"><div class="ei-label">' + it.label + '</div><div class="ei-value">' + it.value + '</div></div>';
+			el.innerHTML = '<span class="ei-icon">' + ki(it.icon) + '</span><div style="flex:1;min-width:0;"><div class="ei-label">' + it.label + '</div><div class="ei-value">' + it.value + '</div></div>';
 			grid.appendChild(el);
 		});
 
 		// 有什么环境就显示什么环境；一个开发工具都没检测到 → 明确提示“系统不存在开发环境”
 		const anyDevTool = data.hasOllama || data.hasPython || data.hasGit || data.hasDocker;
 		if (!anyDevTool) {
-			emptyEl.innerHTML = '⚠️ 系统不存在开发环境（未检测到 Git / Python / Docker / Ollama 等开发工具）。可继续使用云端 API，或安装工具后重新打开向导。';
+			emptyEl.innerHTML = ki('warning') + ' 系统不存在开发环境（未检测到 Git / Python / Docker / Ollama 等开发工具）。可继续使用云端 API，或安装工具后重新打开向导。';
 			emptyEl.classList.add('show');
 		} else {
 			emptyEl.classList.remove('show');
@@ -559,13 +569,18 @@
 		renderEnv(data);
 		const btn = document.getElementById('btnNext1');
 		btn.disabled = false;
-		btn.textContent = '继续 →';
+		btn.innerHTML = '继续 ' + ki('arrow-right');
 	}
 
 	function renderImport(data) {
 		const el = document.getElementById('importStatus');
+		const notes = (data && data.notes) ? data.notes : [];
+		const noteHtml = notes.length
+			? '<div class="import-list" style="margin-bottom:12px;">' + notes.map(n => '<div class="import-item">' + ki('info') + ' ' + n + '</div>').join('') + '</div>'
+			: '';
+
 		if (!data || !data.items || !data.items.length) {
-			el.innerHTML = '<div class="empty-import">未检测到 Cursor 或 Cursormini 配置。（可稍后在 Kodrix: 从 Cursor 导入 中手动操作）</div>';
+			el.innerHTML = noteHtml + '<div class="empty-import">未检测到 Cursor 可导入项。（可稍后运行 Kodrix: 从 Cursor 导入）</div>';
 			return;
 		}
 
@@ -573,12 +588,13 @@
 		const more = data.items.length > 8 ? '<div class="import-item">… 还有 ' + (data.items.length - 8) + ' 项</div>' : '';
 
 		el.innerHTML =
+			noteHtml +
 			'<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">' +
 			'<span class="import-count">' + data.items.length + '</span>' +
-			'<span style="font-size:13px;color:var(--success);">项配置可导入</span>' +
+			'<span style="font-size:13px;color:var(--success);">项 Cursor 配置可导入</span>' +
 			'</div>' +
 			'<div class="import-list">' +
-			items.map(i => '<div class="import-item">✅ ' + i + '</div>').join('') +
+			items.map(i => '<div class="import-item">' + ki('pass') + ' ' + i + '</div>').join('') +
 			more +
 			'</div>';
 	}

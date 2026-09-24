@@ -132,7 +132,7 @@ export function registerCursorFeatureCommands(context: vscode.ExtensionContext):
 		vscode.commands.registerCommand('kodrix.openWorkspaceInAgentsWindow', () => openWorkspaceInAgentsWindow()),
 		vscode.commands.registerCommand('kodrix.applyCursorFeatures', async () => {
 			await applyCursor3ExperienceDefaults(context, { force: true });
-			vscode.window.showInformationMessage('Kodrix：已应用 Cursor 3.0 Agent 中心体验默认配置');
+			vscode.window.showInformationMessage('Kodrix：已应用 Cursor 对标功能默认配置');
 		}),
 		vscode.commands.registerCommand('kodrix.applyCursor3Experience', async () => {
 			await applyCursor3ExperienceDefaults(context, { force: true });

@@ -110,7 +110,9 @@ kodrix/
 | [`AGENTS.md`](AGENTS.md) | AI / 开发者项目导读 |
 | [`REPAIR-NOTES.md`](REPAIR-NOTES.md) | 启动卡死、native 模块、语言包等排障 |
 | [`SECURITY.md`](SECURITY.md) | 漏洞报告与安全实践 |
-| [`MIGRATION.md`](MIGRATION.md) | Cursor / Cursormini 能力迁移对照 |
+| [`docs/项目总共已更新修复完善的全部内容.md`](docs/项目总共已更新修复完善的全部内容.md) | 已更新/修复/完善（含日期） |
+| [`docs/项目新发现待修复的缺陷问题审计总报告.md`](docs/项目新发现待修复的缺陷问题审计总报告.md) | 待修复缺陷总报告 |
+| [`docs/项目非常有必要新实现的核心功能总报告.md`](docs/项目非常有必要新实现的核心功能总报告.md) | 必做核心新功能 |
 
 ## 上游与许可
 
