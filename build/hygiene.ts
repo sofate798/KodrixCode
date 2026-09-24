@@ -89,9 +89,13 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 	const productJson = es.through(function (file: VinylFile) {
 		const product = JSON.parse(file.contents!.toString('utf8'));
 
+		// Kodrix / VSCodium forks ship Open VSX; block only Microsoft Marketplace URLs.
 		if (product.extensionsGallery) {
-			console.error(`product.json: Contains 'extensionsGallery'`);
-			errorCount++;
+			const serviceUrl = String(product.extensionsGallery.serviceUrl || '');
+			if (/marketplace\.visualstudio\.com/i.test(serviceUrl)) {
+				console.error(`product.json: Contains Microsoft Marketplace 'extensionsGallery'`);
+				errorCount++;
+			}
 		}
 
 		this.emit('data', file);

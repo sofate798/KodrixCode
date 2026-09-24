@@ -97,7 +97,7 @@ export class KanbanTreeItem extends vscode.TreeItem {
 		].filter(Boolean).join('\n');
 
 		if (task.description) {
-			this.tooltip = `📝 ${task.description}\n\n${this.tooltip}`;
+			this.tooltip = `${task.description}\n\n${this.tooltip}`;
 		}
 
 		this.command = {
@@ -154,8 +154,8 @@ export async function addKanbanTask(): Promise<void> {
 
 	const status = await vscode.window.showQuickPick(
 		[
-			{ label: '📋 待办', status: 'todo' as KanbanStatus },
-			{ label: '🚧 立即开始（进行中）', status: 'in_progress' as KanbanStatus },
+			{ label: '$(circle-outline) 待办', status: 'todo' as KanbanStatus },
+			{ label: '$(sync) 立即开始（进行中）', status: 'in_progress' as KanbanStatus },
 		],
 		{ placeHolder: '任务状态' },
 	);
@@ -171,7 +171,7 @@ export async function addKanbanTask(): Promise<void> {
 	};
 	data.tasks.unshift(task);
 	saveKanban(data);
-	vscode.window.showInformationMessage(`✅ 已添加任务：${title}`);
+	vscode.window.showInformationMessage(`已添加任务：${title}`);
 }
 
 export async function moveKanbanTask(item?: KanbanTreeItem): Promise<void> {
@@ -203,7 +203,7 @@ export async function moveKanbanTask(item?: KanbanTreeItem): Promise<void> {
 		task.updatedAt = new Date().toISOString();
 		saveKanban(data);
 		vscode.window.showInformationMessage(
-			`${STATUS_CONFIG[task.status].icon === 'sync~spin' ? '🔄' : ''} ${task.title} → ${STATUS_CONFIG[next.status].label}`
+			`${task.title} → ${STATUS_CONFIG[next.status].label}`
 		);
 	}
 }
@@ -243,7 +243,7 @@ export async function deleteKanbanTask(item?: KanbanTreeItem): Promise<void> {
 		return;
 	}
 	const confirm = await vscode.window.showQuickPick(
-		[{ label: '🗑️ 确认删除', confirm: true }, { label: '取消', confirm: false }],
+		[{ label: '$(trash) 确认删除', confirm: true }, { label: '取消', confirm: false }],
 		{ placeHolder: `删除「${item.task.title}」？` },
 	);
 	if (!confirm?.confirm) return;

@@ -126,6 +126,11 @@ async function handleCodebaseToggle(key: string, value: boolean): Promise<void> 
 		// 即时生效：关闭时停用文件监听，打开时重新启用
 		if (value) startIndexWatcher(getSettingsContext());
 		else disposeIndexWatcher();
+	} else if (key === 'ignoreCursorignore') {
+		// 忽略规则变更后需重建，否则仍用旧的排除结果
+		void ensureProjectIndex(true).catch(err => {
+			void vscode.window.showErrorMessage(`索引重建失败：${err instanceof Error ? err.message : String(err)}`);
+		});
 	}
 }
 
@@ -643,14 +648,20 @@ function renderIndex(s) {
 		percent.textContent = total + ' 文件';
 		fill.style.width = '100%';
 		dot.className = 'dot done';
-		statusText.textContent = '索引完成' + (s.stats ? ' · ' + s.stats.totalSymbols + ' 个符号 · ' + Math.round((s.stats.indexDurationMs || 0) / 1000) + 's' : '');
+		if (total === 0) {
+			statusText.textContent = '索引为空 — 未发现可索引源文件，可点击「重建索引」重试';
+		} else {
+			statusText.textContent = '索引完成' + (s.stats ? ' · ' + s.stats.totalSymbols + ' 个符号 · ' + Math.round((s.stats.indexDurationMs || 0) / 1000) + 's' : '');
+		}
 		pauseBtn.hidden = true;
 		rebuildBtn.hidden = false;
 	}
 
 	const list = $('fileList');
 	if (!s.files || !s.files.length) {
-		list.innerHTML = '<div class="empty">尚无索引文件</div>';
+		list.innerHTML = s.status === 'done'
+			? '<div class="empty">尚无索引文件。请确认工作区已打开，且存在 .ts/.js/.py 等源文件（已排除 node_modules / out 等）。</div>'
+			: '<div class="empty">尚无索引文件</div>';
 	} else {
 		list.innerHTML = s.files.map(f =>
 			'<div class="file-item"><span class="lang-badge">' + esc(f.language) + '</span><span>' + esc(f.relativePath) + '</span></div>'

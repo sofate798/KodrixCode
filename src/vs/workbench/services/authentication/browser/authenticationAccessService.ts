@@ -50,11 +50,13 @@ export class AuthenticationAccessService extends Disposable implements IAuthenti
 	isAccessAllowed(providerId: string, accountName: string, extensionId: string): boolean | undefined {
 		const trustedExtensionAuthAccess = this._productService.trustedExtensionAuthAccess;
 		const extensionKey = ExtensionIdentifier.toKey(extensionId);
+		// product.json may use mixed-case ids (e.g. GitHub.copilot-chat); toKey is lowercase
+		const trustedIncludes = (ids: readonly string[]) => ids.some(id => ExtensionIdentifier.toKey(id) === extensionKey);
 		if (Array.isArray(trustedExtensionAuthAccess)) {
-			if (trustedExtensionAuthAccess.includes(extensionKey)) {
+			if (trustedIncludes(trustedExtensionAuthAccess)) {
 				return true;
 			}
-		} else if (trustedExtensionAuthAccess?.[providerId]?.includes(extensionKey)) {
+		} else if (trustedExtensionAuthAccess?.[providerId] && trustedIncludes(trustedExtensionAuthAccess[providerId])) {
 			return true;
 		}
 

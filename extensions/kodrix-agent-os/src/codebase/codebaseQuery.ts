@@ -218,7 +218,7 @@ function showStructure(index: ProjectIndex): CodebaseSearchResult[] {
 			reason: '项目顶层目录',
 			filePath: path.join(root, dir),
 			score: 0.5,
-			snippet: `📁 ${dir}/`,
+			snippet: `${dir}/`,
 		});
 	}
 
@@ -227,7 +227,7 @@ function showStructure(index: ProjectIndex): CodebaseSearchResult[] {
 		if (sym && sym.visibility === SymbolVisibility.Exported) {
 			results.push({
 				symbol: sym,
-				reason: '🔥 核心导出符号',
+				reason: '核心导出符号',
 				filePath: sym.filePath,
 				score: 0.7,
 				snippet: sym.signature || sym.name,
@@ -244,7 +244,7 @@ function showStructure(index: ProjectIndex): CodebaseSearchResult[] {
 				reason: '模块目录',
 				filePath: path.join(root, md),
 				score: 0.4,
-				snippet: `📦 ${md}/ — ${count} 个文件`,
+				snippet: `${md}/ — ${count} 个文件`,
 			});
 		}
 	}
@@ -337,14 +337,9 @@ async function naturalSearch(index: ProjectIndex, query: string): Promise<Codeba
 
 // ── 结果格式化 ──────────────────────────────────────────────────
 
-const KIND_ICON: Record<string, string> = {
-	class: '📦', interface: '🔷', function: '🔧', method: '⚙️',
-	variable: '📌', type: '🏷️', enum: '📋', namespace: '📂', unknown: '❓',
-};
-
 function formatResultsToMarkdown(results: CodebaseSearchResult[], query: string, index: ProjectIndex): string {
 	if (results.length === 0) {
-		return `## 🔍 "${query}" 未找到匹配结果
+		return `## "${query}" 未找到匹配结果
 
 > 建议：
 > - 尝试使用更具体的符号名
@@ -355,7 +350,7 @@ function formatResultsToMarkdown(results: CodebaseSearchResult[], query: string,
 	}
 
 	const lines: string[] = [
-		`## 🔍 "${query}" — 找到 ${results.length} 个结果`,
+		`## "${query}" — 找到 ${results.length} 个结果`,
 		'',
 		`> 索引：${index.stats.totalFiles} 个文件 · ${index.stats.totalSymbols} 个符号`,
 		'',
@@ -366,9 +361,9 @@ function formatResultsToMarkdown(results: CodebaseSearchResult[], query: string,
 	for (const r of sorted) {
 		const sym = r.symbol;
 		const relativePath = normalizePath(path.relative(index.rootPath, r.filePath));
-		const icon = sym ? (KIND_ICON[sym.kind] || '•') : '📄';
+		const kindTag = sym ? `[${sym.kind}] ` : '';
 
-		lines.push(`### ${icon} ${r.reason}`);
+		lines.push(`### ${kindTag}${r.reason}`);
 
 		if (sym) {
 			lines.push('');
@@ -393,7 +388,7 @@ function formatResultsToMarkdown(results: CodebaseSearchResult[], query: string,
 
 		if (r.snippet && !sym) {
 			lines.push('');
-			lines.push(`📄 [\`${relativePath}\`](${r.filePath})`);
+			lines.push(`[\`${relativePath}\`](${r.filePath})`);
 			lines.push('');
 			lines.push('```');
 			lines.push(r.snippet.slice(0, 300));
@@ -548,7 +543,7 @@ export function registerCodebaseChatParticipant(context: vscode.ExtensionContext
 				if (token.isCancellationRequested) return;
 
 				try {
-					stream.markdown('🔍 *正在索引并搜索代码库...*');
+					stream.markdown('*正在索引并搜索代码库...*');
 					const result = await queryCodebase(prompt);
 					stream.markdown(result);
 				} catch (err) {

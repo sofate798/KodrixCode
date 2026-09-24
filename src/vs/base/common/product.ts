@@ -130,9 +130,11 @@ export interface IProductConfiguration {
 
 	readonly extensionsGallery?: {
 		readonly serviceUrl: string;
+		readonly itemUrl?: string;
 		readonly controlUrl: string;
 		readonly extensionUrlTemplate: string;
 		readonly resourceUrlTemplate: string;
+		readonly latestUrlTemplate?: string;
 		readonly nlsBaseUrl: string;
 		readonly accessSKUs?: string[];
 	};

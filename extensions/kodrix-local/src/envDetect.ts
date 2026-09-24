@@ -31,7 +31,8 @@ export interface EnvInfo {
 	hasDocker: boolean;
 	hasCursorConfig: boolean;
 	hasCursorminiConfig: boolean;
-	suggestions: string[];
+	/** icon = codicon 名（见 resources/codicons），由引导页 `ki()` 渲染 */
+	suggestions: { icon: string; text: string }[];
 }
 
 const ALLOWED_COMMANDS = new Set([
@@ -230,29 +231,29 @@ export async function detectEnvironment(): Promise<EnvInfo> {
 		detectTool('docker --version 2>&1'),
 	]);
 
-	const suggestions: string[] = [];
+	const suggestions: EnvInfo['suggestions'] = [];
 
-	// Smart suggestions based on environment
+	// Smart suggestions based on environment（图标用引导页 codicon）
 	if (ollama.hasOllama && ollama.ollamaModels.length > 0) {
-		suggestions.push(`✅ 检测到 Ollama + ${ollama.ollamaModels.length} 个模型 — 已自动配置本地推理`);
+		suggestions.push({ icon: 'pass', text: `检测到 Ollama + ${ollama.ollamaModels.length} 个模型 — 已自动配置本地推理` });
 	} else if (ollama.hasOllama) {
-		suggestions.push('⚡ 检测到 Ollama — 建议运行 `ollama pull codellama` 拉取编程模型');
+		suggestions.push({ icon: 'zap', text: '检测到 Ollama — 建议运行 `ollama pull codellama` 拉取编程模型' });
 	} else if (gpu.hasGPU && totalMemGB >= 16) {
-		suggestions.push('💡 你的 GPU 性能良好，建议安装 Ollama 享受免费本地推理');
+		suggestions.push({ icon: 'lightbulb', text: '你的 GPU 性能良好，建议安装 Ollama 享受免费本地推理' });
 	}
 
 	if (gpu.hasGPU && totalMemGB >= 16) {
-		suggestions.push('🎮 GPU 可用于本地大模型推理（7B-13B 参数）');
+		suggestions.push({ icon: 'circuit-board', text: 'GPU 可用于本地大模型推理（7B-13B 参数）' });
 	} else if (totalMemGB < 8) {
-		suggestions.push('⚠️ 内存较小（<8GB），建议使用云端 API 模型');
+		suggestions.push({ icon: 'warning', text: '内存较小（<8GB），建议使用云端 API 模型' });
 	}
 
 	if (!python.hasPython) {
-		suggestions.push('📌 建议安装 Python 3.10+ 以支持更多 Agent 工具');
+		suggestions.push({ icon: 'python', text: '建议安装 Python 3.10+ 以支持更多 Agent 工具' });
 	}
 
 	if (freeDisk > 0 && freeDisk < 10) {
-		suggestions.push('⚠️ 磁盘空间不足（<10GB），可能影响本地模型下载');
+		suggestions.push({ icon: 'warning', text: '磁盘空间不足（<10GB），可能影响本地模型下载' });
 	}
 
 	return {

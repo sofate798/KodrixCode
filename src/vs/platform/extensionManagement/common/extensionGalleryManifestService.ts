@@ -17,6 +17,7 @@ type ExtensionGalleryConfig = {
 	readonly extensionUrlTemplate: string;
 	readonly controlUrl: string;
 	readonly nlsBaseUrl: string;
+	readonly latestUrlTemplate?: string;
 };
 
 export class ExtensionGalleryManifestService extends Disposable implements IExtensionGalleryManifestService {
@@ -47,7 +48,7 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 				type: ExtensionGalleryResourceType.ExtensionQueryService
 			},
 			{
-				id: `${extensionsGallery.serviceUrl}/vscode/{publisher}/{name}/latest`,
+				id: extensionsGallery.latestUrlTemplate ?? `${extensionsGallery.serviceUrl}/vscode/{publisher}/{name}/latest`,
 				type: ExtensionGalleryResourceType.ExtensionLatestVersionUri
 			},
 			{
@@ -220,7 +221,8 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 					flags,
 				},
 				signing: {
-					allPublicRepositorySigned: true,
+					// Open VSX (and most non-MS galleries) do not Microsoft-sign packages.
+					allPublicRepositorySigned: false,
 				}
 			}
 		};

@@ -762,7 +762,7 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 				await vscode.window.showInformationMessage(`已创建检查点 ${result.checkpointId}（可运行「Kodrix: 恢复检查点」回滚 Agent 改动）`);
 			}
 			if (result.status === 'completed') {
-				await vscode.window.showInformationMessage(`✅ Agent 任务完成（${result.iterations} 轮，${(result.durationMs / 1000).toFixed(1)}s）`);
+				await vscode.window.showInformationMessage(`Agent 任务完成（${result.iterations} 轮，${(result.durationMs / 1000).toFixed(1)}s）`);
 			} else {
 				await vscode.window.showWarningMessage(`Agent 任务未完成：${result.status}（${(result.durationMs / 1000).toFixed(1)}s）`);
 			}
@@ -787,7 +787,7 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 			const doc2 = await vscode.workspace.openTextDocument(path.join(runDir, `${id2}.md`));
 			await vscode.window.showTextDocument(doc2, { preview: true });
 			if (result.status === 'completed') {
-				await vscode.window.showInformationMessage(`✅ Agent 续聊完成（${result.iterations} 轮）`);
+				await vscode.window.showInformationMessage(`Agent 续聊完成（${result.iterations} 轮）`);
 			} else {
 				await vscode.window.showWarningMessage(`Agent 续聊未完成：${result.status}`);
 			}

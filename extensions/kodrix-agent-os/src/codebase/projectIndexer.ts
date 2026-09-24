@@ -57,6 +57,11 @@ function compileGlobs(excludeGlobs: string[]): RegExp[] {
 				.replace(/\*\*/g, '<<DOUBLESTAR>>')
 				.replace(/\*/g, '[^/]*')
 				.replace(/<<DOUBLESTAR>>/g, '.*');
+			// 拒绝会匹配任意路径的规则（如单独的 "**"），否则索引会变成 0 文件
+			if (escaped === '.*') {
+				logger.warn(`[ProjectIndexer] Ignoring overly broad exclude glob: ${glob}`);
+				continue;
+			}
 			compiled.push(new RegExp('^' + escaped + '$'));
 		} catch {
 			// Skip invalid globs silently — the regex might be malformed
@@ -99,6 +104,10 @@ function shouldExclude(filePath: string, config: IndexerConfig, rootPath?: strin
 // ── .cursorignore 支持（对标 Cursor：除 .gitignore 外额外排除） ──
 
 let _cursorignoreCache: { root: string; globs: RegExp[] } | null = null;
+
+function invalidateCursorignoreCache(): void {
+	_cursorignoreCache = null;
+}
 
 /**
  * 读取项目根目录的 `.cursorignore`（每行一条 glob 规则，`#` 开头为注释，
@@ -890,14 +899,27 @@ export interface IncrementalIndexResult {
 /**
  * 增量刷新索引：按文件指纹（mtime + size）检测变更，只重解析变更/新增文件，
  * 移除已删除文件的符号与关系（对标 Cursor Merkle 树增量索引）。
+ * @param session 可选构建会话号；传入时尊重 pause/delete/force 中止
  */
-export async function updateProjectIndexIncrementally(index: ProjectIndex): Promise<ProjectIndex> {
+export async function updateProjectIndexIncrementally(
+	index: ProjectIndex,
+	session?: number,
+): Promise<ProjectIndex> {
 	const rootPath = index.rootPath;
 	const start = Date.now();
 	const config = DEFAULT_CONFIG;
+	invalidateCursorignoreCache();
+
+	const checkCurrent = () => {
+		if (session === undefined) return;
+		if (!isBuildCurrent(session)) {
+			throw new Error('Index build cancelled');
+		}
+	};
 
 	// 1) 扫描当前文件集合
 	const files = discoverFiles(rootPath, config);
+	checkCurrent();
 	const current = new Set(files);
 
 	const changedFiles: string[] = [];
@@ -957,7 +979,9 @@ export async function updateProjectIndexIncrementally(index: ProjectIndex): Prom
 
 	// 5) 解析变更 + 新增文件
 	const toParse = [...addedFiles, ...changedFiles];
-	for (const filePath of toParse) {
+	for (let i = 0; i < toParse.length; i++) {
+		if (i > 0 && i % 50 === 0) checkCurrent();
+		const filePath = toParse[i];
 		const result = parseFile(filePath);
 		if (result) {
 			for (const sym of result.symbols) {
@@ -971,7 +995,7 @@ export async function updateProjectIndexIncrementally(index: ProjectIndex): Prom
 			const ext = path.extname(filePath);
 			fileSummaries[filePath] = {
 				filePath,
-				relativePath: path.relative(rootPath, filePath),
+				relativePath: path.relative(rootPath, filePath).replace(/\\/g, '/'),
 				symbolCount: result.symbols.length,
 				exportCount: result.symbols.filter(s => s.visibility === SymbolVisibility.Exported || s.exportKind).length,
 				importCount: result.imports.length,
@@ -987,6 +1011,8 @@ export async function updateProjectIndexIncrementally(index: ProjectIndex): Prom
 			delete fileSummaries[filePath];
 		}
 	}
+
+	checkCurrent();
 
 	// 6) 删除文件清理
 	for (const f of removedFiles) {
@@ -1040,6 +1066,7 @@ export async function updateProjectIndexIncrementally(index: ProjectIndex): Prom
 	index.stats.indexDurationMs = Date.now() - start;
 	index.updatedAt = new Date().toISOString();
 
+	checkCurrent();
 	saveIndex(index);
 	logger.info(`[ProjectIndexer] Incremental: +${addedFiles.length} added, ~${changedFiles.length} changed, -${removedFiles.length} removed (unchanged ${unchanged})`);
 	return index;
@@ -1051,6 +1078,8 @@ let _index: ProjectIndex | null = null;
 let _indexPromise: Promise<ProjectIndex> | null = null;
 let _watcher: vscode.FileSystemWatcher | null = null;
 let _debounceTimer: ReturnType<typeof setTimeout> | undefined;
+/** 构建世代：force / delete 时递增，使过期的 in-flight 构建放弃写回 _index */
+let _buildSession = 0;
 
 // ── 索引状态（供「索引与文档」管理面板） ──
 
@@ -1086,6 +1115,16 @@ function fireIndexState(): void {
 	_onIndexStateChange.fire(getIndexState());
 }
 
+/** 使当前 in-flight 构建失效（不再写回内存索引） */
+function invalidateInFlightBuild(): void {
+	_buildSession++;
+	_buildAbort = true;
+}
+
+function isBuildCurrent(session: number): boolean {
+	return session === _buildSession && !_buildAbort;
+}
+
 /**
  * 暂停构建（面板 Pause Indexing）。
  * 实现为「中止当前构建」而非挂起：挂起会留下一个永不 resolve 的 _indexPromise，
@@ -1114,11 +1153,12 @@ export function resumeIndexBuild(): void {
 
 /** 删除项目索引（面板 删除索引）：中止构建、清空内存与磁盘索引 */
 export async function deleteProjectIndex(): Promise<void> {
-	_buildAbort = true;
+	invalidateInFlightBuild();
 
 	disposeIndexWatcher();
 	_index = null;
-	_indexPromise = null;
+	// 不把 _indexPromise 置 null：让 in-flight 的 finally 自行按 session 清理；
+	// 过期构建在写回前会因 session 不匹配而放弃。
 
 	const indexPath = getIndexPath();
 	try {
@@ -1131,7 +1171,7 @@ export async function deleteProjectIndex(): Promise<void> {
 
 	_buildStatus = 'idle';
 	_buildProgress = { parsed: 0, total: 0 };
-	_buildAbort = false;
+	// 保持 _buildAbort=true，直到下一次合法构建 beginBuild 时清零
 	logger.info('[ProjectIndexer] Project index deleted by user');
 	fireIndexState();
 }
@@ -1230,25 +1270,26 @@ export function getProjectIndex(): ProjectIndex | null {
 export async function ensureProjectIndex(force = false): Promise<ProjectIndex> {
 	if (_index && !force) return _index;
 
-	// force=true 时忽略进行中的构建和缓存，启动全新索引
+	// force：作废 in-flight，避免旧构建晚到写回把新索引覆盖成「0 文件」或脏数据
 	if (force) {
+		invalidateInFlightBuild();
 		_index = null;
-		_indexPromise = null;
-		_buildAbort = false;
 	}
 
-	// Deduplicate: if a build is in progress, await the same promise
-	if (_indexPromise) return _indexPromise;
+	// 非 force 时并入进行中的构建；force 时抛开旧 promise，另起新会话
+	if (_indexPromise && !force) return _indexPromise;
 
+	const running = buildProjectIndex(force);
+	_indexPromise = running;
 	try {
-		_indexPromise = buildProjectIndex(force);
-		const idx = await _indexPromise;
-		_index = idx;
-		return idx;
+		// _index 由 buildProjectIndex 在确认 session 有效后写入；此处不再次赋值，
+		// 以免 delete 清空后被过期 resolve 重新灌回。
+		return await running;
 	} finally {
-		// Always reset the promise — even on failure — so that the next call
-		// triggers a fresh build attempt rather than returning a rejected promise.
-		_indexPromise = null;
+		// 只清理自己的 promise，避免误清后来的 force 重建
+		if (_indexPromise === running) {
+			_indexPromise = null;
+		}
 	}
 }
 
@@ -1259,17 +1300,44 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 		throw new Error('No workspace folder open');
 	}
 
+	// 新会话：清 abort，并使此前 invalidate 的世代成为「当前」
+	_buildAbort = false;
+	const session = ++_buildSession;
+
 	const rootPath = folder.uri.fsPath;
 	const config = DEFAULT_CONFIG;
 	const startTime = Date.now();
+	invalidateCursorignoreCache();
 
-	logger.info(`[ProjectIndexer] Starting full project index of: ${rootPath}`);
+	logger.info(`[ProjectIndexer] Starting full project index of: ${rootPath} (session=${session})`);
 
 	// 尝试增量复用
 	const existing = !force ? loadExistingIndex() : null;
 	if (existing && existing.rootPath === rootPath && existing.version === INDEX_VERSION) {
 		logger.info(`[ProjectIndexer] Reusing existing index, running incremental refresh`);
-		return await updateProjectIndexIncrementally(existing);
+		_buildStatus = 'building';
+		_buildProgress = { parsed: 0, total: Object.keys(existing.files).length };
+		// 先挂上已有索引，避免面板在增量期间读到 null →「0 文件」
+		_index = existing;
+		fireIndexState();
+		try {
+			const updated = await updateProjectIndexIncrementally(existing, session);
+			if (!isBuildCurrent(session)) {
+				throw new Error('Index build cancelled');
+			}
+			_index = updated;
+			_buildStatus = 'done';
+			_buildProgress = { parsed: updated.stats.totalFiles, total: updated.stats.totalFiles };
+			fireIndexState();
+			return updated;
+		} catch (err) {
+			// 增量原地改写；仅当我们仍持有该引用时从磁盘回滚（避免覆盖 force/新会话结果）
+			if (!isBuildCurrent(session) && _index === existing) {
+				const reloaded = loadExistingIndex();
+				_index = reloaded && reloaded.rootPath === rootPath ? reloaded : null;
+			}
+			throw err;
+		}
 	}
 
 	// 发现文件
@@ -1279,7 +1347,6 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	// 重置构建状态并广播（供「索引与文档」面板展示进度）
 	_buildStatus = 'building';
 	_buildProgress = { parsed: 0, total: files.length };
-	_buildAbort = false;
 	fireIndexState();
 
 	// 解析所有文件
@@ -1293,12 +1360,9 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	const BATCH_SIZE = 50;
 
 	for (let i = 0; i < files.length; i += BATCH_SIZE) {
-		// 中止检查：Pause/删除后下一次批次立即退出（不挂起，避免 promise 卡死）
-		if (_buildAbort) {
-			_buildStatus = 'idle';
-			_buildAbort = false;
-			fireIndexState();
-			throw new Error('Index build cancelled by user');
+		// 中止 / 被 force·delete 作废：不改写 status（pause/delete 已设置）
+		if (!isBuildCurrent(session)) {
+			throw new Error('Index build cancelled');
 		}
 
 		const batch = files.slice(i, i + BATCH_SIZE);
@@ -1313,7 +1377,7 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 				langDist[ext] = (langDist[ext] || 0) + 1;
 
 				const stat = fs.statSync(filePath);
-				const relativePath = path.relative(rootPath, filePath);
+				const relativePath = path.relative(rootPath, filePath).replace(/\\/g, '/');
 				fileSummaries[filePath] = {
 					filePath,
 					relativePath,
@@ -1328,12 +1392,18 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 			parsed++;
 		}
 
-		// 每批次报告进度（驱动面板进度条）
-		_buildProgress = { parsed, total: files.length };
-		fireIndexState();
+		// 每批次报告进度（驱动面板进度条）— 仅当前会话推送
+		if (isBuildCurrent(session)) {
+			_buildProgress = { parsed, total: files.length };
+			fireIndexState();
+		}
 		if (parsed % 200 === 0) {
 			logger.info(`[ProjectIndexer] Parsed ${parsed}/${files.length} files (${allSymbols.length} symbols found)`);
 		}
+	}
+
+	if (!isBuildCurrent(session)) {
+		throw new Error('Index build cancelled');
 	}
 
 	// ── 构建索引结构 ──
@@ -1392,9 +1462,9 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 		.slice(0, 50)
 		.map(([id]) => id);
 
-	// 统计
+	// 统计：按实际写入索引的文件数（与 incremental / 面板展示一致）
 	const stats: IndexStats = {
-		totalFiles: files.length,
+		totalFiles: Object.keys(fileSummaries).length,
 		totalSymbols: allSymbols.length,
 		totalImports: allImports.length,
 		totalCalls: allCalls.length,
@@ -1418,13 +1488,83 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 		stats,
 	};
 
+	if (!isBuildCurrent(session)) {
+		throw new Error('Index build cancelled');
+	}
+
 	saveIndex(index);
 	logger.info(`[ProjectIndexer] Index complete: ${stats.totalFiles} files, ${stats.totalSymbols} symbols, ${stats.totalImports} imports, ${stats.indexDurationMs}ms`);
 
+	// 必须先写入 _index 再广播 done，否则设置页会收到「完成 + 0 文件」并卡住
+	_index = index;
 	_buildStatus = 'done';
+	_buildProgress = { parsed: stats.totalFiles, total: stats.totalFiles };
 	fireIndexState();
 
 	return index;
+}
+
+/**
+ * 文件变更后的增量刷新（供 watcher 使用）。
+ * 无内存索引时走 ensureProjectIndex（可复用磁盘索引）；已有索引时只做增量，避免 force 全量清空。
+ */
+async function refreshProjectIndexIncrementally(): Promise<ProjectIndex> {
+	// 构建进行中：并入同一 promise，避免并发写坏索引
+	if (_indexPromise) {
+		return _indexPromise;
+	}
+	if (_buildStatus === 'paused') {
+		return _index ?? ensureProjectIndex(false);
+	}
+
+	if (!_index) {
+		return ensureProjectIndex(false);
+	}
+
+	_buildAbort = false;
+	const session = ++_buildSession;
+	const snapshot = _index;
+
+	const running = (async () => {
+		_buildStatus = 'building';
+		_buildProgress = { parsed: 0, total: Object.keys(snapshot.files).length };
+		fireIndexState();
+
+		try {
+			const updated = await updateProjectIndexIncrementally(snapshot, session);
+			if (!isBuildCurrent(session)) {
+				throw new Error('Index build cancelled');
+			}
+			_index = updated;
+			_buildStatus = 'done';
+			_buildProgress = { parsed: updated.stats.totalFiles, total: updated.stats.totalFiles };
+			fireIndexState();
+			return updated;
+		} catch (err) {
+			if (!isBuildCurrent(session)) {
+				// 仅当我们仍持有被改写的同一引用时回滚，避免覆盖 force/新会话结果
+				if (_index === snapshot) {
+					const reloaded = loadExistingIndex();
+					const folderPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+					_index = reloaded && folderPath && reloaded.rootPath === folderPath ? reloaded : null;
+				}
+			} else {
+				// 本会话失败：保留内存索引，状态回 done
+				_buildStatus = _index ? 'done' : 'idle';
+				fireIndexState();
+			}
+			throw err;
+		}
+	})();
+
+	_indexPromise = running;
+	try {
+		return await running;
+	} finally {
+		if (_indexPromise === running) {
+			_indexPromise = null;
+		}
+	}
 }
 
 /** 安装文件监听器，实现增量更新 */
@@ -1456,7 +1596,10 @@ export function startIndexWatcher(context: vscode.ExtensionContext): void {
 		if (_debounceTimer) clearTimeout(_debounceTimer);
 		_debounceTimer = setTimeout(() => {
 			logger.info('[ProjectIndexer] File changed, scheduling incremental rebuild');
-			void ensureProjectIndex(true);
+			// 增量刷新：勿 force 全量重建（会清空 _index 并在完成瞬间向面板推送 0 文件）
+			void refreshProjectIndexIncrementally().catch(err =>
+				logger.warn(`[ProjectIndexer] Incremental rebuild failed: ${err instanceof Error ? err.message : String(err)}`),
+			);
 		}, 3000);
 	};
 

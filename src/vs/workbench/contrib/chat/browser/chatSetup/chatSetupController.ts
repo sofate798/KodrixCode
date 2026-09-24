@@ -243,8 +243,8 @@ export class ChatSetupController extends Disposable {
 		try {
 			await this.doInstall();
 		} catch (e) {
-			this.logService.error(`[chat setup] install: error ${error}`);
 			error = e;
+			this.logService.error(`[chat setup] install: error ${error}`);
 		}
 
 		if (error) {

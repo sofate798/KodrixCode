@@ -168,7 +168,7 @@ async function handleToggleFeature(featureKey: string): Promise<void> {
 
 	if (activePanel) pushDashboard(activePanel);
 	vscode.window.showInformationMessage(
-		`${newValue ? '✓ 已启用' : '✗ 已关闭'}：${featureKey}`
+		`${newValue ? '已启用' : '已关闭'}：${featureKey}`
 	);
 }
 
@@ -192,10 +192,10 @@ async function handleMessage(
 			if (msg.prompt?.trim()) {
 				const route = classifyIntent(msg.prompt.trim());
 				const labels: Record<RouteTarget, string> = {
-					spec: '📐 Spec 驱动开发',
-					plan: '📋 Plan 先规划',
-					agent: '🤖 Agent 多文件编辑',
-					ask: '💡 Ask 问答探索',
+					spec: 'Spec 驱动开发',
+					plan: 'Plan 先规划',
+					agent: 'Agent 多文件编辑',
+					ask: 'Ask 问答探索',
 				};
 				panel.webview.postMessage({
 					type: 'intentResult',

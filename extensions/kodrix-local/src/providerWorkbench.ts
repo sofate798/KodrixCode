@@ -37,16 +37,30 @@ function isSafeExternalUrl(url: string): boolean {
 }
 
 function getHtml(webview: vscode.Webview, extensionPath: string): string {
-	const htmlPath = path.join(extensionPath, 'resources', 'provider-workbench.html');
+	const resourcesDir = path.join(extensionPath, 'resources');
+	const htmlPath = path.join(resourcesDir, 'provider-workbench.html');
 	try {
 		const html = fs.readFileSync(htmlPath, 'utf-8');
-		return html.replace(/\{\{cspSource\}\}/g, webview.cspSource);
+		const codiconsCssUri = webview.asWebviewUri(
+			vscode.Uri.file(path.join(resourcesDir, 'codicons', 'codicon.css')),
+		);
+		return html
+			.replace(/\{\{cspSource\}\}/g, webview.cspSource)
+			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString());
 	} catch (err) {
 		logWarn('加载 Provider Workbench HTML 资源失败', err);
 		return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`
 			+ `<body style="font-family:sans-serif;padding:24px">`
 			+ `<h2>AI 供应商管理</h2><p>资源加载失败，请重新编译扩展。</p></body></html>`;
 	}
+}
+
+function webviewOptions(extensionPath: string): vscode.WebviewOptions & vscode.WebviewPanelOptions {
+	return {
+		enableScripts: true,
+		retainContextWhenHidden: true,
+		localResourceRoots: [vscode.Uri.file(path.join(extensionPath, 'resources'))],
+	};
 }
 
 function pushState(
@@ -294,7 +308,11 @@ export function registerProviderSettingsRenderer(context: vscode.ExtensionContex
 	return vscode.window.registerSettingsEditorRenderer(PROVIDER_SETTINGS_RENDERER_VIEW_TYPE, {
 		async resolveSettingsEditorSetting(_setting, webviewHost, _token) {
 			const { webview } = webviewHost;
-			webview.options = { ...webview.options, enableScripts: true };
+			webview.options = {
+				...webview.options,
+				enableScripts: true,
+				localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'resources'))],
+			};
 			webview.html = getHtml(webview, context.extensionPath);
 			const messageDisposable = setupMessageHandler(webview, context, presets);
 			webviewHost.onDidDispose(() => messageDisposable.dispose());
@@ -316,7 +334,7 @@ export function openProviderWorkbench(context: vscode.ExtensionContext): void {
 		'kodrixProviderWorkbench',
 		'AI 供应商管理',
 		column,
-		{ enableScripts: true, retainContextWhenHidden: true },
+		webviewOptions(context.extensionPath),
 	);
 	activePanel = panel;
 	panel.webview.html = getHtml(panel.webview, context.extensionPath);

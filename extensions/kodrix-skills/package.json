@@ -1,8 +1,8 @@
 {
   "name": "kodrix-skills",
   "displayName": "Kodrix Skill 市场",
-  "description": "Skill 技能插件市场 — 内置目录、GitHub/npm 搜索、从 URL 安装",
-  "version": "1.0.0",
+  "description": "Skill 技能插件市场 — 卡片安装、搜索、GitHub / URL 安装、导入 Cursor Skills",
+  "version": "1.1.0",
   "publisher": "kodrix",
   "license": "MIT",
   "engines": {
@@ -30,12 +30,22 @@
         ]
       }
     ],
-    "views": {
-      "explorer": [
+    "viewsContainers": {
+      "activitybar": [
         {
+          "id": "kodrix-skills",
+          "title": "Skill 市场",
+          "icon": "$(sparkle)"
+        }
+      ]
+    },
+    "views": {
+      "kodrix-skills": [
+        {
+          "type": "webview",
           "id": "kodrix.skillsMarketplace",
           "name": "Skill 市场",
-          "when": "true"
+          "icon": "$(sparkle)"
         }
       ]
     },
@@ -43,16 +53,23 @@
       {
         "command": "kodrix.skills.refresh",
         "title": "刷新",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.install",
         "title": "安装 Skill",
-        "icon": "$(cloud-download)"
+        "icon": "$(cloud-download)",
+        "category": "Kodrix"
+      },
+      {
+        "command": "kodrix.skills.uninstall",
+        "title": "卸载 Skill",
+        "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.installFromUrl",
-        "title": "从 URL 安装 Skill",
+        "title": "从 URL / GitHub 安装 Skill",
         "category": "Kodrix"
       },
       {
@@ -62,7 +79,7 @@
       },
       {
         "command": "kodrix.skills.searchGithub",
-        "title": "搜索 GitHub Skills",
+        "title": "打开 Skill 市场（GitHub）",
         "category": "Kodrix"
       },
       {
@@ -82,13 +99,6 @@
           "command": "kodrix.skills.installFromUrl",
           "when": "view == kodrix.skillsMarketplace",
           "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "kodrix.skills.install",
-          "when": "view == kodrix.skillsMarketplace && viewItem == skillItem",
-          "group": "inline"
         }
       ]
     },

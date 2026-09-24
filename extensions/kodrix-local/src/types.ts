@@ -12,7 +12,7 @@ export interface ProviderPreset {
 	models?: string[];
 	needs_api_key?: boolean;
 	hint?: string;
-	icon?: string;
+	icon?: string; // codicon 名，如 server / robot；QuickPick 用 $(name)
 	featured?: boolean;
 	website?: string;
 }

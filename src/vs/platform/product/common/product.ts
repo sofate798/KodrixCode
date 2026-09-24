@@ -29,6 +29,29 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
 	// Obtain values from product.json and package.json-data
 	product = globalThis._VSCODE_PRODUCT_JSON as unknown as IProductConfiguration;
 
+	// Allow env / product.json to supply Open VSX (or other) gallery endpoints.
+	const {
+		serviceUrl,
+		controlUrl,
+		itemUrl,
+		latestUrlTemplate,
+		extensionUrlTemplate,
+		resourceUrlTemplate,
+		nlsBaseUrl,
+	} = product.extensionsGallery || {};
+
+	Object.assign(product, {
+		extensionsGallery: {
+			serviceUrl: env['VSCODE_GALLERY_SERVICE_URL'] || serviceUrl,
+			controlUrl: env['VSCODE_GALLERY_CONTROL_URL'] || controlUrl,
+			itemUrl: env['VSCODE_GALLERY_ITEM_URL'] || itemUrl,
+			latestUrlTemplate: env['VSCODE_GALLERY_LATEST_URL_TEMPLATE'] || latestUrlTemplate,
+			extensionUrlTemplate: env['VSCODE_GALLERY_EXTENSION_URL_TEMPLATE'] || extensionUrlTemplate,
+			resourceUrlTemplate: env['VSCODE_GALLERY_RESOURCE_URL_TEMPLATE'] || resourceUrlTemplate,
+			nlsBaseUrl: env['VSCODE_GALLERY_NLS_BASE_URL'] || nlsBaseUrl,
+		}
+	});
+
 	// Running out of sources
 	if (env['VSCODE_DEV']) {
 		Object.assign(product, {

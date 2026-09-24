@@ -120,7 +120,7 @@ async function showAgentOsWelcome(): Promise<void> {
 
 | 键 | 功能 |
 |----|------|
-| \`Ctrl+Shift+I\` | **Idea Flow** — 想法→产品（★★★ 主入口） |
+| \`Ctrl+Shift+I\` | **Idea Flow** — 想法→产品（主入口） |
 | \`Ctrl+Shift+Alt+I\` | Idea Canvas 画布 |
 | \`Ctrl+Shift+H\` | Hub 指挥中心 |
 | \`Ctrl+Shift+V\` | Vibe Coding 快捷入口 |

@@ -672,7 +672,7 @@
 				"kodrix.features.proactiveContext": {
 					"type": "boolean",
 					"default": true,
-					"description": "打开文件时主动提示相关 Learning / Memory（状态栏 💡 指示）"
+					"description": "打开文件时主动提示相关 Learning / Memory（状态栏指示）"
 				},
 				"kodrix.router.autoExecute": {
 					"type": "boolean",

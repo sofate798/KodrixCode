@@ -191,9 +191,9 @@ export async function createCrew(): Promise<CrewConfig | undefined> {
 	// Step 2: Workflow type
 	const workflowPick = await vscode.window.showQuickPick(
 		[
-			{ label: '🔗 顺序流水线', description: 'Architect → Coder → Reviewer → Tester，依次执行', value: 'sequential' as WorkflowType },
-			{ label: '⚡ 并行协作', description: '多个 Coder 同时工作，最后 Reviewer 审查', value: 'parallel' as WorkflowType },
-			{ label: '🚦 审批门', description: '每个阶段需 Reviewer 批准才能进入下一阶段', value: 'review-gate' as WorkflowType },
+			{ label: '$(list-ordered) 顺序流水线', description: 'Architect → Coder → Reviewer → Tester，依次执行', name: '顺序流水线', value: 'sequential' as WorkflowType },
+			{ label: '$(run-all) 并行协作', description: '多个 Coder 同时工作，最后 Reviewer 审查', name: '并行协作', value: 'parallel' as WorkflowType },
+			{ label: '$(pass) 审批门', description: '每个阶段需 Reviewer 批准才能进入下一阶段', name: '审批门', value: 'review-gate' as WorkflowType },
 		],
 		{ placeHolder: '选择协作模式' },
 	);
@@ -220,7 +220,7 @@ export async function createCrew(): Promise<CrewConfig | undefined> {
 
 	const config: CrewConfig = {
 		name: name.trim(),
-		description: `${rolePicks.map(r => ROLE_DEFS[r.role].name).join(' + ')} · ${workflowPick.label.split(' ')[1] || workflowPick.value}`,
+		description: `${rolePicks.map(r => ROLE_DEFS[r.role].name).join(' + ')} · ${workflowPick.name}`,
 		workflow: workflowPick.value,
 		agents,
 		tasks: [],
@@ -229,7 +229,7 @@ export async function createCrew(): Promise<CrewConfig | undefined> {
 	};
 
 	saveCrew(config);
-	vscode.window.showInformationMessage(`Agent Crew「${config.name}」已创建 — ${agents.length} 个角色，${workflowPick.label}`);
+	vscode.window.showInformationMessage(`Agent Crew「${config.name}」已创建 — ${agents.length} 个角色，${workflowPick.name}`);
 	return config;
 }
 
@@ -270,8 +270,8 @@ export async function addCrewTask(config?: CrewConfig): Promise<void> {
 	}
 	const modePick = await vscode.window.showQuickPick<ModePickItem>(
 		[
-			{ label: '⚡ 自动执行（后台并行）', description: 'vscode.lm 并行驱动，完成后自动推进，输出写入任务结果', mode: 'auto' as CrewExecutionMode },
-			{ label: '💬 手动执行（Agent 面板）', description: '打开 Agent Chat，可带工具执行，完成后手动标记', mode: 'chat' as CrewExecutionMode },
+			{ label: '$(play) 自动执行（后台并行）', description: 'vscode.lm 并行驱动，完成后自动推进，输出写入任务结果', mode: 'auto' as CrewExecutionMode },
+			{ label: '$(comment-discussion) 手动执行（Agent 面板）', description: '打开 Agent Chat，可带工具执行，完成后手动标记', mode: 'chat' as CrewExecutionMode },
 		],
 		{ placeHolder: '执行模式（默认自动）' },
 	);
@@ -584,19 +584,19 @@ async function showCrewExecutionReport(crew: CrewConfig, executed: CrewTask[]): 
 		'',
 		'| 状态 | 数量 |',
 		'|------|------|',
-		`| ✅ 完成 | ${executed.filter(t => t.status === 'completed').length} |`,
-		`| ❌ 失败 | ${executed.filter(t => t.status === 'failed').length} |`,
-		`| ⏳ 待办（含 chat 模式） | ${pendingTasks.length} |`,
+		`| 完成 | ${executed.filter(t => t.status === 'completed').length} |`,
+		`| 失败 | ${executed.filter(t => t.status === 'failed').length} |`,
+		`| 待办（含 chat 模式） | ${pendingTasks.length} |`,
 		'',
 		'## 任务明细',
 		'',
 		...executed.flatMap(t => {
-			const icon = t.status === 'completed' ? '✅' : '❌';
+			const status = t.status === 'completed' ? '完成' : '失败';
 			const ms = t.executionMs !== undefined ? `（${t.executionMs}ms）` : '';
 			return [
-				`### ${icon} ${t.title} → ${t.assignedRole}${ms}`,
+				`### [${status}] ${t.title} → ${t.assignedRole}${ms}`,
 				'',
-				t.error ? `> ⚠️ ${t.error}` : '',
+				t.error ? `> 错误：${t.error}` : '',
 				t.result ?? '（无输出）',
 				'',
 				'---',
@@ -606,8 +606,8 @@ async function showCrewExecutionReport(crew: CrewConfig, executed: CrewTask[]): 
 		'## 待办提示',
 		'',
 		...(pendingTasks.length
-			? pendingTasks.map(t => `- ⏳ ${t.title}（依赖：${t.dependencies.map(d => crew.tasks.find(tt => tt.id === d)?.title ?? d).join(', ') || '无'}）`)
-			: ['- 全部任务已处理完毕 🎉']),
+			? pendingTasks.map(t => `- ${t.title}（依赖：${t.dependencies.map(d => crew.tasks.find(tt => tt.id === d)?.title ?? d).join(', ') || '无'}）`)
+			: ['- 全部任务已处理完毕']),
 		crew.tasks.some(t => t.mode === 'chat' && t.status === 'pending')
 			? '> 注：chat 模式任务需通过「Kodrix: 执行下一个 Crew 任务」在 Agent 面板中手动完成。'
 			: '',
@@ -690,7 +690,7 @@ export async function markTaskComplete(taskId?: string): Promise<void> {
 	const next = getNextRunnableTasks(crew);
 	if (next.length) {
 		const choice = await vscode.window.showInformationMessage(
-			`✅ ${task.title} 已完成。还有 ${next.length} 个可执行任务。`,
+			`「${task.title}」已完成。还有 ${next.length} 个可执行任务。`,
 			'执行下一个', '并行执行全部', '查看状态',
 		);
 		if (choice === '执行下一个') {
@@ -701,7 +701,7 @@ export async function markTaskComplete(taskId?: string): Promise<void> {
 	} else {
 		const allDone = crew.tasks.every(t => t.status === 'completed');
 		if (allDone) {
-			vscode.window.showInformationMessage(`🎉 Crew「${crew.name}」全部任务完成！`);
+			vscode.window.showInformationMessage(`Crew「${crew.name}」全部任务完成`);
 		}
 	}
 }
@@ -733,7 +733,7 @@ export async function showCrewStatus(): Promise<void> {
 		'## 进度',
 		'',
 		`\`${progress}\` ${completed}/${crew.tasks.length} 完成`,
-		`| ⏳ 待办: ${pending} | 🔄 进行: ${running} | ✅ 完成: ${completed} | ❌ 失败: ${failed} |`,
+		`| 待办: ${pending} | 进行: ${running} | 完成: ${completed} | 失败: ${failed} |`,
 		'',
 		'## Agent 角色',
 		'',
@@ -742,21 +742,21 @@ export async function showCrewStatus(): Promise<void> {
 		'## 任务列表',
 		'',
 		...crew.tasks.map(t => {
-			const icon = t.status === 'completed' ? '✅' : t.status === 'running' ? '🔄' : t.status === 'failed' ? '❌' : '⏳';
-			const modeTag = t.mode === 'chat' ? ' 💬' : t.mode === 'auto' ? ' ⚡' : '';
+			const status = t.status === 'completed' ? '完成' : t.status === 'running' ? '进行' : t.status === 'failed' ? '失败' : '待办';
+			const modeTag = t.mode === 'chat' ? ' · 手动' : t.mode === 'auto' ? ' · 自动' : '';
 			const resultTag = t.result ? ` — ${t.result.slice(0, 60).replace(/\s+/g, ' ')}…` : '';
-			const errTag = t.error ? ` ⚠️ ${t.error.slice(0, 60)}` : '';
+			const errTag = t.error ? ` · 错误：${t.error.slice(0, 60)}` : '';
 			const msTag = t.executionMs !== undefined ? `（${t.executionMs}ms）` : '';
 			const deps = t.dependencies.length
 				? ` [依赖：${t.dependencies.map(d => crew.tasks.find(tt => tt.id === d)?.title?.slice(0, 15) || d.slice(0, 8)).join(', ')}]`
 				: '';
-			return `- ${icon} **${t.title}** → ${t.assignedRole}${modeTag}${msTag}${deps}${errTag}${resultTag}`;
+			return `- [${status}] **${t.title}** → ${t.assignedRole}${modeTag}${msTag}${deps}${errTag}${resultTag}`;
 		}),
 		'',
 		'## 快捷命令',
 		'',
-		'- `Kodrix: 并行执行所有可执行任务` — 自动执行全部可运行任务（⚡）',
-		'- `Kodrix: 执行下一个 Crew 任务` — 打开 Agent 面板手动执行（💬）',
+		'- `Kodrix: 并行执行所有可执行任务` — 自动执行全部可运行任务',
+		'- `Kodrix: 执行下一个 Crew 任务` — 打开 Agent 面板手动执行',
 		'- `Kodrix: 标记 Crew 任务完成` — 手动标记完成',
 	];
 

@@ -131,9 +131,9 @@ export async function runBackgroundTask(task: BackgroundTask): Promise<void> {
 	task.finishedAt = new Date().toISOString();
 	writeTask(task);
 	if (task.status === 'completed') {
-		await vscode.window.showInformationMessage(`✅ 后台任务完成：${task.title}`);
+		await vscode.window.showInformationMessage(`后台任务完成：${task.title}`);
 	} else {
-		await vscode.window.showWarningMessage(`❌ 后台任务失败：${task.title}（${task.error}）`);
+		await vscode.window.showWarningMessage(`后台任务失败：${task.title}（${task.error}）`);
 	}
 }
 

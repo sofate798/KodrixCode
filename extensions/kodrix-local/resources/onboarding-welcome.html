@@ -481,7 +481,13 @@
 <script>
 	const vscode = acquireVsCodeApi();
 	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
-	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
+	function escapeHtml(s) {
+		return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	}
+	const ki = (name) => {
+		const id = String(name || 'info').replace(/[^a-z0-9-]/gi, '') || 'info';
+		return `<i class="codicon codicon-${id}" aria-hidden="true"></i>`;
+	};
 
 	let currentStep = 1;
 	let envData = null;
@@ -556,7 +562,11 @@
 		}
 
 		if (data.suggestions && data.suggestions.length) {
-			sugEl.innerHTML = data.suggestions.map(s => '<div class="suggestion">' + s + '</div>').join('');
+			sugEl.innerHTML = data.suggestions.map(s => {
+				const icon = (s && s.icon) ? s.icon : 'info';
+				const text = (s && typeof s === 'object') ? (s.text || '') : String(s || '');
+				return '<div class="suggestion">' + ki(icon) + ' ' + escapeHtml(text) + '</div>';
+			}).join('');
 		} else {
 			sugEl.innerHTML = '';
 		}

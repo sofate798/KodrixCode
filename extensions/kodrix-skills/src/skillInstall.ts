@@ -87,6 +87,17 @@ export interface CatalogItem {
 	installName?: string;
 	icon?: string;
 	downloadUrl?: string;
+	categories?: string[];
+	tags?: string[];
+}
+
+export interface GithubSkillRepo {
+	full_name: string;
+	html_url: string;
+	description?: string;
+	stargazers_count?: number;
+	language?: string;
+	owner?: string;
 }
 
 export function resolveSkillsDir(): string {
@@ -105,6 +116,52 @@ export function listInstalledSkills(): string[] {
 	return fs.readdirSync(dir, { withFileTypes: true })
 		.filter(d => d.isDirectory() && fs.existsSync(path.join(dir, d.name, 'SKILL.md')))
 		.map(d => d.name);
+}
+
+export function uninstallSkill(installName: string): void {
+	const name = sanitizeSkillName(installName);
+	const dest = path.join(resolveSkillsDir(), name);
+	if (!fs.existsSync(dest)) {
+		throw new Error(`未安装：${name}`);
+	}
+	fs.rmSync(dest, { recursive: true, force: true });
+}
+
+/** Search public GitHub repos likely containing agent skills. */
+export async function searchGithubSkillRepos(query: string): Promise<GithubSkillRepo[]> {
+	const q = (query || 'SKILL.md cursor skill').trim();
+	const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=20`;
+	const raw = await fetchText(url, 0, {
+		Accept: 'application/vnd.github+json',
+		'X-GitHub-Api-Version': '2022-11-28',
+	});
+	let parsed: {
+		message?: string;
+		items?: Array<{
+			full_name: string;
+			html_url: string;
+			description?: string | null;
+			stargazers_count?: number;
+			language?: string | null;
+			owner?: { login?: string };
+		}>;
+	};
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		throw new Error('GitHub 返回了无法解析的响应');
+	}
+	if (parsed.message && !parsed.items) {
+		throw new Error(`GitHub API：${parsed.message}`);
+	}
+	return (parsed.items || []).map(it => ({
+		full_name: it.full_name,
+		html_url: it.html_url,
+		description: it.description || undefined,
+		stargazers_count: it.stargazers_count,
+		language: it.language || undefined,
+		owner: it.owner?.login,
+	}));
 }
 
 export async function installSkillFromDir(sourceDir: string, installName: string): Promise<string> {
@@ -270,14 +327,17 @@ function parseGithubRepo(ref: string): string | undefined {
  * Fetch text content from URL with redirect limit (MAX_REDIRECTS) and size cap (MAX_TEXT_FETCH_BYTES).
  * Blocks redirects to untrusted domains.
  */
-function fetchText(url: string, _depth = 0): Promise<string> {
+function fetchText(url: string, _depth = 0, extraHeaders?: Record<string, string>): Promise<string> {
 	if (_depth > MAX_REDIRECTS) {
 		return Promise.reject(new Error(`Too many redirects (>${MAX_REDIRECTS}): ${url}`));
 	}
 	return new Promise((resolve, reject) => {
 		const lib = url.startsWith('https') ? https : http;
 		const req = lib.get(url, {
-			headers: { 'User-Agent': 'Kodrix-Skills/1.0' },
+			headers: {
+				'User-Agent': 'Kodrix-Skills/1.0',
+				...extraHeaders,
+			},
 		}, res => {
 			if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
 				const redirectUrl = new URL(res.headers.location, url);
@@ -286,7 +346,7 @@ function fetchText(url: string, _depth = 0): Promise<string> {
 					return;
 				}
 				res.resume(); // drain response body
-				fetchText(redirectUrl.href, _depth + 1).then(resolve, reject);
+				fetchText(redirectUrl.href, _depth + 1, extraHeaders).then(resolve, reject);
 				return;
 			}
 			if (res.statusCode && res.statusCode >= 400) {

@@ -308,7 +308,7 @@ function renderHealthHtml(status: ReturnType<typeof getRouterStatus>): string {
 	<td style="color:${rateColor};font-weight:600">${s.successRate}%</td>
 	<td>${s.failCount}</td>
 	<td>${s.avgDurationMs}ms</td>
-	<td title="${s.lastError ?? ''}">${s.lastError ? '⚠ ' + s.lastError.slice(0, 40) : '—'}</td>
+	<td title="${(s.lastError ?? '').replace(/"/g, '&quot;')}">${s.lastError ? s.lastError.slice(0, 40).replace(/</g, '&lt;') : '—'}</td>
 	<td>${(s.lastAt ?? '').slice(11, 19) || '—'}</td>
 </tr>`.trim();
 		}).join('')

@@ -194,8 +194,8 @@ export function getSemanticContext(query: string, maxChars = 1200): string {
 
 	const lines = ['[Semantic Memory — 项目相关记忆]'];
 	for (const r of results) {
-		const prefix = r.score > 0.3 ? '★★★' : r.score > 0.15 ? '★★' : '★';
-		lines.push(`- ${prefix} [${r.entry.category}] ${r.entry.content}`);
+		const prefix = r.score > 0.3 ? '高' : r.score > 0.15 ? '中' : '低';
+		lines.push(`- [${prefix}] [${r.entry.category}] ${r.entry.content}`);
 	}
 	const text = lines.join('\n');
 	return text.length > maxChars ? text.slice(0, maxChars) + '…' : text;

@@ -1,29 +1,24 @@
 /*---------------------------------------------------------------------------------------------
  *  Kodrix Skills — Skill 市场扩展
- *
- *  大厂工程化标准：
- *   1. activate 必须有 try/catch 错误边界
- *   2. 集中管理命令 ID 和配置键常量
- *   3. agentSkillsLocations 写入前做类型校验，避免覆盖用户配置
- *   4. deactivate() 保留注释说明空实现的意图
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { SkillMarketplaceProvider } from './marketplaceView';
+import { SkillMarketplaceViewProvider } from './marketplaceWebview';
 import {
 	CatalogItem,
 	importCursorSkills,
 	installFromCatalogItem,
 	installFromUrl,
+	loadCatalog,
+	uninstallSkill,
 } from './skillInstall';
-
-// ── 常量 ────────────────────────────────────────────────────────────
 
 const CMD = {
 	refresh: 'kodrix.skills.refresh',
 	openMarketplace: 'kodrix.skills.openMarketplace',
 	focusMarketplace: 'kodrix.skillsMarketplace.focus',
 	install: 'kodrix.skills.install',
+	uninstall: 'kodrix.skills.uninstall',
 	installFromUrl: 'kodrix.skills.installFromUrl',
 	importCursor: 'kodrix.skills.importCursor',
 	searchGithub: 'kodrix.skills.searchGithub',
@@ -34,19 +29,11 @@ const CURSOR_SKILLS_DIR = '~/.cursor/skills';
 const CONFIG_CHAT = 'chat' as const;
 const SKILLS_LOCATIONS_KEY = 'agentSkillsLocations';
 
-// ── 工具 ────────────────────────────────────────────────────────────
-
-/**
- * 安全合并 agentSkillsLocations 配置：
- * - 仅在有效对象时才合并，避免覆盖用户已有配置
- * - 用户明确设置为 false 的路径不会被强制启用
- */
 async function registerSkillsLocations(): Promise<void> {
 	try {
 		const chatConfig = vscode.workspace.getConfiguration(CONFIG_CHAT);
 		const existing = chatConfig.get<Record<string, boolean>>(SKILLS_LOCATIONS_KEY);
 
-		// 类型校验：确保 existing 是合法对象
 		if (!existing || typeof existing !== 'object') {
 			await chatConfig.update(
 				SKILLS_LOCATIONS_KEY,
@@ -57,7 +44,6 @@ async function registerSkillsLocations(): Promise<void> {
 		}
 
 		const merged: Record<string, boolean> = { ...existing };
-		// 仅当用户未显式设为 false 时才启用
 		let changed = false;
 		for (const dir of [SKILLS_DIR, CURSOR_SKILLS_DIR]) {
 			if (existing[dir] === undefined) {
@@ -69,11 +55,9 @@ async function registerSkillsLocations(): Promise<void> {
 			await chatConfig.update(SKILLS_LOCATIONS_KEY, merged, vscode.ConfigurationTarget.Global);
 		}
 	} catch {
-		// 配置更新失败不阻塞扩展激活
+		// ignore
 	}
 }
-
-// ── 激活 ─────────────────────────────────────────────────────────────
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	try {
@@ -85,30 +69,50 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 async function activateInternal(context: vscode.ExtensionContext): Promise<void> {
-	const provider = new SkillMarketplaceProvider(context.extensionPath);
+	const provider = new SkillMarketplaceViewProvider(context.extensionUri, context.extensionPath);
+
 	context.subscriptions.push(
-		vscode.window.registerTreeDataProvider('kodrix.skillsMarketplace', provider),
+		vscode.window.registerWebviewViewProvider(SkillMarketplaceViewProvider.viewId, provider, {
+			webviewOptions: { retainContextWhenHidden: true },
+		}),
 
 		vscode.commands.registerCommand(CMD.refresh, () => provider.refresh()),
 
 		vscode.commands.registerCommand(CMD.openMarketplace, async () => {
-			await vscode.commands.executeCommand('workbench.view.explorer');
+			await vscode.commands.executeCommand('workbench.view.extension.kodrix-skills');
 			await vscode.commands.executeCommand(CMD.focusMarketplace);
 		}),
 
-		vscode.commands.registerCommand(CMD.install, async (item?: CatalogItem) => {
-			if (!item) {
-				vscode.window.showWarningMessage('请从 Skill 市场列表中选择要安装的项');
+		vscode.commands.registerCommand(CMD.install, async (item?: CatalogItem | { catalogItem?: CatalogItem } | string) => {
+			let catalog: CatalogItem | undefined;
+			if (typeof item === 'string') {
+				catalog = loadCatalog(context.extensionPath).items.find(it => it.id === item);
+			} else if (item && typeof item === 'object' && 'catalogItem' in item) {
+				catalog = item.catalogItem;
+			} else {
+				catalog = item as CatalogItem | undefined;
+			}
+			if (!catalog) {
+				vscode.window.showWarningMessage('请从 Skill 市场选择要安装的项');
 				return;
 			}
 			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: `安装 ${item.displayName}…` },
+				{ location: vscode.ProgressLocation.Notification, title: `安装 ${catalog.displayName}…` },
 				async () => {
-					const name = await installFromCatalogItem(context.extensionPath, item);
+					const name = await installFromCatalogItem(context.extensionPath, catalog!);
 					provider.refresh();
 					vscode.window.showInformationMessage(`Skill 已安装：${name}（${SKILLS_DIR}/${name}）`);
 				},
 			);
+		}),
+
+		vscode.commands.registerCommand(CMD.uninstall, async (name?: string) => {
+			if (!name) {
+				return;
+			}
+			uninstallSkill(name);
+			provider.refresh();
+			vscode.window.showInformationMessage(`已卸载 Skill：${name}`);
 		}),
 
 		vscode.commands.registerCommand(CMD.installFromUrl, async () => {
@@ -140,21 +144,11 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 		}),
 
 		vscode.commands.registerCommand(CMD.searchGithub, async () => {
-			const q = await vscode.window.showInputBox({
-				prompt: '搜索 GitHub Skill 仓库',
-				value: 'cursor skill SKILL.md',
-			});
-			if (q) {
-				const url = `https://github.com/search?q=${encodeURIComponent(q)}&type=repositories`;
-				await vscode.env.openExternal(vscode.Uri.parse(url));
-			}
+			await vscode.commands.executeCommand(CMD.openMarketplace);
 		}),
 	);
 
-	// 注册 Skills 发现路径到 Agent 配置
 	await registerSkillsLocations();
 }
 
-// deactivate() 为空是因为本扩展没有需要手动清理的资源（TreeView / 命令均由
-// context.subscriptions 自动管理），保留此函数以满足扩展 API 契约。
 export function deactivate(): void { }

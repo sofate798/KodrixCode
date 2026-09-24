@@ -427,7 +427,7 @@ export function registerApplyManager(context: vscode.ExtensionContext): void {
 			if (ok !== '应用变更') return;
 			const result = await applyProposal(proposal, ws);
 			if (result.applied.length === proposal.changes.length) {
-				await vscode.window.showInformationMessage(`✅ 已应用提案「${proposal.name}」（${result.applied.length} 个文件）`);
+				await vscode.window.showInformationMessage(`已应用提案「${proposal.name}」（${result.applied.length} 个文件）`);
 			} else {
 				const skippedText = result.skipped.map(s => `${s.filePath}（${s.reason}）`).join('; ');
 				await vscode.window.showWarningMessage(`部分应用：${result.applied.length}/${proposal.changes.length} 成功。未应用：${skippedText}`);

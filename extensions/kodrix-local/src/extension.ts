@@ -135,12 +135,15 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 		}),
 
 		vscode.commands.registerCommand('kodrix.openProviderPresets', async () => {
-			const items = presets.map(p => ({
-				label: `${p.icon ? p.icon + ' ' : ''}${p.name}`,
-				description: `${p.category === 'local' ? '本地' : '云端'} · ${p.base_url || p.hint || '自定义'}`,
-				detail: p.category === 'local' ? '无需 API Key' : (p.needs_api_key ? '需要 API Key' : ''),
-				preset: p,
-			}));
+			const items = presets.map(p => {
+				const icon = p.icon && /^[a-z0-9-]+$/i.test(p.icon) ? p.icon : undefined;
+				return {
+					label: icon ? `$(${icon}) ${p.name}` : p.name,
+					description: `${p.category === 'local' ? '本地' : '云端'} · ${p.base_url || p.hint || '自定义'}`,
+					detail: p.category === 'local' ? '无需 API Key' : (p.needs_api_key ? '需要 API Key' : ''),
+					preset: p,
+				};
+			});
 			const picked = await vscode.window.showQuickPick(items, {
 				placeHolder: '选择模型供应商预设',
 				matchOnDescription: true,

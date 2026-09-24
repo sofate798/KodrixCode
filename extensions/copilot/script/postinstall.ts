@@ -164,7 +164,7 @@ async function removeCopilotCLIShim() {
 
 async function removeCopilotCliWorkerFiles() {
 	const targetDir = path.join(COPILOT_PACKAGE_DIR, 'sdk', 'worker');
-	await fs.promises.rm(targetDir, { recursive: true, force: true });
+	await safeRm(targetDir);
 }
 
 async function copyCopilotCliTGrepFiles(copilotCliSourceDir: string) {
@@ -195,10 +195,31 @@ async function copyCopilotCliQueryFiles(copilotCliSourceDir: string) {
 	await copyCopilotCLIFolders(sourceDir, targetDir);
 }
 
+async function isBusyFileError(err: unknown): Promise<boolean> {
+	const code = (err as NodeJS.ErrnoException)?.code;
+	return code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
+}
+
+/** Returns false if path is locked by a running Kodrix/Electron process. */
+async function safeRm(target: string): Promise<boolean> {
+	try {
+		await fs.promises.rm(target, { recursive: true, force: true });
+		return true;
+	} catch (err) {
+		if (await isBusyFileError(err) && fs.existsSync(target)) {
+			console.warn(`[postinstall] locked path kept (close Kodrix to refresh): ${target}`);
+			return false;
+		}
+		throw err;
+	}
+}
+
 async function copyCopilotCliPrebuildFiles(copilotCliSourceDir: string) {
 	const sourceDir = path.join(copilotCliSourceDir, 'prebuilds');
 	const targetDir = path.join(COPILOT_PACKAGE_DIR, 'sdk', 'prebuilds');
-	await fs.promises.rm(targetDir, { recursive: true, force: true });
+	if (!(await safeRm(targetDir))) {
+		return;
+	}
 	await fs.promises.mkdir(targetDir, { recursive: true });
 	await fs.promises.cp(sourceDir, targetDir, {
 		recursive: true, force: true, filter: (src) => {
@@ -227,7 +248,9 @@ async function copyCopilotCliPrebuildFiles(copilotCliSourceDir: string) {
 }
 
 async function copyCopilotCLIFolders(sourceDir: string, targetDir: string) {
-	await fs.promises.rm(targetDir, { recursive: true, force: true });
+	if (!(await safeRm(targetDir))) {
+		return;
+	}
 	await fs.promises.mkdir(targetDir, { recursive: true });
 	await fs.promises.cp(sourceDir, targetDir, { recursive: true, force: true });
 }

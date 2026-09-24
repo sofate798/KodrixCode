@@ -14,7 +14,7 @@
       "tags": ["review", "quality"],
       "bundle": "code-review",
       "installName": "code-review",
-      "icon": "🔍"
+      "icon": "search"
     },
     {
       "id": "kodrix.commit-message",
@@ -27,7 +27,7 @@
       "tags": ["git", "commit"],
       "bundle": "commit-message",
       "installName": "commit-message",
-      "icon": "📝"
+      "icon": "git-commit"
     },
     {
       "id": "kodrix.python-expert",
@@ -40,7 +40,7 @@
       "tags": ["python"],
       "bundle": "python-expert",
       "installName": "python-expert",
-      "icon": "🐍"
+      "icon": "code"
     },
     {
       "id": "kodrix.refactor-helper",
@@ -53,7 +53,7 @@
       "tags": ["refactor"],
       "bundle": "refactor-helper",
       "installName": "refactor-helper",
-      "icon": "🔧"
+      "icon": "tools"
     },
     {
       "id": "kodrix.codegeex",
@@ -66,7 +66,7 @@
       "tags": ["codegeex", "completion", "translation"],
       "bundle": "codegeex",
       "installName": "codegeex",
-      "icon": "🧬"
+      "icon": "beaker"
     },
     {
       "id": "kodrix.ui-ux-pro",
@@ -79,7 +79,7 @@
       "tags": ["ui", "css"],
       "bundle": "ui-ux-pro",
       "installName": "ui-ux-pro",
-      "icon": "🎨"
+      "icon": "paintcan"
     },
     {
       "id": "kodrix.browser-agent",
@@ -92,7 +92,7 @@
       "tags": ["browser", "preview", "e2e"],
       "bundle": "browser-agent",
       "installName": "browser-agent",
-      "icon": "🌐"
+      "icon": "browser"
     },
     {
       "id": "kodrix.one-click-deploy",
@@ -105,7 +105,7 @@
       "tags": ["deploy", "vercel", "netlify"],
       "bundle": "one-click-deploy",
       "installName": "one-click-deploy",
-      "icon": "🚀"
+      "icon": "rocket"
     },
     {
       "id": "kodrix.idea-engineer",
@@ -118,7 +118,7 @@
       "tags": ["idea", "product", "generation"],
       "bundle": "idea-engineer",
       "installName": "idea-engineer",
-      "icon": "💡"
+      "icon": "lightbulb"
     }
   ]
 }

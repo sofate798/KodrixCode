@@ -113,7 +113,7 @@ export function updateStatusBar(): void {
 	brandStatusItem.color = brandState.dotColor;
 
 	const statusParts: string[] = [];
-	if (status.wikiOk) statusParts.push('Wiki ✓');
+	if (status.wikiOk) statusParts.push('Wiki 就绪');
 	if (status.memoryCount > 0) statusParts.push(`Memory ${status.memoryCount}条`);
 	if (status.learningCount > 0) statusParts.push(`Learning ${status.learningCount}条`);
 	if (status.semanticVectors > 0) statusParts.push(`语义索引 ${status.semanticVectors}向量`);

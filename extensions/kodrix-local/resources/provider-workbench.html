@@ -3,9 +3,11 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; img-src {{cspSource}} data:;">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
+	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<title>AI 供应商管理</title>
 	<style>
+		.codicon { vertical-align: -0.15em; }
 		:root {
 			--bg: var(--vscode-editor-background, #1e1e1e);
 			--fg: var(--vscode-editor-foreground, #ccc);
@@ -129,18 +131,45 @@
 			gap: 8px;
 			margin-top: 10px;
 		}
+		.preset-section {
+			grid-column: 1 / -1;
+			font-weight: 600;
+			margin-top: 8px;
+			margin-bottom: 2px;
+			color: var(--muted);
+			font-size: 12px;
+			letter-spacing: 0.02em;
+		}
 		.preset-btn {
 			text-align: left;
 			background: transparent;
 			border: 1px solid var(--border);
 			color: var(--fg);
 			border-radius: 6px;
-			padding: 10px;
+			padding: 12px;
 			cursor: pointer;
+			transition: border-color 0.12s ease, background 0.12s ease;
 		}
-		.preset-btn:hover { border-color: var(--accent); }
-		.preset-btn .name { font-weight: 600; display: block; margin-bottom: 4px; }
-		.preset-btn .desc { font-size: 11px; color: var(--muted); }
+		.preset-btn:hover {
+			border-color: var(--accent);
+			background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.04));
+		}
+		.preset-btn .name {
+			font-weight: 600;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 6px;
+			line-height: 1.2;
+		}
+		.preset-btn .name .codicon {
+			font-size: 16px;
+			color: var(--accent);
+			flex-shrink: 0;
+		}
+		.preset-btn .desc { font-size: 11px; color: var(--muted); display: block; line-height: 1.4; }
+		.preset-btn a { color: var(--accent); text-decoration: none; }
+		.preset-btn a:hover { text-decoration: underline; }
 	</style>
 </head>
 <body>
@@ -207,6 +236,10 @@
 	</main>
 	<script>
 		const vscode = acquireVsCodeApi();
+		const ki = (name) => {
+			const id = String(name || 'plug').replace(/[^a-z0-9-]/gi, '') || 'plug';
+			return `<i class="codicon codicon-${id}" aria-hidden="true"></i>`;
+		};
 		let state = { providers: [], activeId: null, presets: [], routes: {} };
 		let editingId = '';
 		let editingPresetId = '';
@@ -358,10 +391,10 @@
 				{ title: '云端 API', items: clouds },
 			];
 			el.innerHTML = sections.map(section => `
-				<div style="grid-column:1/-1;font-weight:600;margin-top:8px">${section.title}</div>
+				<div class="preset-section">${section.title}</div>
 				${section.items.map(p => `
 					<button class="preset-btn" data-preset-id="${p.id}">
-						<span class="name">${escapeHtml(p.icon || '')} ${escapeHtml(p.name)}</span>
+						<span class="name">${ki(p.icon || 'plug')} ${escapeHtml(p.name)}</span>
 						<span class="desc">${escapeHtml(p.hint || p.base_url || '')}</span>
 						${p.website ? `<span class="desc"><a href="#" data-website="${escapeHtml(p.website)}">官网</a></span>` : ''}
 					</button>

@@ -338,7 +338,7 @@ export async function showSessionLearningStatus(): Promise<void> {
 		'',
 		`| 项 | 值 |`,
 		`|----|-----|`,
-		`| 启用 | ${cfg.enabled ? '✓' : '✗'} |`,
+		`| 启用 | ${cfg.enabled ? '是' : '否'} |`,
 		`| 模式 | ${cfg.mode}（auto=自动沉淀 / prompt=询问 / off=关闭） |`,
 		`| 最少用户消息 | ${cfg.minUserMessages} |`,
 		`| 待处理队列 | ${pendingCount} |`,

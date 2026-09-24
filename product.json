@@ -47,7 +47,21 @@
 	"linuxIconName": "kodrix",
 	"quality": "dev",
 	"builtInExtensions": [],
-	"builtInExtensionsEnabledWithAutoUpdates": [],
+	"builtInExtensionsEnabledWithAutoUpdates": [
+		"GitHub.copilot-chat"
+	],
+	"extensionsGallery": {
+		"serviceUrl": "https://open-vsx.org/vscode/gallery",
+		"itemUrl": "https://open-vsx.org/vscode/item",
+		"latestUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest",
+		"resourceUrlTemplate": "https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}",
+		"extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest",
+		"controlUrl": "https://raw.githubusercontent.com/EclipseFdn/publish-extensions/refs/heads/master/extension-control/extensions.json",
+		"nlsBaseUrl": ""
+	},
+	"linkProtectionTrustedDomains": [
+		"https://open-vsx.org"
+	],
 	"win32VersionedUpdate": false,
 	"serverGreeting": [],
 	"serverLicense": "https://github.com/microsoft/vscode/blob/main/LICENSE.txt",
@@ -709,6 +723,16 @@
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot",
 		"chatExtensionId": "GitHub.copilot-chat",
+		"chatExtensionOutputId": "GitHub.copilot-chat.GitHub Copilot Chat.log",
+		"chatExtensionOutputExtensionStateCommand": "github.copilot.debug.extensionState",
+		"documentationUrl": "https://aka.ms/github-copilot-overview",
+		"termsStatementUrl": "https://aka.ms/github-copilot-terms-statement",
+		"privacyStatementUrl": "https://aka.ms/github-copilot-privacy-statement",
+		"skusDocumentationUrl": "https://aka.ms/github-copilot-plans",
+		"publicCodeMatchesUrl": "https://aka.ms/github-copilot-match-public-code",
+		"managePlanUrl": "https://aka.ms/github-copilot-manage-plan",
+		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
+		"signUpUrl": "https://aka.ms/github-sign-up",
 		"provider": {
 			"default": {
 				"id": "github",
@@ -717,10 +741,65 @@
 			"enterprise": {
 				"id": "github-enterprise",
 				"name": "GitHub Enterprise"
+			},
+			"google": {
+				"id": "google",
+				"name": "Google"
+			},
+			"apple": {
+				"id": "apple",
+				"name": "Apple"
+			},
+			"microsoft": {
+				"id": "microsoft",
+				"name": "Microsoft"
 			}
 		},
-		"providerScopes": [],
+		"providerExtensionId": "vscode.github-authentication",
+		"providerUriSetting": "github-enterprise.uri",
+		"providerScopes": [
+			[
+				"read:user",
+				"user:email",
+				"repo",
+				"workflow"
+			],
+			[
+				"user:email"
+			],
+			[
+				"read:user"
+			]
+		],
+		"entitlementUrl": "https://api.github.com/copilot_internal/user",
+		"entitlementSignupLimitedUrl": "https://api.github.com/copilot_internal/subscribe_limited_user",
+		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
+		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry",
+		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings",
+		"chatQuotaExceededContext": "github.copilot.chat.quotaExceeded",
+		"completionsQuotaExceededContext": "github.copilot.completions.quotaExceeded",
+		"walkthroughCommand": "github.copilot.open.walkthrough",
+		"completionsMenuCommand": "github.copilot.toggleStatusMenu",
+		"chatRefreshTokenCommand": "github.copilot.refreshToken",
+		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",
+		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
 		"completionsAdvancedSetting": "github.copilot.advanced",
-		"providerUriSetting": "github-enterprise.uri"
+		"completionsEnablementSetting": "github.copilot.enable",
+		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled"
+	},
+	"trustedExtensionAuthAccess": {
+		"github": [
+			"GitHub.copilot-chat",
+			"GitHub.copilot",
+			"GitHub.copilot-nightly"
+		],
+		"github-enterprise": [
+			"GitHub.copilot-chat",
+			"GitHub.copilot",
+			"GitHub.copilot-nightly"
+		],
+		"microsoft": [
+			"vscode.github-authentication"
+		]
 	}
 }
