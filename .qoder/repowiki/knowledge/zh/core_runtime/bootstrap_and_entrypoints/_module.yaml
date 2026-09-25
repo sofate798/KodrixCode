@@ -1,0 +1,18 @@
+schema_version: 1
+module_path: core_runtime/bootstrap_and_entrypoints
+title: bootstrap_and_entrypoints
+scope:
+    - src/bootstrap-cli.ts
+    - src/bootstrap-esm.ts
+    - src/bootstrap-fork.ts
+    - src/bootstrap-import.ts
+    - src/bootstrap-meta.ts
+    - src/bootstrap-node.ts
+    - src/bootstrap-server.ts
+    - src/cli.ts
+    - src/main.ts
+    - src/server-cli.ts
+    - src/server-main.ts
+source_files: []
+depends_on: []
+related_to: []

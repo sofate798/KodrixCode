@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: patches
+title: patches
+scope:
+    - patches/
+source_files: []
+depends_on: []
+related_to: []

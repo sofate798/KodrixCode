@@ -1,0 +1,98 @@
+﻿{
+  "kind": "harness-report-render",
+  "status": "pass",
+  "mode": "qoder-harness",
+  "language": "zh-CN",
+  "target": {
+    "name": "KodrixCode",
+    "path": "d:\\KodrixCode"
+  },
+  "runDir": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+  "outputLocation": {
+    "requestedOut": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+    "requestedRunDir": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+    "resolvedOutDir": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+    "resolvedRunDir": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+    "policy": "exact-absolute-run-dir"
+  },
+  "artifacts": [
+    {
+      "name": "findings.json",
+      "path": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode\\findings.json"
+    },
+    {
+      "name": "canvas.json",
+      "path": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode\\canvas.json"
+    },
+    {
+      "name": "report.canvas.tsx",
+      "path": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode\\report.canvas.tsx"
+    }
+  ],
+  "repair": {
+    "changed": false,
+    "changeCount": 0
+  },
+  "validation": {
+    "status": "pass",
+    "checks": [
+      {
+        "id": "output-location",
+        "status": "pass",
+        "errors": [],
+        "warnings": [],
+        "summary": {
+          "requestedOut": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+          "requestedRunDir": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+          "resolvedOutDir": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+          "resolvedRunDir": "d:\\KodrixCode\\.qoder\\better-harness\\2026-09-25\\162942-kodrixcode",
+          "policy": "exact-absolute-run-dir"
+        }
+      },
+      {
+        "id": "run-directory-artifacts",
+        "status": "pass",
+        "errors": [],
+        "warnings": [],
+        "summary": {
+          "expectedNames": [
+            "canvas.json",
+            "findings.json",
+            "report.canvas.tsx"
+          ],
+          "actualNames": [
+            "canvas.json",
+            "findings.json",
+            "report.canvas.tsx"
+          ]
+        }
+      },
+      {
+        "id": "findings-json",
+        "status": "pass",
+        "errors": [],
+        "warnings": [],
+        "summary": {
+          "findings": 2,
+          "contract": "agent-work-loop"
+        }
+      },
+      {
+        "id": "qoder-harness-findings",
+        "status": "pass",
+        "errors": [],
+        "warnings": [],
+        "summary": {}
+      },
+      {
+        "id": "qoder-harness-report",
+        "status": "pass",
+        "errors": [],
+        "warnings": [],
+        "summary": {}
+      }
+    ],
+    "errors": [],
+    "warnings": []
+  }
+}

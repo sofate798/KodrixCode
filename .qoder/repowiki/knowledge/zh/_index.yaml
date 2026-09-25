@@ -1,0 +1,127 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: master
+nodes_managed: true
+exported_at: "2026-09-25T08:37:28Z"
+modules:
+    build_scripts:
+        dir_name: build_scripts
+        title: build_scripts
+        scope:
+            - scripts/
+            - dev/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    cli_tool:
+        dir_name: cli_tool
+        title: cli_tool
+        scope:
+            - cli/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    core_runtime:
+        dir_name: core_runtime
+        title: core_runtime
+        scope:
+            - src/
+        source_files: []
+        children:
+            - core_runtime/bootstrap_and_entrypoints
+        depends_on: []
+        related_to: []
+    core_runtime/bootstrap_and_entrypoints:
+        dir_name: bootstrap_and_entrypoints
+        title: bootstrap_and_entrypoints
+        scope:
+            - src/bootstrap-cli.ts
+            - src/bootstrap-esm.ts
+            - src/bootstrap-fork.ts
+            - src/bootstrap-import.ts
+            - src/bootstrap-meta.ts
+            - src/bootstrap-node.ts
+            - src/bootstrap-server.ts
+            - src/cli.ts
+            - src/main.ts
+            - src/server-cli.ts
+            - src/server-main.ts
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    eslint_plugin:
+        dir_name: eslint_plugin
+        title: eslint_plugin
+        scope:
+            - .eslint-plugin-local/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    extensions:
+        dir_name: extensions
+        title: extensions
+        scope:
+            - extensions/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    github_config:
+        dir_name: github_config
+        title: github_config
+        scope:
+            - .github/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    marketplace_catalog:
+        dir_name: marketplace_catalog
+        title: marketplace_catalog
+        scope:
+            - marketplace/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    patches:
+        dir_name: patches
+        title: patches
+        scope:
+            - patches/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    remote_runtime:
+        dir_name: remote_runtime
+        title: remote_runtime
+        scope:
+            - remote/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    resources_platform:
+        dir_name: resources_platform
+        title: resources_platform
+        scope:
+            - resources/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    tests:
+        dir_name: tests
+        title: tests
+        scope:
+            - test/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

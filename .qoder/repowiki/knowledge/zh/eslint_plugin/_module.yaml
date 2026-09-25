@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: eslint_plugin
+title: eslint_plugin
+scope:
+    - .eslint-plugin-local/
+source_files: []
+depends_on: []
+related_to: []

@@ -1,6 +1,5 @@
 {
-  "schemaVersion": 1,
-  "summaryFactsSchemaVersion": 1,
+  "schemaVersion": 2,
   "summary": {
     "evidenceMode": "session-limited",
     "evidenceBoundary": {
@@ -90,7 +89,14 @@
       "interventions": []
     },
     "aiAgentPractice": {
-      "inspectedSurfaces": [],
+      "inspectedSurfaces": [
+        "Rules",
+        "Skills",
+        "Hooks",
+        "MCP",
+        "Workflows",
+        "Plugins"
+      ],
       "coverageRows": [
         {
           "surface": "Rules",
@@ -211,8 +217,83 @@
           "similarityCandidates": 0
         }
       }
-    }
+    },
+    "projectName": "KodrixCode",
+    "locale": "zh-CN",
+    "modelId": "agent-work-loop-v4",
+    "reportContractVersion": 26,
+    "overview": "项目拥有完善的根级 AGENTS.md 指导与密集的静态检查网络（50+ 自定义 ESLint 规则、层边界、循环依赖检查），但 CI 中扩展测试使用 continue-on-error 导致测试失败不阻塞合并，且 session 证据采集尚未启用，无法验证变更行为。",
+    "dimensions": [
+      {
+        "id": "task-understanding",
+        "label": "任务理解",
+        "score": 68,
+        "summary": "根 AGENTS.md 提供完整的项目结构与 Agent 工作约定，但嵌套指令仅覆盖 2% 源文件，核心区域缺少局部上下文引导。",
+        "findingRefs": []
+      },
+      {
+        "id": "controlled-execution",
+        "label": "可控执行",
+        "score": 72,
+        "summary": "启动入口（debug.bat / dev-fast.ps1）、环境校验（.nvmrc + preinstall.ts）和排障文档（REPAIR-NOTES.md）齐备，Agent 可通过支持路由启动和操作项目。",
+        "findingRefs": []
+      },
+      {
+        "id": "change-validation",
+        "label": "改动验证",
+        "score": 55,
+        "summary": "ESLint、TypeScript 和层边界检查覆盖面广，但 CI 扩展测试使用 continue-on-error 使失败不阻塞合并，session 验证循环尚未启用。",
+        "findingRefs": [
+          "ci-extension-tests-mask-failures"
+        ]
+      },
+      {
+        "id": "reliable-delivery",
+        "label": "可靠交付",
+        "score": 50,
+        "summary": "17 个 CI 工作流覆盖多平台构建与发布，但测试门禁未硬性执行，运行时验收证据不可用。",
+        "findingRefs": []
+      },
+      {
+        "id": "learning-capture",
+        "label": "经验沉淀",
+        "score": 35,
+        "summary": "无 session 证据可用于评估学习循环——0 个合格 session、0 个 episode、0 条 memory，学习捕获尚处于初始状态。",
+        "findingRefs": [
+          "launch-skill-progressive-disclosure"
+        ]
+      }
+    ],
+    "assignmentSummaries": []
   },
-  "dimensions": [],
-  "findings": []
+  "findings": [
+    {
+      "id": "ci-extension-tests-mask-failures",
+      "title": "CI 扩展测试失败不阻塞合并，回归可能被静默引入",
+      "severity": "Medium",
+      "reason": "pr-check.yml 中至少 3 个 kodrix 扩展测试 job 设置了 continue-on-error: true，测试失败不会阻断 CI 流水线。Agent 和开发者无法从 CI 获得测试通过的硬性保证，失败被静默忽略可能导致回归在后续阶段才被发现，增加修复成本。证据来源：.github/workflows/pr-check.yml 中 extension test job 的 continue-on-error 配置。",
+      "dimensionRefs": [
+        "change-validation"
+      ],
+      "aiFixPrompt": "检查 .github/workflows/pr-check.yml 中设置了 continue-on-error: true 的扩展测试 job，评估是否可以将它们改为硬性门禁。\n\n## 验证\n\n- 移除 continue-on-error 后运行 CI\n- 确认测试失败时 CI 正确报告失败状态",
+      "expectedArtifact": "Config",
+      "expectedOutput": [
+        "Update the existing Config owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    },
+    {
+      "id": "launch-skill-progressive-disclosure",
+      "title": "Launch Skill 文件缺少渐进式导航结构，增加 Agent 上下文加载负担",
+      "severity": "Low",
+      "reason": ".agents/skills/launch/SKILL.md 为 338 行且无本地 Markdown 引用（锚点链接或交叉引用），Agent 必须线性阅读全部内容才能定位特定过程段。这增加了上下文窗口消耗并降低导航效率。证据来源：agent-lint advisory skill-long-without-progressive-references。",
+      "dimensionRefs": [
+        "learning-capture"
+      ],
+      "aiFixPrompt": "为 .agents/skills/launch/SKILL.md 添加渐进式披露结构。\n\n## 验证\n\n- 添加目录锚点和章节间交叉引用\n- 确认文件内 Markdown 引用数量大于零",
+      "expectedArtifact": "Skill",
+      "expectedOutput": [
+        "Update the existing Skill owner identified by the reviewed evidence and retain a focused validation result."
+      ]
+    }
+  ]
 }
