@@ -15,11 +15,29 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
-import { ensureProjectIndex, getProjectIndex } from './projectIndexer';
+import { ensureProjectIndex, getProjectIndex, onIndexStateChange, type IndexBuildState } from './projectIndexer';
 import { searchSymbolsAsync, searchFilesAsync } from './semanticIndex';
 import { logger } from '../logger';
+import { QueryCache } from '../utils/queryCache';
 import type { CodeSymbol, CodebaseSearchResult, ProjectIndex } from './types';
 import { SymbolVisibility } from './types';
+
+// ── 查询缓存 ────────────────────────────────────────────────────
+
+const _queryCache = new QueryCache<string>({ maxEntries: 100, ttlMs: 30_000 });
+const _symbolCache = new QueryCache<string>({ maxEntries: 100, ttlMs: 30_000 });
+const _depCache = new QueryCache<string[]>({ maxEntries: 100, ttlMs: 30_000 });
+const _dependentsCache = new QueryCache<string[]>({ maxEntries: 100, ttlMs: 30_000 });
+
+// 索引重建时清空缓存
+onIndexStateChange((state: IndexBuildState) => {
+	if (state.status === 'done') {
+		_queryCache.clear();
+		_symbolCache.clear();
+		_depCache.clear();
+		_dependentsCache.clear();
+	}
+});
 
 // ── 中文查询意图识别 ─────────────────────────────────────────────
 
@@ -282,6 +300,13 @@ function showDependencies(index: ProjectIndex, query: string): CodebaseSearchRes
  * 命中 verifyToken / authenticate 等语义相近符号。
  */
 async function naturalSearch(index: ProjectIndex, query: string): Promise<CodebaseSearchResult[]> {
+	// 查询缓存命中则直接返回
+	const cacheKey = `ns:${query}`;
+	const cached = _queryCache.get(cacheKey);
+	if (cached) {
+		try { return JSON.parse(cached); } catch { /* corrupt cache, continue */ }
+	}
+
 	const results: CodebaseSearchResult[] = [];
 
 	// 1) 语义检索 — 符号级（核心增强）
@@ -328,12 +353,16 @@ async function naturalSearch(index: ProjectIndex, query: string): Promise<Codeba
 	}
 
 	const seen = new Set<string>();
-	return results.filter(r => {
+	const finalResults = results.filter(r => {
 		const key = `${r.filePath}:${r.symbol?.id || ''}`;
 		if (seen.has(key)) return false;
 		seen.add(key);
 		return true;
 	}).slice(0, 20);
+
+	// 缓存结果
+	try { _queryCache.set(cacheKey, JSON.stringify(finalResults)); } catch { /* non-critical */ }
+	return finalResults;
 }
 
 // ── 结果格式化 ──────────────────────────────────────────────────
@@ -462,26 +491,45 @@ export function quickSearchSymbols(
 	name: string,
 	limit = 10,
 ): Array<{ symbol: CodeSymbol; score: number }> {
+	const cacheKey = `qs:${name}:${limit}`;
+	const cached = _symbolCache.get(cacheKey);
+	if (cached) {
+		try { return JSON.parse(cached); } catch { /* corrupt cache */ }
+	}
+
 	const index = getProjectIndex();
 	if (!index) return [];
 
 	const symbols = findSymbolByName(index, name);
-	return symbols.slice(0, limit).map(sym => ({
+	const result = symbols.slice(0, limit).map(sym => ({
 		symbol: sym,
 		score: sym.visibility === SymbolVisibility.Exported ? 1.0 : 0.7,
 	}));
+
+	try { _symbolCache.set(cacheKey, JSON.stringify(result)); } catch { /* non-critical */ }
+	return result;
 }
 
 /** 获取文件的依赖列表 */
 export function getFileDependencies(filePath: string): string[] {
+	const cached = _depCache.get(filePath);
+	if (cached) return cached;
+
 	const index = getProjectIndex();
-	return index?.dependencyGraph[filePath] || [];
+	const result = index?.dependencyGraph[filePath] || [];
+	_depCache.set(filePath, result);
+	return result;
 }
 
 /** 获取文件的被依赖列表 */
 export function getFileDependents(filePath: string): string[] {
+	const cached = _dependentsCache.get(filePath);
+	if (cached) return cached;
+
 	const index = getProjectIndex();
-	return index?.reverseDependencyGraph[filePath] || [];
+	const result = index?.reverseDependencyGraph[filePath] || [];
+	_dependentsCache.set(filePath, result);
+	return result;
 }
 
 // ── Chat Participant 注册 ──────────────────────────────────────

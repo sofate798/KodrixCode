@@ -10,6 +10,14 @@
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
 import { classifyIntent } from '../router/agentRouter';
+import {
+	startIterationSession,
+	recordIteration,
+	rollbackToIteration,
+	getIterationSummary,
+	getIterationCount,
+	endIterationSession,
+} from './vibeIteration';
 
 /**
  * Vibe Coding 3.0 入口：智能判断使用快捷路径还是完整 Idea Flow
@@ -63,12 +71,7 @@ export async function vibeCode(prompt?: string): Promise<void> {
 		await vscode.commands.executeCommand('kodrix.spec.create');
 		vscode.window.showInformationMessage(l10n.t('Vibe Coding → 请在 Spec 中定义需求，完成后实施'));
 	} else {
-		await vscode.commands.executeCommand('workbench.action.chat.open', {
-			mode: 'agent',
-			query: vibeContext,
-			isPartialQuery: false,
-		});
-		vscode.window.showInformationMessage(l10n.t('Vibe Coding → Agent 模式已就绪'));
+		await runAgentWithIterationLoop(input, vibeContext);
 	}
 }
 
@@ -91,6 +94,120 @@ function shouldUseFullPipeline(input: string): boolean {
 	if (input.length > 120) return true;
 
 	return false;
+}
+
+/**
+ * Agent 模式 + Checkpoint 迭代循环。
+ *
+ * 流程：
+ *   1. 开启迭代会话 → 创建初始 Checkpoint → 发送 prompt 到 Agent
+ *   2. Agent 完成后展示 QuickPick：继续迭代 / 回退 / 完成
+ *   3. 循环直到用户选择「完成」或取消
+ */
+async function runAgentWithIterationLoop(originalInput: string, initialContext: string): Promise<void> {
+	const sessionId = startIterationSession(originalInput);
+
+	// 初始 Checkpoint（Agent 执行前快照）
+	await recordIteration(sessionId, l10n.t('初始版本'));
+
+	// 首次发送到 Agent
+	await vscode.commands.executeCommand('workbench.action.chat.open', {
+		mode: 'agent',
+		query: initialContext,
+		isPartialQuery: false,
+	});
+	vscode.window.showInformationMessage(l10n.t('Vibe Coding → Agent 模式已就绪'));
+
+	// 迭代循环
+	let iterating = true;
+	while (iterating) {
+		const action = await vscode.window.showQuickPick(
+			[
+				{ label: '$(edit) ' + l10n.t('继续迭代'), description: l10n.t('提供反馈继续修改'), value: 'continue' },
+				{ label: '$(history) ' + l10n.t('回退到上一版本'), description: l10n.t('恢复到上一个 Checkpoint'), value: 'rollback' },
+				{ label: '$(check) ' + l10n.t('完成'), description: l10n.t('对结果满意，结束迭代'), value: 'done' },
+			],
+			{ placeHolder: l10n.t('Vibe Coding 迭代'), ignoreFocusOut: true },
+		);
+
+		if (!action) {
+			// 用户按 Esc 取消 → 视为完成
+			iterating = false;
+			break;
+		}
+
+		const value = (action as { value: string }).value;
+
+		if (value === 'continue') {
+			const feedback = await vscode.window.showInputBox({
+				prompt: l10n.t('描述你希望修改的内容'),
+				placeHolder: l10n.t('例如：把导航栏改成侧边栏 / 增加一个搜索框'),
+				ignoreFocusOut: true,
+			});
+			if (!feedback?.trim()) {
+				continue;
+			}
+
+			// 记录迭代（自动创建 Checkpoint）
+			await recordIteration(sessionId, feedback, feedback);
+
+			// 构建迭代上下文并发送到 Agent
+			const iterContext = `[Vibe Coding 迭代 #${getIterationCount(sessionId)}]
+原始需求：${originalInput}
+本轮反馈：${feedback}
+
+请根据反馈继续修改，保持已有功能不被破坏。`;
+
+			await vscode.commands.executeCommand('workbench.action.chat.open', {
+				mode: 'agent',
+				query: iterContext,
+				isPartialQuery: false,
+			});
+
+		} else if (value === 'rollback') {
+			const count = getIterationCount(sessionId);
+			if (count <= 1) {
+				vscode.window.showInformationMessage(l10n.t('当前仅有初始版本，无法回退'));
+				continue;
+			}
+
+			const summary = getIterationSummary(sessionId);
+			const target = await vscode.window.showQuickPick(
+				Array.from({ length: count }, (_, i) => {
+					const num = count - i; // 从新到旧
+					return {
+						label: `#${num}`,
+						description: num === 1 ? l10n.t('初始版本') : l10n.t('迭代 #{0}', num),
+						value: num,
+					};
+				}),
+				{
+					placeHolder: l10n.t('选择要回退到的版本'),
+					title: l10n.t('迭代历史\n{0}', summary ?? ''),
+				},
+			);
+
+			if (!target) {
+				continue;
+			}
+
+			const targetNum = (target as { value: number }).value;
+			const ok = await rollbackToIteration(sessionId, targetNum);
+			if (ok) {
+				vscode.window.showInformationMessage(l10n.t('已回退到迭代 #{0}', targetNum));
+			} else {
+				vscode.window.showErrorMessage(l10n.t('回退失败，请检查检查点完整性'));
+			}
+
+		} else {
+			// done
+			iterating = false;
+		}
+	}
+
+	const totalIterations = getIterationCount(sessionId);
+	endIterationSession(sessionId);
+	vscode.window.showInformationMessage(l10n.t('Vibe Coding 会话结束，共 {0} 次迭代', totalIterations));
 }
 
 function countFeatures(text: string): number {

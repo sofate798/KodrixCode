@@ -29,6 +29,7 @@ import {
 	IndexBuildState,
 } from './projectIndexer';
 import { logger } from '../logger';
+import { createTrackedPanel } from '../utils/panelTracker';
 
 const CONFIG_SECTION = 'kodrix.codebase';
 
@@ -71,7 +72,8 @@ function openIndexManagerPanel(): void {
 	// 打开面板时刷新一次 grep 计数（仅此一次，避免构建期间反复解析）
 	_grepFileCount = getGrepIndexFiles().length;
 
-	_panel = vscode.window.createWebviewPanel(
+	_panel = createTrackedPanel(
+		_ctx!,
 		'kodrix.codebaseIndexManager',
 		'索引与文档',
 		column,

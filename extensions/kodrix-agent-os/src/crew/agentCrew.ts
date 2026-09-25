@@ -31,6 +31,7 @@ import {
 	CREW_CONTEXT_MAX_CHARS,
 	CREW_RESULT_MAX_CHARS,
 } from '../shared/constants';
+import { FileWriteTracker, parseToolCallsFromLLMOutput, generateConflictReport } from './fileConflictDetector';
 
 // ── 类型定义 ───────────────────────────────────────────────────
 
@@ -529,6 +530,7 @@ export async function runAllRunnableTasks(crew: CrewConfig): Promise<void> {
 	}
 
 	const executed: CrewTask[] = [];
+	const conflictTracker = new FileWriteTracker();
 
 	await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: l10n.t('Agent Crew「{0}」并行执行中…', crew.name), cancellable: false },
@@ -547,11 +549,16 @@ export async function runAllRunnableTasks(crew: CrewConfig): Promise<void> {
 				for (const chunk of chunkTasks(runnable, maxParallel)) {
 					await Promise.allSettled(chunk.map(t => executeTaskAuto(crew, t)));
 				}
-				// 自动写回结果与状态
+				// 自动写回结果与状态，并解析文件修改声明
 				for (const t of runnable) {
 					executed.push(t);
 					if (t.status === 'failed') {
 						logger.warn(`[AgentCrew] 任务「${t.title}」失败：${t.error ?? ''}`);
+					}
+					// 解析 LLM 输出中的文件修改声明（仅记录，不执行）
+					if (t.result) {
+						const mods = parseToolCallsFromLLMOutput(t.result, t.id, t.title);
+						mods.forEach(m => conflictTracker.record(m));
 					}
 				}
 				saveCrew(crew);
@@ -569,11 +576,20 @@ export async function runAllRunnableTasks(crew: CrewConfig): Promise<void> {
 	vscode.window.showInformationMessage(
 		l10n.t('Crew「{0}」执行结束：{1} 完成 / {2} 失败 / {3} 个任务', crew.name, completed, failed, executed.length),
 	);
-	await showCrewExecutionReport(crew, executed);
+	const conflicts = conflictTracker.detectConflicts();
+	if (conflicts.length > 0) {
+		logger.warn(`[AgentCrew] 检测到 ${conflicts.length} 个文件冲突`);
+	}
+	await showCrewExecutionReport(crew, executed, conflictTracker, conflicts);
 }
 
-/** 生成并打开执行报告（Markdown）：任务明细 + 输出全文 + 待办提示 */
-async function showCrewExecutionReport(crew: CrewConfig, executed: CrewTask[]): Promise<void> {
+/** 生成并打开执行报告（Markdown）：任务明细 + 冲突检测 + 待办提示 */
+async function showCrewExecutionReport(
+	crew: CrewConfig,
+	executed: CrewTask[],
+	conflictTracker: FileWriteTracker,
+	conflicts: ReturnType<FileWriteTracker['detectConflicts']>,
+): Promise<void> {
 	const pendingTasks = crew.tasks.filter(t => t.status === 'pending');
 	const lines = [
 		`# Agent Crew 执行报告: ${crew.name}`,
@@ -604,6 +620,9 @@ async function showCrewExecutionReport(crew: CrewConfig, executed: CrewTask[]): 
 				'',
 			].filter(Boolean);
 		}),
+		'## 文件冲突检测',
+		'',
+		...generateConflictReport(conflictTracker, conflicts),
 		'## 待办提示',
 		'',
 		...(pendingTasks.length

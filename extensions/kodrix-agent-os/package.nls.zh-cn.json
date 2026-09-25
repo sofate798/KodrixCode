@@ -10,6 +10,7 @@
 	"chatParticipant.codebase.command.dependents.description": "查看哪些文件依赖该文件",
 
 	"view.agentKanban.name": "Agent 看板",
+	"view.checkpoints.name": "检查点",
 
 	"command.wiki.generate.title": "生成 Repo Wiki",
 	"command.wiki.open.title": "打开 Repo Wiki",
@@ -36,6 +37,7 @@
 	"command.learn.dashboard.title": "Learning 学习仪表盘",
 	"command.context.status.title": "查看上下文状态",
 	"command.context.refresh.title": "刷新 Agent 上下文",
+	"command.context.toggleSummary.title": "切换上下文层级",
 	"command.learn.installSessionHook.title": "安装 Session Learning Hook（Agent 结束自动学习）",
 	"command.learn.sessionStatus.title": "Session Learning 状态",
 	"command.learn.processPendingSessions.title": "处理待学习会话队列",
@@ -64,6 +66,8 @@
 	"command.checkpoint.create.title": "创建检查点（可回滚）",
 	"command.checkpoint.list.title": "查看检查点",
 	"command.checkpoint.restore.title": "回滚到检查点",
+	"command.checkpoint.refreshTimeline.title": "刷新时间线",
+	"command.checkpoint.diffGallery.title": "Diff 画廊",
 	"command.rules.list.title": "查看生效的 Agent 规则",
 	"command.modelRouter.status.title": "模型路由状态（模型池 + 使用统计）",
 	"command.userProfile.view.title": "查看 / 编辑全局用户偏好画像",
@@ -86,6 +90,7 @@
 	"command.acp.dispatch.title": "ACP: 委派任务给外部 Agent",
 	"command.acp.runs.title": "ACP: 委派历史",
 	"command.tabCompletion.stats.title": "Tab 补全: 接受率统计",
+	"command.naturalPalette.title": "自然语言命令面板",
 
 	"config.title": "Kodrix Agent OS",
 	"config.settings.markdownDescription": "**Kodrix Settings** — 集中管理 Kodrix 全部配置：代码库索引与文档 · AI 供应商 · FIM 补全 · Embedding · 功能开关",

@@ -77,6 +77,7 @@ export const COMMANDS = {
 	agentOsWelcome: 'kodrix.agentOs.welcome',
 	contextStatus: 'kodrix.context.status',
 	contextRefresh: 'kodrix.context.refresh',
+	contextToggleSummary: 'kodrix.context.toggleSummary',
 	hubOpen: 'kodrix.hub.open',
 	routerRoute: 'kodrix.router.route',
 	learnCapture: 'kodrix.learn.capture',
@@ -128,6 +129,8 @@ export const COMMANDS = {
 	checkpointCreate: 'kodrix.checkpoint.create',
 	checkpointList: 'kodrix.checkpoint.list',
 	checkpointRestore: 'kodrix.checkpoint.restore',
+	checkpointRefreshTimeline: 'kodrix.checkpoint.refreshTimeline',
+	checkpointDiffGallery: 'kodrix.checkpoint.diffGallery',
 
 	// Rules 查看
 	rulesList: 'kodrix.rules.list',

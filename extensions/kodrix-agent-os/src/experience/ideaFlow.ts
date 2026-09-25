@@ -2,7 +2,7 @@
  *  Idea Flow — 让软件开发回归想法本身
  *
  *  大厂对标：Anthropic Claude Code + Devin + Lovable + Bolt.new + v0
- *  核心理念：用户只需描述想法，AI 全自动完成需求分析 → 架构设计 → 任务拆解 → 
+ *  核心理念：用户只需描述想法，AI 全自动完成需求分析 → 架构设计 → 任务拆解 →
  *            多 Agent 协同开发 → 构建验证 → 部署预览
  *
  *  流程：
@@ -24,6 +24,7 @@ import { createSpecFiles } from '../spec/specHelpers';
 import { createCheckpoint, recordOperation } from '../checkpoint/checkpointManager';
 import { logger } from '../logger';
 import { loadWebviewHtml } from '../shared/webviewHtml';
+import { createTrackedPanel } from '../utils/panelTracker';
 import {
 	CONFIG_FEATURES,
 	FEATURE_FLAGS,
@@ -223,7 +224,8 @@ export async function openIdeaCanvas(context: vscode.ExtensionContext): Promise<
 		return;
 	}
 
-	const panel = vscode.window.createWebviewPanel(
+	const panel = createTrackedPanel(
+		context,
 		VIEW_IDS.ideaCanvas,
 		'Idea Canvas',
 		column,

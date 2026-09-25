@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { l10n } from 'vscode';
 import { onContextChanged, notifyContextChanged } from '../context/contextEvents';
 import { registerInstructionFolders } from './instructionRegistry';
-import { getLearningContextSummary, syncProjectInstructionsFile, getRecentLearning } from '../learning/learningEngine';
+import { syncProjectInstructionsFile, getRecentLearning } from '../learning/learningEngine';
 import { readMemoryContent } from '../memory/memoryHelpers';
 import { generateRepoWiki, getWikiContextForAgent } from '../wiki/repoWiki';
 import { getSemanticContext, getTopicalMemories, getSemanticStats } from '../learning/semanticMemory';
@@ -19,6 +19,42 @@ import {
 	COMMANDS,
 	INSTRUCTION_REGISTER_DELAY_MS,
 } from '../shared/constants';
+
+/** 上下文摘要结构化数据 */
+export interface ContextSummary {
+	wikiKB: number;
+	memoryCount: number;
+	learningCount: number;
+	semanticVectors: number;
+	estimatedTokens: number;
+	totalKB: number;
+}
+
+/** 获取上下文结构化摘要（供状态栏 / Chat context 使用） */
+export function getContextSummary(): ContextSummary {
+	const wiki = getCachedWikiContext();
+	const wikiBytes = wiki ? wiki.length * 2 : 0;
+	const wikiKB = wikiBytes / 1024;
+
+	const memory = readMemoryContent();
+	const memoryLines = Math.max(1, memory.split('\n').filter(l => l.trim().startsWith('-') || l.trim().startsWith('##')).length);
+
+	const learning = getRecentLearning(100);
+	const semantic = getSemanticStats();
+
+	const assembled = getAssembledContext(50000);
+	const totalKB = (assembled.length * 2) / 1024;
+	const estimatedTokens = Math.ceil(assembled.length / 4);
+
+	return {
+		wikiKB: Math.round(wikiKB * 10) / 10,
+		memoryCount: memoryLines,
+		learningCount: learning.length,
+		semanticVectors: semantic.totalVectors,
+		estimatedTokens,
+		totalKB: Math.round(totalKB * 10) / 10,
+	};
+}
 
 export { mergeInstructionLocation, registerInstructionFolders, writeWikiInstructionsFile } from './instructionRegistry';
 
@@ -65,30 +101,47 @@ export function getAssembledContext(maxChars = ASSEMBLED_CONTEXT_MAX_CHARS): str
 	const memory = readMemoryContent().slice(0, 2000);
 	if (memory) parts.push(`[Project Memory]\n${memory}`);
 
-	// 3. Recent learning (recency-based)
-	const learning = getLearningContextSummary();
-	if (learning) parts.push(learning);
-
-	// 4. Semantic memory (relevance-based, using editor context)
-	const editorCtx = getEditorContextHint();
-	if (editorCtx) {
-		const semantic = getSemanticContext(editorCtx, 1000);
-		if (semantic && !parts.some(p => p.includes(semantic.slice(10, 50)))) {
-			parts.push(semantic);
-		}
+	// 3. Recent learning (recency-based, sync path — no semantic query)
+	const learning = getRecentLearning(5);
+	if (learning.length) {
+		const header = '[Recent Learning]';
+		const lines = learning.map(e => `- [${e.category}] ${e.content}`);
+		parts.push(`${header}\n${lines.join('\n')}`);
 	}
+
+	// NOTE: 语义记忆检索（query-based）已移至异步路径 getAssembledContextFull()
 
 	const combined = parts.join('\n\n');
 	if (combined.length <= maxChars) return combined;
 
 	// Graceful truncation: cut at the last double-newline (paragraph boundary)
-	// so the model doesn't receive a mid-sentence fragment.
 	const truncated = combined.slice(0, maxChars);
 	const lastBreak = truncated.lastIndexOf('\n\n');
 	if (lastBreak > maxChars * 0.7) {
 		return truncated.slice(0, lastBreak) + '\n\n…(truncated)';
 	}
 	return truncated + '\n…(truncated)';
+}
+
+/**
+ * 异步版本的完整上下文组装，包含语义记忆检索
+ */
+export async function getAssembledContextFull(maxChars = ASSEMBLED_CONTEXT_MAX_CHARS): Promise<string> {
+	const sync = getAssembledContext(maxChars);
+	const editorCtx = getEditorContextHint();
+	if (!editorCtx) return sync;
+
+	try {
+		const semantic = await getSemanticContext(editorCtx, 1000);
+		if (semantic && !sync.includes(semantic.slice(10, 50))) {
+			const combined = sync + '\n\n' + semantic;
+			if (combined.length <= maxChars) return combined;
+			return combined.slice(0, maxChars) + '\n…(truncated)';
+		}
+	} catch {
+		// semantic search failed, return sync version
+	}
+	return sync;
 }
 
 /** 获取简短上下文（用于状态栏 / tooltip） */
@@ -113,13 +166,13 @@ export interface ContextSuggestion {
 	action?: string; // command to execute
 }
 
-export function getContextSuggestions(): ContextSuggestion[] {
+export async function getContextSuggestions(): Promise<ContextSuggestion[]> {
 	const suggestions: ContextSuggestion[] = [];
 	const editorCtx = getEditorContextHint();
 
 	if (editorCtx) {
 		// Semantic memory suggestions
-		const topical = getTopicalMemories(editorCtx, 3);
+		const topical = await getTopicalMemories(editorCtx, 3);
 		for (const r of topical) {
 			if (r.score > 0.2) {
 				suggestions.push({
@@ -196,7 +249,7 @@ export async function refreshAllContext(): Promise<void> {
 			await generateRepoWiki({ recordLearning: true });
 			syncProjectInstructionsFile();
 			const { rebuildIndex } = await import('../learning/semanticMemory');
-			rebuildIndex();
+			await rebuildIndex();
 			await registerInstructionFolders();
 			notifyContextChanged();
 		},
@@ -207,7 +260,7 @@ export async function refreshAllContext(): Promise<void> {
 export async function showContextStatus(): Promise<void> {
 	const cfg = vscode.workspace.getConfiguration(CONFIG_FEATURES);
 	const status = getContextStatus();
-	const suggestions = getContextSuggestions();
+	const suggestions = await getContextSuggestions();
 	const locations = vscode.workspace.getConfiguration('chat').get<Record<string, boolean>>('instructionsFilesLocations') || {};
 	const kodrixLocs = Object.entries(locations).filter(([k]) => k.includes('.kodrix') || k.includes('kodrix'));
 
@@ -296,19 +349,31 @@ export function registerContextIntelligence(context: vscode.ExtensionContext): v
 	if (chatApi?.registerChatWorkspaceContextProvider) {
 		const provider = {
 			onDidChangeWorkspaceChatContext: onContextChanged,
-			provideWorkspaceChatContext: (_token: vscode.CancellationToken): WorkspaceChatContextItem[] => {
+			provideWorkspaceChatContext: async (_token: vscode.CancellationToken): Promise<WorkspaceChatContextItem[]> => {
 				const enabled = vscode.workspace.getConfiguration(CONFIG_FEATURES).get<boolean>('contextInjection', true);
 				if (!enabled) return [];
 
-				const value = getAssembledContext(2000);
+				const value = await getAssembledContextFull(2000);
 				if (!value.trim()) return [];
 
-				return [{
-					label: l10n.t('Kodrix 项目上下文（Wiki + Memory + Semantic）'),
-					icon: new vscode.ThemeIcon('brain'),
-					modelDescription: l10n.t('Repo Wiki + Memory + 学习沉淀 + 语义记忆的智能组装'),
-					value,
-				}];
+				const summary = getContextSummary();
+				const summaryText = l10n.t('上下文: Wiki {0}KB + Memory {1}条 + Learning {2}条 + Semantic {3}向量 ≈ {4} tokens',
+					summary.wikiKB.toFixed(1), summary.memoryCount, summary.learningCount, summary.semanticVectors, summary.estimatedTokens);
+
+				return [
+					{
+						label: l10n.t('Kodrix 项目上下文（Wiki + Memory + Semantic）'),
+						icon: new vscode.ThemeIcon('brain'),
+						modelDescription: l10n.t('Repo Wiki + Memory + 学习沉淀 + 语义记忆的智能组装'),
+						value,
+					},
+					{
+						label: l10n.t('Kodrix 上下文摘要'),
+						icon: new vscode.ThemeIcon('info'),
+						modelDescription: summaryText,
+						value: summaryText,
+					},
+				];
 			},
 		};
 		context.subscriptions.push(chatApi.registerChatWorkspaceContextProvider('kodrix.agentOs', provider));

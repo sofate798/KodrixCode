@@ -16,7 +16,7 @@ import {
 	getMemoryDir,
 	getMemoryInstructionsPath,
 } from '../paths';
-import { indexLearningEntry, rebuildIndex, searchSimilar, getSemanticStats } from './semanticMemory';
+import { indexLearningEntry, rebuildIndex, searchSimilar, getSemanticStats, invalidateEntryCache } from './semanticMemory';
 import { getSessionLearningStats } from './sessionIndex';
 import { isRecord, isString } from '../utils/jsonValidator';
 import { atomicWriteFileSync } from '../utils/fsSafe';
@@ -118,7 +118,7 @@ export function recordLearning(
 		content: content.trim(),
 	};
 	appendLearningLog(entry);
-	indexLearningEntry(entry);
+	void indexLearningEntry(entry); // 异步索引，不阻塞写入
 	scheduleSyncInstructions(); // 限流：1s 内只写一次磁盘
 	notifyContextChanged();
 	emitKodrixEvent({ type: 'learning.recorded', id: entry.id, category: entry.category });
@@ -156,14 +156,14 @@ ${learningSection}
 	atomicWriteFileSync(outPath, body);
 }
 
-export function getLearningContextSummary(maxEntries = 5, maxChars = 800, query?: string): string {
+export async function getLearningContextSummary(maxEntries = 5, maxChars = 800, query?: string): Promise<string> {
 	const all = readLearningLog();
 	if (!all.length) {
 		return '';
 	}
 
 	const entries = query?.trim()
-		? searchSimilar(query, maxEntries).map(r => r.entry)
+		? (await searchSimilar(query, maxEntries)).map(r => r.entry)
 		: all.slice(-maxEntries).reverse();
 
 	if (!entries.length) {
@@ -176,8 +176,8 @@ export function getLearningContextSummary(maxEntries = 5, maxChars = 800, query?
 	return text.length > maxChars ? text.slice(0, maxChars) + '…' : text;
 }
 
-export function getRelevantLearningForFile(filePath: string, maxEntries = 3): LearningEntry[] {
-	return searchSimilar(filePath, maxEntries).map(r => r.entry);
+export async function getRelevantLearningForFile(filePath: string, maxEntries = 3): Promise<LearningEntry[]> {
+	return (await searchSimilar(filePath, maxEntries)).map(r => r.entry);
 }
 
 export function getLearningStats(): { total: number; categories: Record<string, number>; lastUpdated?: string } {
@@ -283,6 +283,12 @@ export async function showLearningDashboard(context?: vscode.ExtensionContext): 
 			void vscode.commands.executeCommand('kodrix.learn.capture');
 			setTimeout(() => pushLearningDashboard(), 500);
 		}
+		if (msg.command === 'edit' && isRecord(msg) && isString(msg.id) && isString(msg.content)) {
+			handleEditEntry(String(msg.id), String(msg.content));
+		}
+		if (msg.command === 'delete' && isRecord(msg) && isString(msg.id)) {
+			handleDeleteEntry(String(msg.id));
+		}
 	});
 
 	panel.onDidDispose(() => {
@@ -298,7 +304,7 @@ function pushLearningDashboard(): void {
 	const entries = readLearningLog();
 	const stats = getLearningStats();
 	let ss = { processed: 0, totalInsights: 0 };
-	let semantic = { totalVectors: 0 };
+	let semantic = { totalVectors: 0, hasEmbedding: false };
 
 	try {
 		semantic = getSemanticStats();
@@ -325,6 +331,7 @@ function pushLearningDashboard(): void {
 
 	learningDashboardPanel.webview.postMessage({
 		type: 'dashboard',
+		editable: true,
 		entries: [...entries].reverse(), // 不原地修改 readLearningLog 返回值
 		stats: {
 			totalEntries: stats.total,
@@ -332,10 +339,75 @@ function pushLearningDashboard(): void {
 			semanticVectors: semantic.totalVectors,
 			thisWeek,
 			memoryCount: memCount,
+			hasEmbedding: semantic.hasEmbedding,
 		},
 	});
 }
 
+
+/** 编辑学习条目：更新 learning.jsonl 中对应条目并重建索引 */
+function handleEditEntry(id: string, content: string): void {
+	const logPath = getLearningLogPath();
+	if (!fs.existsSync(logPath)) return;
+
+	const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean);
+	const updated: string[] = [];
+	let found = false;
+	for (const line of lines) {
+		try {
+			const entry: unknown = JSON.parse(line);
+			if (isValidLearningEntry(entry) && entry.id === id) {
+				entry.content = content.trim();
+				updated.push(JSON.stringify(entry));
+				found = true;
+			} else {
+				updated.push(line);
+			}
+		} catch {
+			updated.push(line);
+		}
+	}
+	if (found) {
+		atomicWriteFileSync(logPath, updated.join('\n') + '\n');
+		invalidateEntryCache();
+		void rebuildIndex();
+		scheduleSyncInstructions();
+		notifyContextChanged();
+		pushLearningDashboard();
+		logger.info(`[LearningEngine] 条目已编辑: ${id}`);
+	}
+}
+
+/** 删除学习条目：从 learning.jsonl 移除并重建索引 */
+function handleDeleteEntry(id: string): void {
+	const logPath = getLearningLogPath();
+	if (!fs.existsSync(logPath)) return;
+
+	const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean);
+	const kept: string[] = [];
+	let removed = false;
+	for (const line of lines) {
+		try {
+			const entry: unknown = JSON.parse(line);
+			if (isValidLearningEntry(entry) && entry.id === id) {
+				removed = true;
+				continue; // skip this entry
+			}
+			kept.push(line);
+		} catch {
+			kept.push(line);
+		}
+	}
+	if (removed) {
+		atomicWriteFileSync(logPath, kept.join('\n') + '\n');
+		invalidateEntryCache();
+		void rebuildIndex();
+		scheduleSyncInstructions();
+		notifyContextChanged();
+		pushLearningDashboard();
+		logger.info(`[LearningEngine] 条目已删除: ${id}`);
+	}
+}
 
 export function registerLearningEngine(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
@@ -349,7 +421,7 @@ export function registerLearningEngine(context: vscode.ExtensionContext): void {
 	const rebuildTimer = setTimeout(() => {
 		try {
 			if (readLearningLog().length > 0 && getSemanticStats().totalVectors === 0) {
-				rebuildIndex();
+				void rebuildIndex();
 			}
 		} catch (err) {
 			logger.warn('[LearningEngine] 启动时重建语义索引失败', err);

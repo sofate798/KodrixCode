@@ -73,6 +73,13 @@
 					"name": "%view.agentKanban.name%",
 					"when": "config.kodrix.features.kanban"
 				}
+			],
+			"kodrix.checkpoints": [
+				{
+					"id": "kodrix.checkpoints",
+					"name": "%view.checkpoints.name%",
+					"when": "kodrix.hasWorkspace"
+				}
 			]
 		},
 		"commands": [
@@ -199,6 +206,11 @@
 			{
 				"command": "kodrix.context.refresh",
 				"title": "%command.context.refresh.title%",
+				"category": "Kodrix"
+			},
+			{
+				"command": "kodrix.context.toggleSummary",
+				"title": "%command.context.toggleSummary.title%",
 				"category": "Kodrix"
 			},
 			{
@@ -342,6 +354,18 @@
 				"category": "Kodrix"
 			},
 			{
+				"command": "kodrix.checkpoint.refreshTimeline",
+				"title": "%command.checkpoint.refreshTimeline.title%",
+				"category": "Kodrix",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "kodrix.checkpoint.diffGallery",
+				"title": "%command.checkpoint.diffGallery.title%",
+				"category": "Kodrix",
+				"icon": "$(diff)"
+			},
+			{
 				"command": "kodrix.rules.list",
 				"title": "%command.rules.list.title%",
 				"category": "Kodrix"
@@ -450,6 +474,11 @@
 				"command": "kodrix.tabCompletion.stats",
 				"title": "%command.tabCompletion.stats.title%",
 				"category": "Kodrix"
+			},
+			{
+				"command": "kodrix.router.naturalPalette",
+				"title": "%command.naturalPalette.title%",
+				"category": "Kodrix"
 			}
 		],
 		"keybindings": [
@@ -507,6 +536,11 @@
 				"key": "ctrl+enter",
 				"mac": "cmd+enter",
 				"when": "kodrix.terminalAI.pending && config.kodrix.features.terminalAI"
+			},
+			{
+				"command": "kodrix.router.naturalPalette",
+				"key": "ctrl+shift+l",
+				"when": "!editorTextFocus"
 			}
 		],
 		"menus": {
@@ -514,6 +548,16 @@
 				{
 					"command": "kodrix.kanban.addTask",
 					"when": "view == kodrix.agentKanban",
+					"group": "navigation"
+				},
+				{
+					"command": "kodrix.checkpoint.refreshTimeline",
+					"when": "view == kodrix.checkpoints",
+					"group": "navigation"
+				},
+				{
+					"command": "kodrix.checkpoint.diffGallery",
+					"when": "view == kodrix.checkpoints",
 					"group": "navigation"
 				}
 			],
@@ -531,6 +575,11 @@
 				{
 					"command": "kodrix.kanban.deleteTask",
 					"when": "view == kodrix.agentKanban",
+					"group": "inline"
+				},
+				{
+					"command": "kodrix.checkpoint.restore",
+					"when": "view == kodrix.checkpoints && viewItem == checkpoint",
 					"group": "inline"
 				}
 			]

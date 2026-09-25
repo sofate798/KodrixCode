@@ -10,6 +10,7 @@
 	"chatParticipant.codebase.command.dependents.description": "View which files depend on this file",
 
 	"view.agentKanban.name": "Agent Kanban",
+	"view.checkpoints.name": "Checkpoints",
 
 	"command.wiki.generate.title": "Generate Repo Wiki",
 	"command.wiki.open.title": "Open Repo Wiki",
@@ -36,6 +37,7 @@
 	"command.learn.dashboard.title": "Learning Dashboard",
 	"command.context.status.title": "View Context Status",
 	"command.context.refresh.title": "Refresh Agent Context",
+	"command.context.toggleSummary.title": "Toggle Context Layers",
 	"command.learn.installSessionHook.title": "Install Session Learning Hook (Auto-learn on Agent Finish)",
 	"command.learn.sessionStatus.title": "Session Learning Status",
 	"command.learn.processPendingSessions.title": "Process Pending Session Queue",
@@ -64,6 +66,8 @@
 	"command.checkpoint.create.title": "Create Checkpoint (Rollback-capable)",
 	"command.checkpoint.list.title": "View Checkpoints",
 	"command.checkpoint.restore.title": "Rollback to Checkpoint",
+	"command.checkpoint.refreshTimeline.title": "Refresh Timeline",
+	"command.checkpoint.diffGallery.title": "Diff Gallery",
 	"command.rules.list.title": "View Active Agent Rules",
 	"command.modelRouter.status.title": "Model Router Status (Model Pool + Usage Stats)",
 	"command.userProfile.view.title": "View / Edit Global User Profile",
@@ -86,6 +90,7 @@
 	"command.acp.dispatch.title": "ACP: Delegate Task to External Agent",
 	"command.acp.runs.title": "ACP: Delegation History",
 	"command.tabCompletion.stats.title": "Tab Completion: Acceptance Rate Stats",
+	"command.naturalPalette.title": "Natural Language Command Palette",
 
 	"config.title": "Kodrix Agent OS",
 	"config.settings.markdownDescription": "**Kodrix Settings** — Centralized management of all Kodrix configuration: codebase indexing & docs · AI providers · FIM completion · Embedding · Feature toggles",

@@ -159,7 +159,7 @@
 		}
 		.tl-item {
 			display: grid;
-			grid-template-columns: auto 1fr auto;
+			grid-template-columns: auto 1fr auto auto;
 			gap: 12px;
 			align-items: start;
 			padding: 10px 0;
@@ -201,6 +201,82 @@
 			text-align: center;
 		}
 
+		/* Action buttons */
+		.tl-actions {
+			display: flex;
+			gap: 4px;
+			align-items: center;
+		}
+		.tl-action-btn {
+			background: transparent;
+			border: none;
+			color: var(--fg-dim);
+			cursor: pointer;
+			padding: 4px;
+			border-radius: 4px;
+			font-size: 14px;
+			transition: all var(--transition);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		.tl-action-btn:hover { background: rgba(128,128,128,0.15); color: var(--fg); }
+		.tl-action-btn.danger:hover { color: var(--danger); background: rgba(241,76,76,0.1); }
+
+		/* Edit mode */
+		.tl-edit-area {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			min-width: 0;
+		}
+		.tl-edit-area textarea {
+			width: 100%;
+			min-height: 60px;
+			background: rgba(128,128,128,0.08);
+			border: 1px solid var(--accent);
+			color: var(--fg);
+			padding: 8px 10px;
+			border-radius: var(--radius-sm);
+			font-size: 12px;
+			font-family: inherit;
+			line-height: 1.5;
+			resize: vertical;
+			outline: none;
+		}
+		.tl-edit-btns {
+			display: flex;
+			gap: 6px;
+		}
+		.tl-edit-btns button {
+			padding: 4px 12px;
+			border-radius: var(--radius-sm);
+			border: 1px solid var(--border);
+			font-size: 11px;
+			cursor: pointer;
+			font-family: inherit;
+			transition: all var(--transition);
+		}
+		.tl-edit-save {
+			background: var(--accent);
+			color: var(--accent-fg);
+			border-color: var(--accent) !important;
+		}
+		.tl-edit-save:hover { background: var(--accent-hover); }
+		.tl-edit-cancel {
+			background: transparent;
+			color: var(--fg);
+		}
+		.tl-edit-cancel:hover { background: rgba(128,128,128,0.1); }
+
+		/* Search highlight */
+		mark {
+			background: rgba(204,167,0,0.35);
+			color: var(--fg);
+			border-radius: 2px;
+			padding: 0 2px;
+		}
+
 		/* Buttons */
 		.btn-sm {
 			padding: 6px 12px;
@@ -225,6 +301,17 @@
 			background: rgba(128,128,128,0.15);
 		}
 
+		/* Embedding badge */
+		.embedding-badge {
+			font-size: 9px;
+			font-weight: 600;
+			padding: 2px 8px;
+			border-radius: 10px;
+			margin-left: 8px;
+		}
+		.embedding-real { background: rgba(64,201,105,0.2); color: var(--success); }
+		.embedding-tfidf { background: rgba(128,128,128,0.15); color: var(--fg-dim); }
+
 		/* Fade */
 		@keyframes fadeIn {
 			from { opacity: 0; transform: translateY(4px); }
@@ -247,7 +334,7 @@
 </head>
 <body>
 	<div class="header">
-		<h1><i class="codicon codicon-beaker" aria-hidden="true"></i> Learning Dashboard — 越用越聪明</h1>
+		<h1><i class="codicon codicon-beaker" aria-hidden="true"></i> Learning Dashboard — 越用越聪明 <span id="embeddingBadge" class="embedding-badge embedding-tfidf">TF-IDF</span></h1>
 		<p>跨会话知识沉淀 · 自动蒸馏 · 语义记忆检索 · 学习趋势</p>
 	</div>
 
@@ -280,6 +367,11 @@
 			<option value="spec">Spec</option>
 			<option value="capture">捕获</option>
 		</select>
+		<select id="filterTime">
+			<option value="all">全部时间</option>
+			<option value="7">最近 7 天</option>
+			<option value="30">最近 30 天</option>
+		</select>
 		<button class="btn-sm" id="btnCapture"><i class="codicon codicon-add" aria-hidden="true"></i> 沉淀知识</button>
 		<button class="btn-sm" id="btnRefresh"><i class="codicon codicon-refresh" aria-hidden="true"></i> 刷新</button>
 	</div>
@@ -303,7 +395,8 @@
 	const vscode = acquireVsCodeApi();
 	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
 	let allEntries = [];
-	let currentFilter = { cat: 'all', source: 'all', search: '' };
+	let currentFilter = { cat: 'all', source: 'all', search: '', timeDays: 'all' };
+	let editingId = null;
 
 	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
 
@@ -319,12 +412,36 @@
 		manual: 'edit', session: 'hubot', wiki: 'book', spec: 'symbol-ruler', capture: 'pin', auto: 'flame'
 	};
 
+	function escapeHtml(str) {
+		const div = document.createElement('div');
+		div.textContent = str;
+		return div.innerHTML;
+	}
+
+	function highlightText(text, query) {
+		if (!query) return escapeHtml(text);
+		const escaped = escapeHtml(text);
+		const queryEscaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const regex = new RegExp(`(${queryEscaped})`, 'gi');
+		return escaped.replace(regex, '<mark>$1</mark>');
+	}
+
 	function renderStats(data) {
 		document.getElementById('statTotal').textContent = data.totalEntries || 0;
 		document.getElementById('statSessions').textContent = data.sessionProcessed || 0;
 		document.getElementById('statSemantic').textContent = data.semanticVectors || 0;
 		document.getElementById('statThisWeek').textContent = data.thisWeek || 0;
 		document.getElementById('statMemory').textContent = data.memoryCount || 0;
+
+		// Embedding badge
+		const badge = document.getElementById('embeddingBadge');
+		if (data.hasEmbedding) {
+			badge.textContent = 'Real Embedding';
+			badge.className = 'embedding-badge embedding-real';
+		} else {
+			badge.textContent = 'TF-IDF';
+			badge.className = 'embedding-badge embedding-tfidf';
+		}
 	}
 
 	function renderChart(entries) {
@@ -365,19 +482,80 @@
 			const item = document.createElement('div');
 			item.className = 'tl-item fade-in';
 			item.style.animationDelay = (i * 0.03) + 's';
+			item.dataset.id = e.id;
 
 			const catCls = 'cat-' + e.category;
 			const srcIcon = ki(sourceIcons[e.source] || 'file-text');
 			const date = (e.timestamp || '').slice(0, 10);
+			const searchQuery = currentFilter.search;
 
-			item.innerHTML = `
-				<span class="tl-cat ${catCls}">${catNames[e.category] || e.category}</span>
-				<span class="tl-content">${e.content || ''}</span>
-				<span class="tl-meta">
-					${date}
-					<span class="tl-source">${srcIcon} ${e.source || ''}</span>
-				</span>`;
+			if (editingId === e.id) {
+				// Edit mode
+				item.innerHTML = `
+					<span class="tl-cat ${catCls}">${catNames[e.category] || e.category}</span>
+					<span class="tl-edit-area">
+						<textarea id="editArea-${e.id}">${escapeHtml(e.content || '')}</textarea>
+						<span class="tl-edit-btns">
+							<button class="tl-edit-save" data-id="${e.id}">${ki('check')} 保存</button>
+							<button class="tl-edit-cancel" data-id="${e.id}">${ki('close')} 取消</button>
+						</span>
+					</span>
+					<span class="tl-meta">${date}</span>
+					<span class="tl-actions"></span>`;
+			} else {
+				// Normal mode
+				item.innerHTML = `
+					<span class="tl-cat ${catCls}">${catNames[e.category] || e.category}</span>
+					<span class="tl-content">${highlightText(e.content || '', searchQuery)}</span>
+					<span class="tl-meta">
+						${date}
+						<span class="tl-source">${srcIcon} ${e.source || ''}</span>
+					</span>
+					<span class="tl-actions">
+						<button class="tl-action-btn edit-btn" data-id="${e.id}" title="编辑">${ki('edit')}</button>
+						<button class="tl-action-btn danger delete-btn" data-id="${e.id}" title="删除">${ki('trash')}</button>
+					</span>`;
+			}
 			el.appendChild(item);
+		});
+
+		// Bind action events
+		el.querySelectorAll('.edit-btn').forEach(btn => {
+			btn.addEventListener('click', () => {
+				editingId = btn.dataset.id;
+				applyFilters();
+				// Focus textarea after render
+				setTimeout(() => {
+					const ta = document.getElementById('editArea-' + editingId);
+					if (ta) ta.focus();
+				}, 50);
+			});
+		});
+		el.querySelectorAll('.delete-btn').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const id = btn.dataset.id;
+				const entry = allEntries.find(e => e.id === id);
+				const preview = entry ? (entry.content || '').slice(0, 60) : id;
+				if (confirm('确定删除此条目？\n\n' + preview + (preview.length >= 60 ? '…' : ''))) {
+					post('delete', { id });
+				}
+			});
+		});
+		el.querySelectorAll('.tl-edit-save').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const id = btn.dataset.id;
+				const ta = document.getElementById('editArea-' + id);
+				if (ta && ta.value.trim()) {
+					post('edit', { id, content: ta.value.trim() });
+					editingId = null;
+				}
+			});
+		});
+		el.querySelectorAll('.tl-edit-cancel').forEach(btn => {
+			btn.addEventListener('click', () => {
+				editingId = null;
+				applyFilters();
+			});
 		});
 	}
 
@@ -385,6 +563,7 @@
 		currentFilter.cat = document.getElementById('filterCat').value;
 		currentFilter.source = document.getElementById('filterSource').value;
 		currentFilter.search = document.getElementById('searchInput').value.toLowerCase();
+		currentFilter.timeDays = document.getElementById('filterTime').value;
 
 		let filtered = allEntries;
 		if (currentFilter.cat !== 'all') filtered = filtered.filter(e => e.category === currentFilter.cat);
@@ -394,6 +573,11 @@
 				(e.content || '').toLowerCase().includes(currentFilter.search) ||
 				(e.category || '').toLowerCase().includes(currentFilter.search)
 			);
+		}
+		if (currentFilter.timeDays !== 'all') {
+			const days = parseInt(currentFilter.timeDays);
+			const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+			filtered = filtered.filter(e => (e.timestamp || '') >= cutoff);
 		}
 
 		// Reverse chronological
@@ -407,6 +591,7 @@
 	document.getElementById('searchInput').addEventListener('input', applyFilters);
 	document.getElementById('filterCat').addEventListener('change', applyFilters);
 	document.getElementById('filterSource').addEventListener('change', applyFilters);
+	document.getElementById('filterTime').addEventListener('change', applyFilters);
 
 	document.getElementById('btnCapture').onclick = () => post('capture');
 	document.getElementById('btnRefresh').onclick = () => post('refresh');
@@ -417,6 +602,7 @@
 		if (msg.type === 'dashboard') {
 			allEntries = msg.entries || [];
 			renderStats(msg.stats || {});
+			editingId = null;
 			applyFilters();
 		}
 	});

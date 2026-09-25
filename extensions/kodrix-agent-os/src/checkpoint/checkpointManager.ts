@@ -40,7 +40,7 @@ export interface CheckpointOperation {
 }
 
 /** 检查点 manifest */
-interface CheckpointManifest {
+export interface CheckpointManifest {
 	id: string;
 	label: string;
 	createdAt: string;
@@ -351,6 +351,28 @@ async function showCheckpointFilesPreview(id: string): Promise<void> {
 		language: 'markdown',
 	});
 	await vscode.window.showTextDocument(doc, { preview: true });
+}
+
+/** 读取检查点完整 manifest（含文件内容） */
+export function readCheckpointManifest(id: string): CheckpointManifest | undefined {
+	return readManifest(id);
+}
+
+/** 删除检查点 */
+export function deleteCheckpoint(id: string): boolean {
+	const root = getCheckpointRoot();
+	if (!root) {
+		return false;
+	}
+	const dir = path.join(root, id);
+	try {
+		fs.rmSync(dir, { recursive: true, force: true });
+		logger.info(`[Checkpoint] 已删除检查点 ${id}`);
+		return true;
+	} catch (err) {
+		logger.error(`[Checkpoint] 删除检查点 ${id} 失败`, err);
+		return false;
+	}
 }
 
 /** 注册 Checkpoint 命令与自动捕获 */

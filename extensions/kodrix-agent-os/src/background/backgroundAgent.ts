@@ -21,6 +21,7 @@ import {
 	COMMANDS,
 	WORKSPACE_KODRIX_DIR,
 } from '../shared/constants';
+import { createTrackedPanel } from '../utils/panelTracker';
 
 /** 后台任务 */
 export interface BackgroundTask {
@@ -160,6 +161,8 @@ export async function createBackgroundTask(title: string): Promise<BackgroundTas
 }
 
 /** 注册后台 Agent 命令 */
+let _backgroundPanel: vscode.WebviewPanel | undefined;
+
 /** 后台 Agent 会话面板 HTML（任务队列 + 状态 + 结果摘要 + 点击打开详情 + 刷新） */
 function renderBackgroundPanelHtml(tasks: BackgroundTask[]): string {
 	const rows = tasks.length
@@ -205,8 +208,15 @@ ${rows}
 export function registerBackgroundAgent(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.backgroundPanel, async () => {
-			const panel = vscode.window.createWebviewPanel('kodrix.background', '后台 Agent 会话', vscode.ViewColumn.Active, { enableScripts: true });
+			if (_backgroundPanel) {
+				_backgroundPanel.reveal(vscode.ViewColumn.Active);
+				_backgroundPanel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());
+				return;
+			}
+			const panel = createTrackedPanel(context, 'kodrix.background', '后台 Agent 会话', vscode.ViewColumn.Active, { enableScripts: true });
+			_backgroundPanel = panel;
 			panel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());
+			panel.onDidDispose(() => { _backgroundPanel = undefined; });
 			panel.webview.onDidReceiveMessage(async msg => {
 				if (msg?.command === 'refresh') {
 					panel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());

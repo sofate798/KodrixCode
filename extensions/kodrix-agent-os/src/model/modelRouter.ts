@@ -22,6 +22,7 @@ import {
 	MODEL_ROUTER_USAGE_LOG_MAX,
 	WORKSPACE_KODRIX_DIR,
 } from '../shared/constants';
+import { createTrackedPanel } from '../utils/panelTracker';
 
 /** 模型档位 */
 export type ModelTier = 'smart' | 'balanced' | 'fast';
@@ -349,11 +350,20 @@ ${rows}
 </body></html>`;
 }
 
+let _healthPanel: vscode.WebviewPanel | undefined;
+
 export function registerModelRouter(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.modelRouterStatus, async () => {
-			const panel = vscode.window.createWebviewPanel('kodrix.modelHealth', '模型健康面板', vscode.ViewColumn.Active, { enableScripts: true });
+			if (_healthPanel) {
+				_healthPanel.reveal(vscode.ViewColumn.Active);
+				_healthPanel.webview.html = renderHealthHtml(getRouterStatus());
+				return;
+			}
+			const panel = createTrackedPanel(context, 'kodrix.modelHealth', '模型健康面板', vscode.ViewColumn.Active, { enableScripts: true });
+			_healthPanel = panel;
 			panel.webview.html = renderHealthHtml(getRouterStatus());
+			panel.onDidDispose(() => { _healthPanel = undefined; });
 			panel.webview.onDidReceiveMessage(msg => {
 				if (msg?.command === 'refresh') panel.webview.html = renderHealthHtml(getRouterStatus());
 			});

@@ -25,10 +25,10 @@ function buildFileQuery(filePath: string): string {
 	return [base, dir, ...segments].join(' ');
 }
 
-export function analyzeFileContext(filePath: string): FileContextHint {
+export async function analyzeFileContext(filePath: string): Promise<FileContextHint> {
 	const fileName = path.basename(filePath);
 	const query = buildFileQuery(filePath);
-	const results = searchSimilar(query, 3);
+	const results = await searchSimilar(query, 3);
 
 	return {
 		filePath,
@@ -59,13 +59,15 @@ function handleActiveEditor(editor: vscode.TextEditor | undefined): void {
 		clearTimeout(debounceTimer);
 	}
 	debounceTimer = setTimeout(() => {
-		const hint = analyzeFileContext(filePath);
-		lastHint = hint.relevantCount > 0 && (hint.topScore ?? 0) > 0.08 ? hint : undefined;
-		emitKodrixEvent({
-			type: 'file.focused',
-			filePath,
-			relevantCount: hint.relevantCount,
-		});
+		void (async () => {
+			const hint = await analyzeFileContext(filePath);
+			lastHint = hint.relevantCount > 0 && (hint.topScore ?? 0) > 0.08 ? hint : undefined;
+			emitKodrixEvent({
+				type: 'file.focused',
+				filePath,
+				relevantCount: hint.relevantCount,
+			});
+		})();
 	}, 300);
 }
 

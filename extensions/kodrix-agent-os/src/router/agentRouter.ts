@@ -7,7 +7,7 @@ import { emitKodrixEvent } from '../context/kodrixEventBus';
 import { listSpecSlugs } from '../spec/specHelpers';
 import { logger } from '../logger';
 
-export type RouteTarget = 'spec' | 'plan' | 'agent' | 'ask';
+export type RouteTarget = 'spec' | 'plan' | 'agent' | 'ask' | 'terminal' | 'wiki' | 'checkpoint' | 'models' | 'settings';
 
 export type RouteConfidence = 'high' | 'medium' | 'low';
 
@@ -55,6 +55,26 @@ const ASK_PATTERNS: Array<{ pattern: RegExp; weight: number }> = [
 	{ pattern: /文档|doc|注释|README|readme/i, weight: 2 },
 ];
 
+const TERMINAL_PATTERNS: Array<{ pattern: RegExp; weight: number }> = [
+	{ pattern: /终端|命令|运行|执行|terminal|command|run/i, weight: 2 },
+];
+
+const WIKI_PATTERNS: Array<{ pattern: RegExp; weight: number }> = [
+	{ pattern: /wiki|文档|项目结构|架构|documentation|architecture/i, weight: 2 },
+];
+
+const CHECKPOINT_PATTERNS: Array<{ pattern: RegExp; weight: number }> = [
+	{ pattern: /检查点|回滚|快照|checkpoint|rollback|snapshot/i, weight: 2 },
+];
+
+const MODELS_PATTERNS: Array<{ pattern: RegExp; weight: number }> = [
+	{ pattern: /模型|供应商|model|provider|byok/i, weight: 2 },
+];
+
+const SETTINGS_PATTERNS: Array<{ pattern: RegExp; weight: number }> = [
+	{ pattern: /设置|配置|偏好|settings|config|preference/i, weight: 2 },
+];
+
 function scorePatterns(text: string, patterns: Array<{ pattern: RegExp; weight: number }>): number {
 	return patterns.reduce((sum, { pattern, weight }) => sum + (pattern.test(text) ? weight : 0), 0);
 }
@@ -80,6 +100,11 @@ export function classifyIntent(prompt: string): RouteResult {
 		{ target: 'plan', score: scorePatterns(text, PLAN_PATTERNS), reason: '复杂功能 / 需先规划' },
 		{ target: 'agent', score: scorePatterns(text, AGENT_PATTERNS), reason: '实施 / 审查 / 测试 / 修复' },
 		{ target: 'ask', score: scorePatterns(text, ASK_PATTERNS), reason: '问答 / 探索 / 文档' },
+		{ target: 'terminal', score: scorePatterns(text, TERMINAL_PATTERNS), reason: '终端 / 命令 / 运行' },
+		{ target: 'wiki', score: scorePatterns(text, WIKI_PATTERNS), reason: 'Wiki / 文档 / 架构' },
+		{ target: 'checkpoint', score: scorePatterns(text, CHECKPOINT_PATTERNS), reason: '检查点 / 回滚 / 快照' },
+		{ target: 'models', score: scorePatterns(text, MODELS_PATTERNS), reason: '模型 / 供应商' },
+		{ target: 'settings', score: scorePatterns(text, SETTINGS_PATTERNS), reason: '设置 / 配置 / 偏好' },
 	];
 
 	scores.sort((a, b) => b.score - a.score);
@@ -176,7 +201,7 @@ export async function routeAgentPrompt(prompt?: string, options?: { silent?: boo
 	}
 	if (choice === '切换模式') {
 		const picked = await vscode.window.showQuickPick(
-			(['spec', 'plan', 'agent', 'ask'] as RouteTarget[]).map(t => ({ label: t.toUpperCase(), target: t })),
+			(['spec', 'plan', 'agent', 'ask', 'terminal', 'wiki', 'checkpoint', 'models', 'settings'] as RouteTarget[]).map(t => ({ label: t.toUpperCase(), target: t })),
 			{ placeHolder: '手动选择模式' },
 		);
 		if (picked) {
@@ -217,6 +242,21 @@ export async function executeRoute(target: RouteTarget, prompt: string): Promise
 					query: prompt,
 					isPartialQuery: false,
 				});
+				break;
+			case 'terminal':
+				await vscode.commands.executeCommand('kodrix.terminal.aiPrompt');
+				break;
+			case 'wiki':
+				await vscode.commands.executeCommand('kodrix.wiki.generate');
+				break;
+			case 'checkpoint':
+				await vscode.commands.executeCommand('kodrix.checkpoint.list');
+				break;
+			case 'models':
+				await vscode.commands.executeCommand('kodrix.modelRouter.status');
+				break;
+			case 'settings':
+				await vscode.commands.executeCommand('workbench.action.openSettings', 'kodrix.');
 				break;
 			case 'agent':
 			default:

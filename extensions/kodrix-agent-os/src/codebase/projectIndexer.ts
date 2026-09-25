@@ -1600,7 +1600,7 @@ export function startIndexWatcher(context: vscode.ExtensionContext): void {
 			void refreshProjectIndexIncrementally().catch(err =>
 				logger.warn(`[ProjectIndexer] Incremental rebuild failed: ${err instanceof Error ? err.message : String(err)}`),
 			);
-		}, 3000);
+		}, 500);
 	};
 
 	_watcher.onDidCreate(scheduleRebuild);

@@ -15,6 +15,7 @@ import { classifyIntent, routeAndExecute, RouteTarget } from '../router/agentRou
 import { listSpecSlugs } from '../spec/specHelpers';
 import { getKanbanPath } from '../paths';
 import { loadWebviewHtml } from '../shared/webviewHtml';
+import { createTrackedPanel } from '../utils/panelTracker';
 
 let activePanel: vscode.WebviewPanel | undefined;
 
@@ -197,6 +198,11 @@ async function handleMessage(
 					plan: 'Plan 先规划',
 					agent: 'Agent 多文件编辑',
 					ask: 'Ask 问答探索',
+					terminal: '终端 AI',
+					wiki: 'Repo Wiki',
+					checkpoint: '检查点管理',
+					models: '模型供应商',
+					settings: 'Kodrix 设置',
 				};
 				panel.webview.postMessage({
 					type: 'intentResult',
@@ -235,7 +241,8 @@ export async function openKodrixHub(context: vscode.ExtensionContext): Promise<v
 		return;
 	}
 
-	const panel = vscode.window.createWebviewPanel(
+	const panel = createTrackedPanel(
+		context,
 		'kodrix.hub',
 		'Kodrix Hub',
 		column,

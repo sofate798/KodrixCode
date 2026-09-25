@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>检查点 Diff 画廊</title>
+	<style>
+		body {
+			font-family: var(--vscode-font-family);
+			font-size: var(--vscode-font-size);
+			color: var(--vscode-foreground);
+			background: var(--vscode-editor-background);
+			margin: 0;
+			padding: 0;
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
+		.toolbar {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 12px;
+			border-bottom: 1px solid var(--vscode-panel-border);
+			background: var(--vscode-sideBar-background);
+			flex-shrink: 0;
+		}
+		.toolbar select, .toolbar button {
+			font-family: var(--vscode-font-family);
+			font-size: var(--vscode-font-size);
+			padding: 4px 8px;
+			border: 1px solid var(--vscode-input-border);
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border-radius: 2px;
+		}
+		.toolbar button {
+			cursor: pointer;
+			background: var(--vscode-button-background);
+			color: var(--vscode-button-foreground);
+			border: none;
+		}
+		.toolbar button:hover {
+			background: var(--vscode-button-hoverBackground);
+		}
+		.toolbar button.secondary {
+			background: var(--vscode-button-secondaryBackground);
+			color: var(--vscode-button-secondaryForeground);
+		}
+		.toolbar button.secondary:hover {
+			background: var(--vscode-button-secondaryHoverBackground);
+		}
+		.toolbar button.danger {
+			background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+			color: var(--vscode-errorForeground, #f48771);
+		}
+		.main {
+			display: flex;
+			flex: 1;
+			overflow: hidden;
+		}
+		.file-list {
+			width: 320px;
+			min-width: 240px;
+			border-right: 1px solid var(--vscode-panel-border);
+			overflow-y: auto;
+			flex-shrink: 0;
+		}
+		.file-list-header {
+			padding: 8px 12px;
+			font-weight: bold;
+			border-bottom: 1px solid var(--vscode-panel-border);
+			background: var(--vscode-sideBarSectionHeader-background);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.file-item {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 6px 12px;
+			cursor: pointer;
+			border-bottom: 1px solid var(--vscode-panel-border);
+		}
+		.file-item:hover {
+			background: var(--vscode-list-hoverBackground);
+		}
+		.file-item.selected {
+			background: var(--vscode-list-activeSelectionBackground);
+			color: var(--vscode-list-activeSelectionForeground);
+		}
+		.file-item .status-icon {
+			flex-shrink: 0;
+			width: 16px;
+			text-align: center;
+		}
+		.file-item .status-icon.modified { color: var(--vscode-editorWarning-foreground, #e2c08d); }
+		.file-item .status-icon.added { color: var(--vscode-terminal-ansiGreen, #89d185); }
+		.file-item .status-icon.deleted { color: var(--vscode-terminal-ansiRed, #f48771); }
+		.file-item .status-icon.unchanged { color: var(--vscode-foreground); opacity: 0.5; }
+		.file-item .file-name {
+			flex: 1;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.file-item .actions {
+			display: flex;
+			gap: 4px;
+			opacity: 0;
+			transition: opacity 0.15s;
+		}
+		.file-item:hover .actions {
+			opacity: 1;
+		}
+		.file-item .actions button {
+			padding: 2px 6px;
+			font-size: 11px;
+			border: none;
+			border-radius: 2px;
+			cursor: pointer;
+		}
+		.file-item .actions .accept {
+			background: var(--vscode-terminal-ansiGreen, #89d185);
+			color: #fff;
+		}
+		.file-item .actions .reject {
+			background: var(--vscode-terminal-ansiRed, #f48771);
+			color: #fff;
+		}
+		.diff-panel {
+			flex: 1;
+			overflow: auto;
+			padding: 0;
+		}
+		.diff-content {
+			padding: 12px;
+			font-family: var(--vscode-editor-font-family, monospace);
+			font-size: var(--vscode-editor-font-size, 13px);
+			line-height: 1.5;
+			white-space: pre-wrap;
+			word-wrap: break-word;
+		}
+		.diff-line-add {
+			background: rgba(137, 209, 133, 0.15);
+			color: var(--vscode-terminal-ansiGreen, #89d185);
+		}
+		.diff-line-del {
+			background: rgba(244, 135, 113, 0.15);
+			color: var(--vscode-terminal-ansiRed, #f48771);
+		}
+		.diff-line-same {
+			opacity: 0.7;
+		}
+		.empty-state {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			height: 100%;
+			color: var(--vscode-descriptionForeground);
+			font-style: italic;
+		}
+		.batch-actions {
+			display: flex;
+			gap: 8px;
+			padding: 8px 12px;
+			border-top: 1px solid var(--vscode-panel-border);
+			background: var(--vscode-sideBar-background);
+			flex-shrink: 0;
+		}
+		.accepted-mark {
+			color: var(--vscode-terminal-ansiGreen, #89d185);
+			font-weight: bold;
+		}
+	</style>
+</head>
+<body>
+	<div class="toolbar">
+		<select id="selectA" title="选择检查点 A">
+			<option value="">— 选择检查点 A —</option>
+		</select>
+		<span>↔</span>
+		<select id="selectB" title="选择检查点 B">
+			<option value="">— 选择检查点 B —</option>
+			<option value="__workspace__">当前工作区</option>
+		</select>
+		<button id="btnCompare">对比</button>
+		<span style="flex:1"></span>
+		<button id="btnRefresh" class="secondary">刷新</button>
+	</div>
+
+	<div class="main">
+		<div class="file-list">
+			<div class="file-list-header">
+				<span>文件列表</span>
+				<span id="fileCount"></span>
+			</div>
+			<div id="fileListBody"></div>
+		</div>
+		<div class="diff-panel" id="diffPanel">
+			<div class="empty-state" id="emptyState">
+				选择两个检查点进行对比，或检查点 vs 当前工作区
+			</div>
+		</div>
+	</div>
+
+	<div class="batch-actions">
+		<button id="btnAcceptAll" class="secondary">全部接受</button>
+		<button id="btnRejectAll" class="danger">全部拒绝</button>
+		<span style="flex:1"></span>
+		<button id="btnRollback" class="danger">回滚到检查点 B</button>
+	</div>
+
+	<script>
+		// 此文件为模板/参考，实际 Webview 内容由 checkpointDiffGallery.ts 动态生成
+		// 消息协议：
+		// Webview → 扩展: {command: 'selectFile', relPath} | {command: 'acceptFile', relPath}
+		//   | {command: 'rejectFile', relPath} | {command: 'acceptAll'} | {command: 'rejectAll'}
+		//   | {command: 'compareCheckpoints', checkpointId} | {command: 'compareWithWorkspace', checkpointId}
+		//   | {command: 'rollbackTo', checkpointId} | {command: 'refreshGallery'}
+		// 扩展 → Webview: 通过 _update() 重新渲染 HTML
+		const vscode = acquireVsCodeApi();
+	</script>
+</body>
+</html>

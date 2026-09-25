@@ -11,6 +11,9 @@ import { notifyContextChanged } from '../context/contextEvents';
 import { recordLearning } from '../learning/learningEngine';
 import { ensureDir, getWikiDir } from '../paths';
 import { logger } from '../logger';
+import { ensureProjectIndex } from '../codebase/projectIndexer';
+import type { ProjectIndex } from '../codebase/types';
+import { detectCodeSmells, renderCodeSmellsReport } from './codeSmellDetector';
 
 interface ProjectManifest {
 	type: string;
@@ -186,7 +189,125 @@ ${topExts.map(([ext, n]) => `- \`${ext}\`: ${n} 个文件`).join('\n')}${truncat
 `;
 }
 
-function buildModulesMd(root: string): string {
+/** LLM 为单个模块生成的语义描述 */
+interface ModuleDescription {
+	name: string;
+	responsibility: string;
+	exports: string[];
+	dependencies: string;
+}
+
+/**
+ * 使用 LLM 为各顶层模块生成语义描述（职责、关键 API、依赖关系）。
+ * 降级策略：LLM 不可用或调用失败时返回 undefined，调用方保持静态生成。
+ */
+async function enhanceModulesWithLLM(
+	root: string,
+	index: ProjectIndex,
+	token: vscode.CancellationToken,
+): Promise<Map<string, ModuleDescription> | undefined> {
+	let models: vscode.LanguageModelChat[];
+	try {
+		models = await vscode.lm.selectChatModels({});
+	} catch {
+		return undefined;
+	}
+	if (!models.length) {
+		return undefined;
+	}
+	const model = models[0];
+
+	// 按顶层目录分组符号和文件
+	const moduleMap = new Map<string, { files: string[]; symbols: string[]; exports: string[] }>();
+	for (const filePath of Object.keys(index.files)) {
+		const rel = path.relative(root, filePath).replace(/\\/g, '/');
+		const topDir = rel.split('/')[0];
+		if (!topDir || topDir.startsWith('.')) {
+			continue;
+		}
+		if (!moduleMap.has(topDir)) {
+			moduleMap.set(topDir, { files: [], symbols: [], exports: [] });
+		}
+		const entry = moduleMap.get(topDir)!;
+		entry.files.push(rel);
+	}
+	for (const sym of Object.values(index.symbols)) {
+		const rel = path.relative(root, sym.filePath).replace(/\\/g, '/');
+		const topDir = rel.split('/')[0];
+		if (!topDir || !moduleMap.has(topDir)) {
+			continue;
+		}
+		const entry = moduleMap.get(topDir)!;
+		entry.symbols.push(sym.name);
+		if (sym.exportKind || sym.visibility === 'exported') {
+			entry.exports.push(sym.name);
+		}
+	}
+
+	const results = new Map<string, ModuleDescription>();
+
+	// 对每个顶层模块构造 prompt 请求 LLM
+	for (const [moduleName, data] of moduleMap) {
+		if (token.isCancellationRequested) {
+			break;
+		}
+		// 只处理文件数 >= 2 的模块，跳过只有单文件的目录
+		if (data.files.length < 2) {
+			continue;
+		}
+		const sampleFiles = data.files.slice(0, 20).join('\n');
+		const sampleExports = [...new Set(data.exports)].slice(0, 30).join(', ');
+		const prompt = [
+			`你是一个代码分析助手。请分析以下项目模块并输出 JSON 格式结果。`,
+			``,
+			`模块名: ${moduleName}`,
+			`文件列表（部分）:\n${sampleFiles}`,
+			`导出符号（部分）: ${sampleExports || '(无)'}`,
+			``,
+			`请输出如下 JSON（不要包含其他内容）:`,
+			`{`,
+			`  "responsibility": "模块职责描述（1-3句话）",`,
+			`  "keyExports": ["关键导出API1 — 简述", "关键导出API2 — 简述"],`,
+			`  "dependencies": "与其他模块的依赖关系摘要（1-2句话）"`,
+			`}`,
+		].join('\n');
+
+		try {
+			const cts = new vscode.CancellationTokenSource();
+			const timeoutId = setTimeout(() => cts.cancel(), 15_000);
+			try {
+				const messages = [vscode.LanguageModelChatMessage.User(prompt)];
+				const response = await model.sendRequest(messages, {}, cts.token);
+				let result = '';
+				for await (const chunk of response.stream) {
+					if (chunk instanceof vscode.LanguageModelTextPart) {
+						result += chunk.value;
+					}
+				}
+				// 尝试解析 JSON
+				const jsonMatch = result.match(/\{[\s\S]*\}/);
+				if (jsonMatch) {
+					const parsed = JSON.parse(jsonMatch[0]) as { responsibility?: string; keyExports?: string[]; dependencies?: string };
+					results.set(moduleName, {
+						name: moduleName,
+						responsibility: parsed.responsibility || '',
+						exports: parsed.keyExports || [],
+						dependencies: parsed.dependencies || '',
+					});
+				}
+			} finally {
+				clearTimeout(timeoutId);
+			}
+		} catch (err) {
+			logger.warn(`[RepoWiki] LLM enhancement failed for module ${moduleName}: ${err instanceof Error ? err.message : String(err)}`);
+			// 降级：继续处理下一个模块
+		}
+	}
+
+	return results.size > 0 ? results : undefined;
+}
+
+function buildModulesMd(root: string, llmDescriptions?: Map<string, ModuleDescription>): string {
 	const modules: string[] = [];
 	const scanDirs = ['src', 'extensions', 'lib', 'app', 'packages'];
 
@@ -199,19 +320,42 @@ function buildModulesMd(root: string): string {
 			.filter(e => e.isDirectory() && !e.name.startsWith('.'))
 			.map(e => e.name);
 		if (subs.length) {
-			modules.push(`## ${d}/\n\n${subs.map(s => `- **${s}** — \`${d}/${s}/\``).join('\n')}`);
+			let section = `## ${d}/\n\n`;
+			for (const s of subs) {
+				const llmDesc = llmDescriptions?.get(s);
+				if (llmDesc) {
+					// LLM 增强：输出语义描述
+					section += `### ${s}\n\n`;
+					section += `> ${llmDesc.responsibility}\n\n`;
+					if (llmDesc.exports.length > 0) {
+						section += `**关键 API：**\n`;
+						for (const exp of llmDesc.exports.slice(0, 10)) {
+							section += `- \`${exp}\`\n`;
+						}
+						section += '\n';
+					}
+					if (llmDesc.dependencies) {
+						section += `**依赖关系：** ${llmDesc.dependencies}\n\n`;
+					}
+				} else {
+					// 降级：保持原有静态目录结构
+					section += `- **${s}** — \`${d}/${s}/\`\n`;
+				}
+			}
+			modules.push(section);
 		}
 	}
 
 	return `# 模块索引
 
-> Repo Wiki · ${new Date().toISOString().slice(0, 10)}
+> Repo Wiki · ${new Date().toISOString().slice(0, 10)}${llmDescriptions ? ' · LLM 语义增强' : ''}
 
 ${modules.length ? modules.join('\n\n') : '未检测到标准模块目录（src / extensions / lib）。'}
 
 ## 扩展阅读
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — 项目架构概览
+- [CODE_SMELLS.md](./CODE_SMELLS.md) — Code Smell 分析报告
 - [INDEX.md](./INDEX.md) — 快速索引
 `;
 }
@@ -229,6 +373,7 @@ function buildIndexMd(root: string, manifest?: ProjectManifest): string {
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — 架构概览
 - [MODULES.md](./MODULES.md) — 模块索引
+- [CODE_SMELLS.md](./CODE_SMELLS.md) — Code Smell 分析报告
 ${readme ? '- [../../README.md](../../README.md) — 项目 README' : ''}
 ${migration ? '- [../../MIGRATION.md](../../MIGRATION.md) — 迁移指南' : ''}
 ${agents ? '- [../../AGENTS.md](../../AGENTS.md) — Agent 说明' : ''}
@@ -270,11 +415,49 @@ export async function generateRepoWiki(options?: { recordLearning?: boolean }): 
 
 	const manifest = detectManifest(root);
 
+	let llmDescriptions: Map<string, ModuleDescription> | undefined;
+
+	// 尝试获取 ProjectIndex 并进行 LLM 语义增强
+	let projectIndex: ProjectIndex | undefined;
+	try {
+		projectIndex = await ensureProjectIndex();
+	} catch (err) {
+		logger.warn(`[RepoWiki] Failed to get project index: ${err instanceof Error ? err.message : String(err)}`);
+	}
+
+	if (projectIndex) {
+		// LLM 增强 MODULES.md（带降级策略）
+		const cts = new vscode.CancellationTokenSource();
+		const llmTimeout = setTimeout(() => cts.cancel(), 60_000);
+		try {
+			llmDescriptions = await enhanceModulesWithLLM(root, projectIndex, cts.token);
+			if (llmDescriptions) {
+				logger.info(`[RepoWiki] LLM enhancement applied to ${llmDescriptions.size} modules`);
+			}
+		} catch (err) {
+			logger.warn(`[RepoWiki] LLM enhancement failed, falling back to static: ${err instanceof Error ? err.message : String(err)}`);
+		} finally {
+			clearTimeout(llmTimeout);
+		}
+	}
+
 	try {
 		ensureDir(wikiDir);
 		fs.writeFileSync(path.join(wikiDir, 'ARCHITECTURE.md'), buildArchitectureMd(root, manifest), 'utf-8');
-		fs.writeFileSync(path.join(wikiDir, 'MODULES.md'), buildModulesMd(root), 'utf-8');
+		fs.writeFileSync(path.join(wikiDir, 'MODULES.md'), buildModulesMd(root, llmDescriptions), 'utf-8');
 		fs.writeFileSync(path.join(wikiDir, 'INDEX.md'), buildIndexMd(root, manifest), 'utf-8');
+
+		// Code Smell 检测与报告生成
+		if (projectIndex) {
+			try {
+				const smells = await detectCodeSmells(root, async () => projectIndex);
+				const smellReport = renderCodeSmellsReport(smells, root);
+				fs.writeFileSync(path.join(wikiDir, 'CODE_SMELLS.md'), smellReport, 'utf-8');
+				logger.info(`[RepoWiki] Code Smells report generated: ${smells.length} issues found`);
+			} catch (err) {
+				logger.warn(`[RepoWiki] Code smell detection failed: ${err instanceof Error ? err.message : String(err)}`);
+			}
+		}
 	} catch (err) {
 		logger.error('生成 Repo Wiki 写入失败', err);
 		vscode.window.showErrorMessage(l10n.t('生成 Repo Wiki 失败：{0}', err instanceof Error ? err.message : String(err)));
@@ -347,7 +530,7 @@ export function getWikiContextForAgent(): string {
 		return '';
 	}
 	const parts: string[] = [];
-	for (const file of ['ARCHITECTURE.md', 'MODULES.md']) {
+	for (const file of ['ARCHITECTURE.md', 'MODULES.md', 'CODE_SMELLS.md']) {
 		const p = path.join(wikiDir, file);
 		if (fs.existsSync(p)) {
 			const content = fs.readFileSync(p, 'utf-8').slice(0, 4000);

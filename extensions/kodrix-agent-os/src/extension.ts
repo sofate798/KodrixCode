@@ -7,6 +7,7 @@ import { l10n } from 'vscode';
 import { registerAcp } from './acp/acpRegistry';
 import { registerArena } from './arena/arenaCompare';
 import { registerContextIntelligence } from './context/contextIntelligence';
+import { registerContextStatusBar, registerToggleContextLayersCommand } from './context/contextStatusBar';
 import { registerProactiveContext } from './context/proactiveContext';
 import { registerHooks } from './hooks/hooksPresets';
 import { registerKanban } from './kanban/agentKanban';
@@ -15,6 +16,7 @@ import { registerSessionLearning } from './learning/sessionLearning';
 import { registerMemory } from './memory/projectMemory';
 import { registerPropertyTests } from './testing/propertyTests';
 import { registerRouter } from './router/agentRouter';
+import { registerNaturalCommandPalette } from './router/naturalCommandPalette';
 import { registerSpec } from './spec/specWorkflow';
 import { registerSpecWorkbench } from './spec/specWorkbench';
 import { registerWiki } from './wiki/repoWiki';
@@ -24,6 +26,8 @@ import { registerStatusBar } from './experience/statusBar';
 import { registerAgentCrew } from './crew/agentCrew';
 import { registerRules } from './context/rulesManager';
 import { registerCheckpoints } from './checkpoint/checkpointManager';
+import { registerCheckpointTimeline } from './checkpoint/checkpointTimelineView';
+import { registerCheckpointDiffGallery } from './checkpoint/checkpointDiffGallery';
 import { registerModelRouter } from './model/modelRouter';
 import { registerUserProfile } from './profile/userProfile';
 import { registerTabCompletion } from './completion/tabCompletion';
@@ -46,8 +50,11 @@ import {
 } from './codebase/index';
 import { registerEmbeddingProvider, clearEmbeddingProvider } from './codebase/semanticIndex';
 import { createZhipuEmbeddingProvider, ZHIPU_DEFAULT_ENDPOINT, ZHIPU_DEFAULT_MODEL } from './codebase/embeddingProvider';
+import { setEmbeddingProvider as setSemanticEmbeddingProvider } from './learning/semanticMemory';
 import { registerIndexManager } from './codebase/indexManager';
 import { registerSettingsPage } from './codebase/settingsPage';
+import { AgentCodeLensProvider, registerCodeLensCommands, fireChange as fireCodeLensChange } from './codebase/codeLensProvider';
+import { onIndexStateChange } from './codebase/projectIndexer';
 import { logger } from './logger';
 import { disposeAllTrackedPanels } from './utils/panelTracker';
 import {
@@ -145,14 +152,17 @@ function syncEmbeddingProvider(): void {
 	const enabled = cfg.get<boolean>('enabled', false);
 	const apiKey = cfg.get<string>('apiKey', '');
 	if (enabled && apiKey.trim()) {
-		registerEmbeddingProvider(createZhipuEmbeddingProvider({
+		const provider = createZhipuEmbeddingProvider({
 			apiKey: apiKey.trim(),
 			endpoint: cfg.get<string>('endpoint', ZHIPU_DEFAULT_ENDPOINT),
 			model: cfg.get<string>('model', ZHIPU_DEFAULT_MODEL),
-		}));
+		});
+		registerEmbeddingProvider(provider);
+		setSemanticEmbeddingProvider(provider);
 		logger.info('[Kodrix] 语义检索已接入 Embedding（智谱 embedding-3）');
 	} else {
 		clearEmbeddingProvider();
+		setSemanticEmbeddingProvider(undefined);
 	}
 }
 
@@ -171,6 +181,8 @@ export function activate(context: vscode.ExtensionContext): void {
 function activateInternal(context: vscode.ExtensionContext): void {
 	// Register all commands and event listeners immediately (lightweight)
 	registerContextIntelligence(context);
+	registerContextStatusBar(context);
+	registerToggleContextLayersCommand(context);
 	registerProactiveContext(context);
 	registerLearningEngine(context);
 	registerSessionLearning(context);
@@ -180,6 +192,7 @@ function activateInternal(context: vscode.ExtensionContext): void {
 	registerMemory(context);
 	registerKanban(context);
 	registerRouter(context);
+	registerNaturalCommandPalette(context);
 	registerArena(context);
 	registerHooks(context);
 	syncEmbeddingProvider();
@@ -198,6 +211,8 @@ function activateInternal(context: vscode.ExtensionContext): void {
 	registerAgentCrew(context);
 	registerRules(context);
 	registerCheckpoints(context);
+	registerCheckpointTimeline(context);
+	registerCheckpointDiffGallery(context);
 	registerModelRouter(context);
 	registerUserProfile(context);
 	registerTabCompletion(context);
@@ -221,6 +236,19 @@ function activateInternal(context: vscode.ExtensionContext): void {
 
 	// Kodrix Settings — 设置编辑器内嵌自定义设置页（仿 Cursor Settings）
 	registerSettingsPage(context);
+
+	// ── Code Lens for Agents ──
+	const codeLensProvider = new AgentCodeLensProvider();
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider({ language: 'typescript' }, codeLensProvider),
+		vscode.languages.registerCodeLensProvider({ language: 'typescriptreact' }, codeLensProvider),
+	);
+	registerCodeLensCommands(context);
+
+	// 索引更新时刷新 CodeLens
+	context.subscriptions.push(
+		onIndexStateChange(() => fireCodeLensChange()),
+	);
 
 	// 后台启动项目索引构建 + 文件监听
 	startIndexWatcher(context);
