@@ -6,12 +6,14 @@
  *  2. 高耦合文件检测（依赖数 > 15）
  *  3. 循环依赖检测（DFS）
  *  4. 未使用导出检测（导出符号无反向依赖）
- *  5. 生成 CODE_SMELLS.md 报告
+ *  5. 过长函数检测（>200 行）
+ *  6. 生成 CODE_SMELLS.md 报告
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
 import { l10n } from 'vscode';
 import type { ProjectIndex } from '../codebase/types';
+import { SymbolKind } from '../codebase/types';
 import { logger } from '../logger';
 
 /** 单个 Code Smell 记录 */
@@ -31,6 +33,8 @@ const LARGE_FILE_LINE_THRESHOLD = 500;
 const HIGH_COUPLING_THRESHOLD = 15;
 /** 未使用导出的最低导出数阈值 */
 const UNUSED_EXPORT_THRESHOLD = 2;
+/** 过长函数阈值（行数） */
+const LONG_FUNCTION_THRESHOLD = 200;
 
 /**
  * 基于 ProjectIndex 数据检测 Code Smell。
@@ -137,6 +141,23 @@ export async function detectCodeSmells(
 		}
 	}
 
+	// 5. 过长函数检测（>200 行）
+	for (const sym of Object.values(index.symbols)) {
+		if ((sym.kind === SymbolKind.Function || sym.kind === SymbolKind.Method) && sym.endLine !== undefined) {
+			const length = sym.endLine - sym.line;
+			if (length > LONG_FUNCTION_THRESHOLD) {
+				const relPath = path.relative(workspaceRoot, sym.filePath).replace(/\\/g, '/');
+				smells.push({
+					type: 'long_function',
+					file: relPath,
+					line: sym.line,
+					message: l10n.t('函数 {0} 过长（{1} 行，阈值 {2} 行）', sym.name, length, LONG_FUNCTION_THRESHOLD),
+					severity: 'warning',
+				});
+			}
+		}
+	}
+
 	return smells;
 }
 
@@ -215,6 +236,7 @@ export function renderCodeSmellsReport(smells: CodeSmell[], _workspaceRoot: stri
 - **高耦合**：拆分职责，减少单文件依赖数量
 - **过大文件**：按功能模块拆分为更小的文件
 - **未使用导出**：清理无用导出或检查是否有外部消费者
+- **过长函数**：拆分为更小的、职责单一的子函数
 `;
 
 	return md;
