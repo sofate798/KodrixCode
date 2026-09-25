@@ -1,17 +1,18 @@
 @echo off
 rem ============================================================================
-rem  Kodrix Development Launcher（需求1：带实时日志的控制台调试启动）
+rem  Kodrix Development Launcher
+rem  Console debug launch with live logs
 rem
-rem  用法:
-rem    .\debug.bat                   快速启动 (esbuild transpile)
-rem    .\debug.bat -Watch            启动 + 文件监听自动重编译
+rem  Usage:
+rem    .\debug.bat                   fast start (esbuild transpile)
+rem    .\debug.bat -Watch            start + file watch recompile
 rem
-rem  相关入口:
-rem    .\debug-rebuild.bat           全量重编译后启动（需求3）
-rem    .\build.bat                   一键打 EXE 安装包（需求2）
+rem  Related:
+rem    .\debug-rebuild.bat           full recompile then start
+rem    .\build.bat                   one-click EXE installer
 rem
-rem  内部委托: scripts/dev-fast.ps1
-rem  高级参数仍可用: -Prepare / -FullCompile（debug-rebuild.bat 即 -FullCompile）
+rem  Delegates to: scripts/dev-fast.ps1
+rem  Advanced: -Prepare / -FullCompile (debug-rebuild.bat = -FullCompile)
 rem ============================================================================
 chcp 65001 > nul 2>&1
 title Kodrix Fast Debug
@@ -19,21 +20,22 @@ setlocal
 
 pushd %~dp0
 
+rem NOTE: shift does not update %* - use %1..%9 for remaining args after shift
 set "MODE="
 if /I "%~1"=="-FullCompile" (set "MODE=FullCompile" & shift)
 if /I "%~1"=="-Watch" (set "MODE=Watch" & shift)
 if /I "%~1"=="-Prepare" (set "MODE=Prepare" & shift)
 
 if "%MODE%"=="FullCompile" (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev-fast.ps1" -FullCompile %* 2>&1
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev-fast.ps1" -FullCompile %1 %2 %3 %4 %5 %6 %7 %8 %9 2>&1
     goto :checkerr
 )
 if "%MODE%"=="Watch" (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev-fast.ps1" -Watch %* 2>&1
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev-fast.ps1" -Watch %1 %2 %3 %4 %5 %6 %7 %8 %9 2>&1
     goto :checkerr
 )
 if "%MODE%"=="Prepare" (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev-fast.ps1" -NoLaunch %* 2>&1
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev-fast.ps1" -NoLaunch %1 %2 %3 %4 %5 %6 %7 %8 %9 2>&1
     goto :checkerr
 )
 

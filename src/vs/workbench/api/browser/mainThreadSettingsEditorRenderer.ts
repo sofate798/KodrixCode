@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancellationToken } from '../../../base/common/cancellation.js';
 import { Disposable, IDisposable } from '../../../base/common/lifecycle.js';
 import { URI, UriComponents } from '../../../base/common/uri.js';
 import { ExtensionIdentifier } from '../../../platform/extensions/common/extensions.js';

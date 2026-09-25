@@ -44,6 +44,7 @@
 	"semanticTokenModifiers",
 	"semanticTokenScopes",
 	"semanticTokenTypes",
+	"settingsEditorRenderers",
 	"snippets",
 	"speechProviders",
 	"statusBarItems",

@@ -1,10 +1,10 @@
 @echo off
 rem ============================================================================
 rem  Kodrix Full Rebuild + Debug Launch
-rem  强制全量 TypeScript compile 后，带实时日志启动控制台调试(全量重编译后启动并带日志)
+rem  Force full TypeScript compile, then launch with live logs
 rem
-rem  用法: .\debug-rebuild.bat
-rem  等同于: debug.bat -FullCompile
+rem  Usage: .\debug-rebuild.bat
+rem  Same as: debug.bat -FullCompile
 rem ============================================================================
 chcp 65001 > nul 2>&1
 title Kodrix Full Rebuild + Debug
