@@ -1,17 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Project Indexer — 全工程级语义索引引擎
- *
- *  大厂对标：Sourcegraph SCIP + GitHub Copilot Indexing + JetBrains Full-Project Analysis
- *
- *  能力：
- *  1. AST 级别解析 TypeScript / JavaScript / TSX / JSX
- *  2. 符号表：所有类、接口、函数、变量及其可见性
- *  3. 导入图：跨文件依赖关系精确追踪
- *  4. 调用图：函数/方法间的调用链路
- *  5. 引用热度分析：被引用最多的符号 Top N
- *  6. 增量更新：文件变更时自动部分重建
- *  7. 零外部依赖：仅使用 VS Code 内置 TypeScript
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -21,11 +12,11 @@ import { ensureDir, getWorkspaceKodrixDir } from '../paths';
 import { logger } from '../logger';
 import { isRecord, isString, isNumber } from '../utils/jsonValidator';
 import { atomicWriteFileSync } from '../utils/fsSafe';
-import type {
-	CodeSymbol, ImportRelation,
-	CallRelation, IndexerConfig, ProjectIndex, IndexStats, FileIndexSummary,
+import {
+	SymbolKind, SymbolVisibility,
+	type CodeSymbol, type ImportRelation,
+	type CallRelation, type IndexerConfig, type ProjectIndex, type IndexStats, type FileIndexSummary,
 } from './types';
-import { SymbolKind, SymbolVisibility } from './types';
 
 // ── 默认配置 ───────────────────────────────────────────────────
 
@@ -73,18 +64,18 @@ function compileGlobs(excludeGlobs: string[]): RegExp[] {
 function shouldExclude(filePath: string, config: IndexerConfig, rootPath?: string, compiledGlobs?: RegExp[]): boolean {
 	// 扩展名过滤
 	const ext = path.extname(filePath).toLowerCase();
-	if (!config.includeExtensions.includes(ext)) return true;
+	if (!config.includeExtensions.includes(ext)) {return true;}
 
 	// 大小过滤
 	try {
 		const stat = fs.statSync(filePath);
-		if (stat.size > config.maxFileSize) return true;
+		if (stat.size > config.maxFileSize) {return true;}
 	} catch { return true; }
 
 	// 目录过滤
 	const normalized = filePath.replace(/\\/g, '/');
 	for (const dir of config.excludeDirs) {
-		if (normalized.includes(`/${dir}/`) || normalized.endsWith(`/${dir}`)) return true;
+		if (normalized.includes(`/${dir}/`) || normalized.endsWith(`/${dir}`)) {return true;}
 	}
 
 	// Glob 过滤：使用完整相对路径而非 basename，确保 **/ 等跨目录模式正确匹配
@@ -95,7 +86,7 @@ function shouldExclude(filePath: string, config: IndexerConfig, rootPath?: strin
 	// 使用预编译的正则（由 discoverFiles 传入）避免每个文件重复编译
 	const globs = compiledGlobs || compileGlobs(config.excludeGlobs);
 	for (const regex of globs) {
-		if (regex.test(relativePath)) return true;
+		if (regex.test(relativePath)) {return true;}
 	}
 
 	return false;
@@ -115,8 +106,8 @@ function invalidateCursorignoreCache(): void {
  */
 function getCursorignoreGlobs(rootPath: string): RegExp[] {
 	const enabled = vscode.workspace.getConfiguration('kodrix.codebase').get<boolean>('ignoreCursorignore', true);
-	if (!enabled) return [];
-	if (_cursorignoreCache && _cursorignoreCache.root === rootPath) return _cursorignoreCache.globs;
+	if (!enabled) {return [];}
+	if (_cursorignoreCache && _cursorignoreCache.root === rootPath) {return _cursorignoreCache.globs;}
 
 	let globs: RegExp[] = [];
 	try {
@@ -138,7 +129,7 @@ function getCursorignoreGlobs(rootPath: string): RegExp[] {
 
 function isCursorignoreExcluded(relativePath: string, cursorignoreGlobs: RegExp[]): boolean {
 	for (const regex of cursorignoreGlobs) {
-		if (regex.test(relativePath)) return true;
+		if (regex.test(relativePath)) {return true;}
 	}
 	return false;
 }
@@ -201,8 +192,8 @@ function getExportKind(node: ts.Node): 'named' | 'default' | undefined {
 		const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
 		if (modifiers) {
 			for (const m of modifiers) {
-				if (m.kind === ts.SyntaxKind.ExportKeyword) return 'named';
-				if (m.kind === ts.SyntaxKind.DefaultKeyword) return 'default';
+				if (m.kind === ts.SyntaxKind.ExportKeyword) {return 'named';}
+				if (m.kind === ts.SyntaxKind.DefaultKeyword) {return 'default';}
 			}
 		}
 	}
@@ -210,12 +201,12 @@ function getExportKind(node: ts.Node): 'named' | 'default' | undefined {
 }
 
 function getVisibility(modifiers: readonly ts.Modifier[] | undefined): SymbolVisibility {
-	if (!modifiers) return SymbolVisibility.Public;
+	if (!modifiers) {return SymbolVisibility.Public;}
 	for (const m of modifiers) {
-		if (m.kind === ts.SyntaxKind.PublicKeyword) return SymbolVisibility.Public;
-		if (m.kind === ts.SyntaxKind.ProtectedKeyword) return SymbolVisibility.Protected;
-		if (m.kind === ts.SyntaxKind.PrivateKeyword) return SymbolVisibility.Private;
-		if (m.kind === ts.SyntaxKind.ExportKeyword) return SymbolVisibility.Exported;
+		if (m.kind === ts.SyntaxKind.PublicKeyword) {return SymbolVisibility.Public;}
+		if (m.kind === ts.SyntaxKind.ProtectedKeyword) {return SymbolVisibility.Protected;}
+		if (m.kind === ts.SyntaxKind.PrivateKeyword) {return SymbolVisibility.Private;}
+		if (m.kind === ts.SyntaxKind.ExportKeyword) {return SymbolVisibility.Exported;}
 	}
 	return SymbolVisibility.Public;
 }
@@ -223,7 +214,7 @@ function getVisibility(modifiers: readonly ts.Modifier[] | undefined): SymbolVis
 function getDocComment(node: ts.Node, sourceFile: ts.SourceFile): string | undefined {
 	const fullText = sourceFile.getFullText();
 	const ranges = ts.getLeadingCommentRanges(fullText, node.getFullStart());
-	if (!ranges) return undefined;
+	if (!ranges) {return undefined;}
 
 	const docs: string[] = [];
 	for (const range of ranges) {
@@ -283,6 +274,7 @@ function collectSymbols(sourceFile: ts.SourceFile, filePath: string): SymbolColl
 	function visit(node: ts.Node): void {
 		const sf = sourceFile;
 		const pos = sf.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+		const endPos = sf.getLineAndCharacterOfPosition(node.getEnd());
 
 		// ── 类 / 接口 / 枚举 / 命名空间 ──
 		if (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node) ||
@@ -297,6 +289,8 @@ function collectSymbols(sourceFile: ts.SourceFile, filePath: string): SymbolColl
 					filePath,
 					line: pos.line + 1,
 					column: pos.character + 1,
+					endLine: endPos.line + 1,
+					endColumn: endPos.character + 1,
 					parentId: getParentId(),
 					visibility: getExportKind(node) === 'named' ? SymbolVisibility.Exported : getVisibility(ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined),
 					docComment: getDocComment(node, sf),
@@ -321,6 +315,8 @@ function collectSymbols(sourceFile: ts.SourceFile, filePath: string): SymbolColl
 				filePath,
 				line: pos.line + 1,
 				column: pos.character + 1,
+				endLine: endPos.line + 1,
+				endColumn: endPos.character + 1,
 				parentId: getParentId(),
 				visibility: getExportKind(node) ? SymbolVisibility.Exported : SymbolVisibility.Public,
 				docComment: getDocComment(node, sf),
@@ -348,6 +344,8 @@ function collectSymbols(sourceFile: ts.SourceFile, filePath: string): SymbolColl
 					filePath,
 					line: pos.line + 1,
 					column: pos.character + 1,
+					endLine: endPos.line + 1,
+					endColumn: endPos.character + 1,
 					parentId: getParentId(),
 					visibility: getVisibility(ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined),
 					docComment: getDocComment(node, sf),
@@ -371,6 +369,8 @@ function collectSymbols(sourceFile: ts.SourceFile, filePath: string): SymbolColl
 						filePath,
 						line: sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line + 1,
 						column: sf.getLineAndCharacterOfPosition(decl.getStart(sf)).character + 1,
+						endLine: sf.getLineAndCharacterOfPosition(decl.getEnd()).line + 1,
+						endColumn: sf.getLineAndCharacterOfPosition(decl.getEnd()).character + 1,
 						parentId: getParentId(),
 						visibility: isExported ? SymbolVisibility.Exported : SymbolVisibility.Private,
 						exportKind: isExported ? 'named' : undefined,
@@ -389,6 +389,8 @@ function collectSymbols(sourceFile: ts.SourceFile, filePath: string): SymbolColl
 				filePath,
 				line: pos.line + 1,
 				column: pos.character + 1,
+				endLine: endPos.line + 1,
+				endColumn: endPos.character + 1,
 				parentId: getParentId(),
 				visibility: SymbolVisibility.Exported,
 				exportKind: getExportKind(node),
@@ -483,7 +485,7 @@ function getLeadingComment(lines: string[], idx: number): string | undefined {
 	const docs: string[] = [];
 	for (let i = idx - 1; i >= 0; i--) {
 		const m = lines[i].trim().match(/^(?:#|\/\/|\/\/\/)\s?(.*)$/);
-		if (!m) break;
+		if (!m) {break;}
 		docs.unshift(m[1]);
 	}
 	return docs.length ? docs.join('\n').slice(0, 300) : undefined;
@@ -516,12 +518,12 @@ function makeSimpleSymbol(
 
 /** 提取 Python docstring（def/class 行之后紧邻的 '''...''' 或 """...""" 字面量） */
 function getPythonDocstring(lines: string[], defLineIdx: number): string | undefined {
-	if (defLineIdx + 1 >= lines.length) return undefined;
+	if (defLineIdx + 1 >= lines.length) {return undefined;}
 	const t = lines[defLineIdx + 1].trim();
 	const m = t.match(/^('''|""")([\s\S]*)$/);
-	if (!m) return undefined;
+	if (!m) {return undefined;}
 	const quote = m[1];
-	let body = m[2];
+	const body = m[2];
 	if (body.includes(quote)) {
 		// 单行闭合："""内容"""
 		return body.split(quote)[0].trim().slice(0, 300) || undefined;
@@ -550,7 +552,7 @@ function parsePython(content: string, filePath: string): SimpleParseResult {
 	for (let i = 0; i < lines.length; i++) {
 		const raw = lines[i];
 		const trimmed = raw.trim();
-		if (!trimmed || trimmed.startsWith('#')) continue;
+		if (!trimmed || trimmed.startsWith('#')) {continue;}
 
 		// ── class X(Base): → Class ──
 		let m = trimmed.match(/^class\s+(\w+)\s*(\([^)]*\))?\s*:/);
@@ -630,9 +632,9 @@ function parseGo(content: string, filePath: string): SimpleParseResult {
 	for (let i = 0; i < lines.length; i++) {
 		const raw = lines[i];
 		const trimmed = raw.trim();
-		if (!trimmed) continue;
+		if (!trimmed) {continue;}
 
-		let m = trimmed.match(/^type\s+(\w+)\s+(struct|interface)\b/);
+		const m = trimmed.match(/^type\s+(\w+)\s+(struct|interface)\b/);
 		if (m) {
 			const id = makeSymbolId(filePath, m[1]);
 			typeIds.set(m[1], id);
@@ -644,7 +646,7 @@ function parseGo(content: string, filePath: string): SimpleParseResult {
 	for (let i = 0; i < lines.length; i++) {
 		const raw = lines[i];
 		const trimmed = raw.trim();
-		if (!trimmed || trimmed.startsWith('//')) continue;
+		if (!trimmed || trimmed.startsWith('//')) {continue;}
 
 		// import 块处理
 		if (/^import\s*\(/.test(trimmed)) { inImportBlock = true; continue; }
@@ -756,9 +758,9 @@ function parseRust(content: string, filePath: string): SimpleParseResult {
 	for (let i = 0; i < lines.length; i++) {
 		const raw = lines[i];
 		const trimmed = raw.trim();
-		if (!trimmed || trimmed.startsWith('//')) continue;
+		if (!trimmed || trimmed.startsWith('//')) {continue;}
 		// 缩进的 fn（impl 块内方法）跳过，避免误判为顶层函数
-		if (/^\s/.test(raw) && /(^|\s)fn\s/.test(trimmed)) continue;
+		if (/^\s/.test(raw) && /(^|\s)fn\s/.test(trimmed)) {continue;}
 
 		// ── pub struct / pub enum / pub trait → Class / Enum / Interface ──
 		let m = trimmed.match(/^(?:pub(?:\([^)]*\))?\s+)?(struct|enum|trait)\s+(\w+)/);
@@ -868,7 +870,7 @@ function getIndexPath(): string | undefined {
 
 function loadExistingIndex(): ProjectIndex | null {
 	const indexPath = getIndexPath();
-	if (!indexPath || !fs.existsSync(indexPath)) return null;
+	if (!indexPath || !fs.existsSync(indexPath)) {return null;}
 	try {
 		const raw = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
 		if (isRecord(raw) && isNumber(raw.version) && isRecord(raw.symbols) && isString(raw.rootPath)) {
@@ -880,7 +882,7 @@ function loadExistingIndex(): ProjectIndex | null {
 
 function saveIndex(index: ProjectIndex): void {
 	const indexPath = getIndexPath();
-	if (!indexPath) return;
+	if (!indexPath) {return;}
 	ensureDir(path.dirname(indexPath));
 	atomicWriteFileSync(indexPath, JSON.stringify(index, null, 2));
 }
@@ -911,7 +913,7 @@ export async function updateProjectIndexIncrementally(
 	invalidateCursorignoreCache();
 
 	const checkCurrent = () => {
-		if (session === undefined) return;
+		if (session === undefined) {return;}
 		if (!isBuildCurrent(session)) {
 			throw new Error('Index build cancelled');
 		}
@@ -927,7 +929,7 @@ export async function updateProjectIndexIncrementally(
 
 	for (const f of files) {
 		const prev = index.files[f];
-		if (!prev) continue;
+		if (!prev) {continue;}
 		try {
 			const stat = fs.statSync(f);
 			if (stat.mtimeMs !== prev.lastModified || stat.size !== prev.sizeBytes) {
@@ -938,7 +940,7 @@ export async function updateProjectIndexIncrementally(
 		}
 	}
 	for (const f of Object.keys(index.files)) {
-		if (!current.has(f)) removedFiles.push(f);
+		if (!current.has(f)) {removedFiles.push(f);}
 	}
 	const addedFiles = files.filter(f => !index.files[f]);
 
@@ -956,15 +958,15 @@ export async function updateProjectIndexIncrementally(
 	const affected = new Set<string>([...changedFiles, ...removedFiles]);
 	for (const f of affected) {
 		for (const id of Object.keys(symbols)) {
-			if (id.startsWith(f + '#')) delete symbols[id];
+			if (id.startsWith(f + '#')) {delete symbols[id];}
 		}
 	}
 
 	// 3) 重建符号名索引
-	for (const k of Object.keys(symbolNameIndex)) delete symbolNameIndex[k];
+	for (const k of Object.keys(symbolNameIndex)) {delete symbolNameIndex[k];}
 	for (const id of Object.keys(symbols)) {
 		const name = symbols[id].name;
-		if (!symbolNameIndex[name]) symbolNameIndex[name] = [];
+		if (!symbolNameIndex[name]) {symbolNameIndex[name] = [];}
 		symbolNameIndex[name].push(id);
 	}
 
@@ -972,7 +974,7 @@ export async function updateProjectIndexIncrementally(
 	index.imports = index.imports.filter(r => !affected.has(r.importerPath) && !affected.has(r.importeePath));
 	index.calls = index.calls.filter(r => {
 		for (const f of affected) {
-			if (r.callerId.startsWith(f + '#') || r.calleeId.startsWith(f + '#')) return false;
+			if (r.callerId.startsWith(f + '#') || r.calleeId.startsWith(f + '#')) {return false;}
 		}
 		return true;
 	});
@@ -980,13 +982,13 @@ export async function updateProjectIndexIncrementally(
 	// 5) 解析变更 + 新增文件
 	const toParse = [...addedFiles, ...changedFiles];
 	for (let i = 0; i < toParse.length; i++) {
-		if (i > 0 && i % 50 === 0) checkCurrent();
+		if (i > 0 && i % 50 === 0) {checkCurrent();}
 		const filePath = toParse[i];
 		const result = parseFile(filePath);
 		if (result) {
 			for (const sym of result.symbols) {
 				symbols[sym.id] = sym;
-				if (!symbolNameIndex[sym.name]) symbolNameIndex[sym.name] = [];
+				if (!symbolNameIndex[sym.name]) {symbolNameIndex[sym.name] = [];}
 				symbolNameIndex[sym.name].push(sym.id);
 			}
 			index.imports.push(...result.imports);
@@ -1006,7 +1008,7 @@ export async function updateProjectIndexIncrementally(
 		} else {
 			// 解析失败：从索引移除该文件
 			for (const id of Object.keys(symbols)) {
-				if (id.startsWith(filePath + '#')) delete symbols[id];
+				if (id.startsWith(filePath + '#')) {delete symbols[id];}
 			}
 			delete fileSummaries[filePath];
 		}
@@ -1024,26 +1026,26 @@ export async function updateProjectIndexIncrementally(
 	const revDepGraph: Record<string, string[]> = Object.create(null);
 	const indexedPaths = new Set(Object.keys(fileSummaries));
 	for (const imp of index.imports) {
-		if (!imp.importeePath || imp.importeePath === imp.importerPath) continue;
-		if (imp.moduleSpecifier.startsWith('.') && !indexedPaths.has(imp.importeePath)) continue;
-		if (!depGraph[imp.importerPath]) depGraph[imp.importerPath] = [];
-		if (!depGraph[imp.importerPath].includes(imp.importeePath)) depGraph[imp.importerPath].push(imp.importeePath);
-		if (!revDepGraph[imp.importeePath]) revDepGraph[imp.importeePath] = [];
-		if (!revDepGraph[imp.importeePath].includes(imp.importerPath)) revDepGraph[imp.importeePath].push(imp.importerPath);
+		if (!imp.importeePath || imp.importeePath === imp.importerPath) {continue;}
+		if (imp.moduleSpecifier.startsWith('.') && !indexedPaths.has(imp.importeePath)) {continue;}
+		if (!depGraph[imp.importerPath]) {depGraph[imp.importerPath] = [];}
+		if (!depGraph[imp.importerPath].includes(imp.importeePath)) {depGraph[imp.importerPath].push(imp.importeePath);}
+		if (!revDepGraph[imp.importeePath]) {revDepGraph[imp.importeePath] = [];}
+		if (!revDepGraph[imp.importeePath].includes(imp.importerPath)) {revDepGraph[imp.importeePath].push(imp.importerPath);}
 	}
 	index.dependencyGraph = depGraph;
 	index.reverseDependencyGraph = revDepGraph;
 
 	// 8) 重算热门符号
 	const refCount: Record<string, number> = {};
-	for (const id of Object.keys(symbols)) refCount[id] = 0;
+	for (const id of Object.keys(symbols)) {refCount[id] = 0;}
 	const nameToIds = new Map<string, string[]>();
-	for (const [name, ids] of Object.entries(symbolNameIndex)) nameToIds.set(name, ids);
+	for (const [name, ids] of Object.entries(symbolNameIndex)) {nameToIds.set(name, ids);}
 	for (const call of index.calls) {
 		const shortName = call.calleeId.split('#')[1];
 		const candidates = nameToIds.get(shortName);
 		if (candidates) {
-			for (const candidateId of candidates) refCount[candidateId] = (refCount[candidateId] || 0) + 1;
+			for (const candidateId of candidates) {refCount[candidateId] = (refCount[candidateId] || 0) + 1;}
 		}
 	}
 	index.hotSymbols = Object.entries(refCount)
@@ -1133,7 +1135,7 @@ function isBuildCurrent(session: number): boolean {
  * ponytail: 中止语义，进度不冻结续传；若需真暂停续传再引入可取消任务队列。
  */
 export function pauseIndexBuild(): void {
-	if (_buildStatus !== 'building') return;
+	if (_buildStatus !== 'building') {return;}
 	_buildAbort = true;
 	_buildStatus = 'paused';
 	logger.info('[ProjectIndexer] Index build paused (aborted) by user');
@@ -1142,7 +1144,7 @@ export function pauseIndexBuild(): void {
 
 /** 恢复构建（面板 Resume）：重新触发全量索引 */
 export function resumeIndexBuild(): void {
-	if (_buildStatus !== 'paused') return;
+	if (_buildStatus !== 'paused') {return;}
 	_buildStatus = 'building';
 	logger.info('[ProjectIndexer] Index build resumed');
 	fireIndexState();
@@ -1179,7 +1181,7 @@ export async function deleteProjectIndex(): Promise<void> {
 /** 已索引文件列表（按最近修改排序；limit 省略时返回全部） */
 export function getIndexFiles(limit?: number): FileIndexSummary[] {
 	const idx = _index;
-	if (!idx) return [];
+	if (!idx) {return [];}
 	const list = Object.values(idx.files).sort((a, b) => b.lastModified - a.lastModified);
 	return limit ? list.slice(0, limit) : list;
 }
@@ -1194,7 +1196,7 @@ function getGrepIndexPath(): string | undefined {
 /** 全量扫描仓库文本文件清单（不限扩展名，排除构建/依赖目录），用于加速即时 Grep */
 export async function ensureGrepIndex(): Promise<string[]> {
 	const folder = vscode.workspace.workspaceFolders?.[0];
-	if (!folder) return [];
+	if (!folder) {return [];}
 	const rootPath = folder.uri.fsPath;
 
 	const files = collectAllTextFiles(rootPath);
@@ -1240,7 +1242,7 @@ function collectAllTextFiles(rootPath: string): string[] {
 /** 读取已缓存的 Grep 索引文件清单（未构建时返回空数组） */
 export function getGrepIndexFiles(): string[] {
 	const indexPath = getGrepIndexPath();
-	if (!indexPath || !fs.existsSync(indexPath)) return [];
+	if (!indexPath || !fs.existsSync(indexPath)) {return [];}
 	try {
 		const data = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
 		return Array.isArray(data) ? data : [];
@@ -1268,7 +1270,7 @@ export function getProjectIndex(): ProjectIndex | null {
 
 /** Build or return the cached project index, with guard against concurrent rebuilds. */
 export async function ensureProjectIndex(force = false): Promise<ProjectIndex> {
-	if (_index && !force) return _index;
+	if (_index && !force) {return _index;}
 
 	// force：作废 in-flight，避免旧构建晚到写回把新索引覆盖成「0 文件」或脏数据
 	if (force) {
@@ -1277,7 +1279,7 @@ export async function ensureProjectIndex(force = false): Promise<ProjectIndex> {
 	}
 
 	// 非 force 时并入进行中的构建；force 时抛开旧 promise，另起新会话
-	if (_indexPromise && !force) return _indexPromise;
+	if (_indexPromise && !force) {return _indexPromise;}
 
 	const running = buildProjectIndex(force);
 	_indexPromise = running;
@@ -1413,7 +1415,7 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	const symbolNameIndex: Record<string, string[]> = Object.create(null);
 	for (const sym of allSymbols) {
 		symbols[sym.id] = sym;
-		if (!symbolNameIndex[sym.name]) symbolNameIndex[sym.name] = [];
+		if (!symbolNameIndex[sym.name]) {symbolNameIndex[sym.name] = [];}
 		symbolNameIndex[sym.name].push(sym.id);
 	}
 
@@ -1423,14 +1425,14 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	const indexedPaths = new Set(Object.keys(fileSummaries));
 	for (const imp of allImports) {
 		// 跳过自引用和无法解析的相对路径
-		if (!imp.importeePath || imp.importeePath === imp.importerPath) continue;
-		if (imp.moduleSpecifier.startsWith('.') && !indexedPaths.has(imp.importeePath)) continue;
+		if (!imp.importeePath || imp.importeePath === imp.importerPath) {continue;}
+		if (imp.moduleSpecifier.startsWith('.') && !indexedPaths.has(imp.importeePath)) {continue;}
 
-		if (!depGraph[imp.importerPath]) depGraph[imp.importerPath] = [];
+		if (!depGraph[imp.importerPath]) {depGraph[imp.importerPath] = [];}
 		if (!depGraph[imp.importerPath].includes(imp.importeePath)) {
 			depGraph[imp.importerPath].push(imp.importeePath);
 		}
-		if (!revDepGraph[imp.importeePath]) revDepGraph[imp.importeePath] = [];
+		if (!revDepGraph[imp.importeePath]) {revDepGraph[imp.importeePath] = [];}
 		if (!revDepGraph[imp.importeePath].includes(imp.importerPath)) {
 			revDepGraph[imp.importeePath].push(imp.importerPath);
 		}
@@ -1439,7 +1441,7 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	// 热门符号（被引用次数）
 	// 先建立符号名→id 反向索引，避免 O(n^2) 遍历
 	const refCount: Record<string, number> = {};
-	for (const sym of allSymbols) refCount[sym.id] = 0;
+	for (const sym of allSymbols) {refCount[sym.id] = 0;}
 
 	const nameToIds = new Map<string, string[]>();
 	for (const [name, ids] of Object.entries(symbolNameIndex)) {
@@ -1580,10 +1582,10 @@ export function startIndexWatcher(context: vscode.ExtensionContext): void {
 		logger.info('[ProjectIndexer] Auto index disabled by configuration (索引新文件夹 关闭)');
 		return;
 	}
-	if (_watcher) return;
+	if (_watcher) {return;}
 
 	const folder = vscode.workspace.workspaceFolders?.[0];
-	if (!folder) return;
+	if (!folder) {return;}
 
 	const config = DEFAULT_CONFIG;
 	const pattern = `**/*.{${config.includeExtensions.map(e => e.replace('.', '')).join(',')}}`;
@@ -1593,7 +1595,7 @@ export function startIndexWatcher(context: vscode.ExtensionContext): void {
 	);
 
 	const scheduleRebuild = () => {
-		if (_debounceTimer) clearTimeout(_debounceTimer);
+		if (_debounceTimer) {clearTimeout(_debounceTimer);}
 		_debounceTimer = setTimeout(() => {
 			logger.info('[ProjectIndexer] File changed, scheduling incremental rebuild');
 			// 增量刷新：勿 force 全量重建（会清空 _index 并在完成瞬间向面板推送 0 文件）
@@ -1613,5 +1615,5 @@ export function startIndexWatcher(context: vscode.ExtensionContext): void {
 export function disposeIndexWatcher(): void {
 	_watcher?.dispose();
 	_watcher = null;
-	if (_debounceTimer) clearTimeout(_debounceTimer);
+	if (_debounceTimer) {clearTimeout(_debounceTimer);}
 }

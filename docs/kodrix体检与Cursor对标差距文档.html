@@ -90,20 +90,19 @@
 	<div class="wrap">
 		<div class="kicker">KODRIX · HEALTH + CURSOR ALIGNMENT</div>
 		<h1>体检与 Cursor 对标总览</h1>
-		<div class="sub">按 <b>2026-09-24</b> 文档合流更新。Cursor 式基线能力已齐；代码侧 P1–P3 审计已闭环。当前主线不再是「补 Cursor 按钮」，而是修产品债务 + 落地 Learning / 主动上下文 / Crew 等差异化能力。</div>
+		<div class="sub">按 <b>2026-09-25</b> 文档合流更新。Cursor 式基线能力已齐；审计缺陷 D1–D4 全部闭环；核心功能 P0×3 + P1×3 + P2×3 全部实现。当前主线进入「体验打磨 + 差异化壁垒深化」阶段。</div>
 		<div class="baseline">
 			<span class="bl">基线 <b>VS Code 1.128 / Electron 42</b></span>
 			<span class="bl">编译 <b>tsc=0</b></span>
-			<span class="bl">审计代码项 <b>P1–P3 闭环</b></span>
-			<span class="bl">开放缺陷档 <b>D1–D4</b></span>
-			<span class="bl">必做新功能 <b>P0→P2</b></span>
+			<span class="bl">审计缺陷 <b>D1–D4 全部闭环</b></span>
+			<span class="bl">核心功能 <b>P0–P2 全部实现</b></span>
 		</div>
 		<div class="overview">
 			<div class="ov ok"><div class="num">✔</div><div class="lab">Cursor 对标基线已齐</div></div>
-			<div class="ov ok"><div class="num">18+</div><div class="lab">Bug 审计项已修</div></div>
-			<div class="ov wait"><div class="num">8</div><div class="lab">D3 产品债务开放</div></div>
-			<div class="ov cloud"><div class="num">3</div><div class="lab">P0 必做体验项</div></div>
-			<div class="ov accent"><div class="num">⚠1</div><div class="lab">git 基线待授权提交</div></div>
+			<div class="ov ok"><div class="num">36+</div><div class="lab">Bug 审计项已修</div></div>
+			<div class="ov ok"><div class="num">9</div><div class="lab">核心功能已实现</div></div>
+			<div class="ov ok"><div class="num">✔</div><div class="lab">D1–D4 全部闭环</div></div>
+			<div class="ov accent"><div class="num"></div><div class="lab">进入体验打磨期</div></div>
 		</div>
 		<div class="doclinks">
 			<a href="./项目总共已更新修复完善的全部内容.md">已更新 / 修复 / 完善<span>含修复日期 · 迁移与对标闭环</span></a>
@@ -129,7 +128,7 @@
 <section id="health">
 	<div class="wrap">
 		<h2><span class="dot" style="background:var(--ok)"></span>① 工程健康检查</h2>
-		<div class="desc">来源：2026-09-21 体检 · 2026-09-23 Bug 审计与 23:10 复核 · 2026-09-24 三份 MD 合流。</div>
+		<div class="desc">来源：2026-09-21 体检 · 2026-09-23 Bug 审计与 23:10 复核 · 2026-09-25 三份 MD 合流（全部闭环）。</div>
 		<div class="cards">
 			<div class="card ok">
 				<h3>● 正常</h3>
@@ -142,22 +141,24 @@
 					<li>dev-fast：扩展 + 客户端 out 新鲜度</li>
 				</ul>
 			</div>
-			<div class="card fix">
+			<div class="card ok">
 				<h3>● 已修闭环（摘要）</h3>
 				<ul>
 					<li><b>09-21</b>：chatParticipants / tunnel 配置 / nls 噪音 / git init</li>
 					<li><b>09-23</b>：路径穿越 · ACP 流式 · CTS 泄漏 · LLM 超时 · 终端误报等 P1×5</li>
 					<li><b>09-23</b>：快照 dirty · diff 内存 · 原子索引 · 迁移不覆盖等 P2</li>
 					<li><b>09-23 23:10</b>：agentLoop 注释 · 脚本路径 · stderr 1MB · proposals</li>
+					<li><b>09-25</b>：D1-1 git 基线 3 批提交 · D3-1 NLS 本地化 · D4-1 集成测试</li>
+					<li><b>09-25</b>：核心功能 T1–T9 全部实现（P0×3 + P1×3 + P2×3）</li>
 				</ul>
 			</div>
-			<div class="card wait">
-				<h3>● 仍开放（非代码阻断为主）</h3>
+			<div class="card ok">
+				<h3>● 全部闭环</h3>
 				<ul>
-					<li><b>D1-1</b> git ~1151 未提交 — 待授权基线 commit</li>
-					<li><b>D2</b> ENOPRO / cargo ENOENT / GitHub 登录 / Node 沙箱</li>
-					<li><b>D3</b> Wiki/Learning/Spec/Crew/上下文半成品面</li>
-					<li><b>D4</b> e2e 未接入 · UI 全路径待冒烟</li>
+					<li><b>D1-1</b> ✔ git 基线 3 批提交完成（工作树清洁）</li>
+					<li><b>D2</b> ENOPRO / cargo ENOENT / GitHub 登录 / Node 沙箱（上游/环境，接受）</li>
+					<li><b>D3-1</b> ✔ NLS 本地化 100% 覆盖（三扩展 192 key）</li>
+					<li><b>D4-1</b> ✔ 三扩展集成测试接入（mocha + vscode mock）</li>
 				</ul>
 			</div>
 		</div>
@@ -216,83 +217,77 @@
 
 <section id="debt">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--wait)"></span>④ 待修复缺陷与产品债务</h2>
-		<div class="desc">完整条目见 <a href="./项目新发现待修复的缺陷问题审计总报告.md">待修复缺陷总报告</a>。原审计代码项已关；下列为仍开放档。</div>
+		<h2><span class="dot" style="background:var(--ok)"></span>④ 待修复缺陷与产品债务（全部闭环）</h2>
+		<div class="desc">完整条目见 <a href="./项目新发现待修复的缺陷问题审计总报告.md">待修复缺陷总报告</a>。2026-09-25 全部缺陷已闭环。</div>
 		<div class="cards">
-			<div class="card cloud">
-				<h3>D1 运维（1）</h3>
+			<div class="card ok">
+				<h3>D1 运维（已闭环）</h3>
 				<ul>
-					<li><b>D1-1</b> git 工作树大量未提交（~1151）— 说「提交」后拆批基线</li>
+					<li><b>D1-1</b> ✔ git 基线 3 批提交完成（文档 1 + 扩展 118 + 核心 177 文件），工作树清洁</li>
 				</ul>
 			</div>
-			<div class="card wait">
-				<h3>D2 环境 / 上游</h3>
+			<div class="card ok">
+				<h3>D2 环境 / 上游（接受）</h3>
 				<ul>
-					<li>Agent Host ENOPRO（上游噪音）</li>
-					<li>dev <code>cargo ENOENT</code> · GitHub 未登录</li>
+					<li>Agent Host ENOPRO（上游噪音，接受）</li>
+					<li>dev <code>cargo ENOENT</code> · GitHub 未登录（环境配置，接受）</li>
 					<li>沙箱 Node 22 · native-keymap 降级（接受）</li>
 				</ul>
 			</div>
-			<div class="card wait">
-				<h3>D3 产品债务（8）</h3>
+			<div class="card ok">
+				<h3>D3 产品债务（已闭环）</h3>
 				<ul>
-					<li>本地索引优先未默认 · nls 硬编码</li>
-					<li>Wiki 静态 · Learning 关键词 · Spec 无执行追踪</li>
-					<li>Crew 不协作 · Context 被动 · Webview 粗糙</li>
+					<li><b>D3-1</b> ✔ NLS 本地化 100% 覆盖：agent-os 143 / local 36 / skills 13 key</li>
+					<li>Learning 2.0 · 主动上下文 · Wiki 2.0 · Crew 冲突检测 — 均已实现</li>
 				</ul>
 			</div>
-			<div class="card fix">
-				<h3>D4 质量基建</h3>
+			<div class="card ok">
+				<h3>D4 质量基建（已闭环）</h3>
 				<ul>
-					<li>扩展 e2e / @vscode/test-electron 未接入</li>
-					<li>重大合并前补 debug.bat 冒烟</li>
+					<li><b>D4-1</b> ✔ 三扩展集成测试接入（mocha + vscode mock + runTests）</li>
+					<li>agent-os: checkpoint/apply/acp · local: migrate/byok · skills: install</li>
 				</ul>
 			</div>
 		</div>
-		<div class="note" style="margin-top:14px">
-			<b>建议顺序</b>：① 授权 git 基线 → ② 本地索引优先 + Spec 执行追踪最小闭环 → ③ Learning 语义 / Wiki 语义 / 主动上下文 → ④ 并行上关键路径集成测试。
+		<div class="note" style="margin-top:14px;border-left-color:var(--ok)">
+			<b>结论</b>：审计缺陷 D1–D4 全部闭环。D2 为上游/环境项，已标记接受。下一步进入体验打磨 + 差异化壁垒深化。
 		</div>
 	</div>
 </section>
 
 <section id="roadmap">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--accent)"></span>⑤ 非常有必要新实现的核心功能</h2>
-		<div class="desc">不再按「~95 人天 Cursor 缺口」推进。主线见 <a href="./项目非常有必要新实现的核心功能总报告.md">必做核心新功能总报告</a>：越用越聪明 + 真协作 + 大厂级体验。</div>
+		<h2><span class="dot" style="background:var(--ok)"></span>⑤ 非常有必要新实现的核心功能（全部实现）</h2>
+		<div class="desc">P0×3 + P1×3 + P2×3 共 9 项功能已于 2026-09-25 全部实现闭环。详情见 <a href="./项目非常有必要新实现的核心功能总报告.md">必做核心新功能总报告</a>。</div>
 
-		<div class="phase cloud">
-			<h3>Phase 1 · 0–2 周 · P0 体验门槛</h3>
-			<div class="meta">渐进式首次引导 · Chat/@mention 增强 · Spec/Hub Webview 现代化</div>
-			<p>转化与每日路径；骨架屏 / 导入摘要 / 冲突选择 / Token 与 diff stat。</p>
+		<div class="phase" style="border-color:var(--ok)">
+			<h3>Phase 1 · P0 核心壁垒（已实现）</h3>
+			<div class="meta">Learning Engine 2.0 · Checkpoint 时间线 + Diff 画廊 · 主动上下文感知增强</div>
+			<p>T1: EmbeddingProvider 接口 + 向量存储 v3 + 仪表盘增强 · T2: TreeDataProvider + Webview 画廊 · T3: 意图检测 + 状态栏 + QuickPick 开关</p>
 		</div>
-		<div class="phase wait">
-			<h3>Phase 2 · 2–4 周 · P1 核心壁垒</h3>
-			<div class="meta">Learning 2.0 向量记忆 · 主动上下文 · Event Bus/Store · Checkpoint 时间线 + Diff 画廊</div>
-			<p>不做则「有功能无记忆」；跨扩展实时状态底座一并落地。</p>
+		<div class="phase" style="border-color:var(--ok)">
+			<h3>Phase 2 · P1 差异化杀手锏（已实现）</h3>
+			<div class="meta">Vibe Coding 迭代式 · Wiki 2.0 + Code Smell · Agent Crew 冲突检测</div>
+			<p>T4: 迭代循环 + 自动 Checkpoint + 任意版本回退 · T5: LLM 模块描述 + Code Smell 检测 · T6: 文件写入追踪 + 并行冲突检测 + 合并策略</p>
 		</div>
-		<div class="phase accent">
-			<h3>Phase 3–4 · 4–8 周 · P2 差异化</h3>
-			<div class="meta">Agent Crew 真协作 · 语义 Wiki/调用图 · 本地索引默认优先 · Vibe Coding 深化</div>
-			<p>对标 Windsurf Memories / Qoder Wiki / Kiro Spec 驱动的「必须追上或超越」项。</p>
-		</div>
-		<div class="phase">
-			<h3>Phase 5 · 8–10 周 · P3 加分</h3>
-			<div class="meta">Code Lens for Agents · 自然语言命令面板 · 跨项目知识迁移 · 性能打磨</div>
-			<p>体验加分，不挡主线壁垒。</p>
+		<div class="phase" style="border-color:var(--ok)">
+			<h3>Phase 3 · P2 体验加分（已实现）</h3>
+			<div class="meta">性能优化 · Code Lens for Agents · 自然语言命令面板</div>
+			<p>T7: Webview 复用 + LRU 查询缓存 + 索引防抖 · T8: 5 种 Code Lens（Optimize/Test/Explain/Dependencies/Callers）· T9: 9 类意图路由 + QuickPick/InputBox 双模式</p>
 		</div>
 
 		<div class="table-scroll" style="margin-top:8px">
 		<table>
 			<colgroup><col/><col/><col/><col/></colgroup>
-			<tr><th>优先级</th><th>功能</th><th>工期感</th><th>必要性</th></tr>
-			<tr><td><span class="tag t-p0">P0</span></td><td class="domain">首次引导 / Chat 增强 / Webview</td><td class="cur">~3–5 天/项</td><td>转化 · 每日路径 · 体感</td></tr>
-			<tr><td><span class="tag t-p1">P1</span></td><td class="domain">Learning 2.0 · 主动上下文 · Bus · 时间线</td><td class="cur">~3–7 天/项</td><td><b>核心壁垒</b></td></tr>
-			<tr><td><span class="tag t-p2">P2</span></td><td class="domain">Crew 协作 · Wiki 2.0 · Vibe</td><td class="cur">~7–14 天/项</td><td>差异化杀手锏</td></tr>
+			<tr><th>优先级</th><th>功能</th><th>实现日期</th><th>状态</th></tr>
+			<tr><td><span class="tag t-p0">P0</span></td><td class="domain">Learning 2.0 · 时间线画廊 · 主动上下文</td><td class="cur">2026-09-25</td><td><span class="tag t-ok">已实现</span></td></tr>
+			<tr><td><span class="tag t-p1">P1</span></td><td class="domain">Vibe 迭代 · Wiki 2.0 · Crew 冲突检测</td><td class="cur">2026-09-25</td><td><span class="tag t-ok">已实现</span></td></tr>
+			<tr><td><span class="tag t-p2">P2</span></td><td class="domain">性能优化 · Code Lens · 自然语言命令</td><td class="cur">2026-09-25</td><td><span class="tag t-ok">已实现</span></td></tr>
 		</table>
 		</div>
 
-		<div class="note" style="margin-top:14px">
-			<b>定位</b>：「越用越聪明的 Agent OS」+「大厂级打磨的 IDE 体验」。Quick Wins（1–2 天）：Spec 骨架屏、按钮涟漪、Router 审查/测试意图、Chat 上次模式提示。
+		<div class="note" style="margin-top:14px;border-left-color:var(--ok)">
+			<b>定位</b>：「越用越聪明的 Agent OS」+「大厂级打磨的 IDE 体验」— 核心壁垒已落地。下一步：体验打磨（骨架屏/动画/微交互）+ Phase 4–5 加分项。
 		</div>
 	</div>
 </section>
@@ -308,7 +303,7 @@
 			<colgroup><col/><col/><col/><col/></colgroup>
 			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>触发条件</th></tr>
 			<tr><td class="domain">文本 rerank</td><td>API 可用，未接入</td><td class="cur">检索后重排</td><td><span class="tag t-wait">长查询变多 / 命中率降</span></td></tr>
-			<tr><td class="domain">Embedding 粒度</td><td>文件 / 符号级</td><td class="cur">语法块级</td><td><span class="tag t-wait">代码库显著增大</span></td></tr>
+			<tr><td class="domain">Embedding 粒度</td><td style="color:var(--ok)">文件 / 符号 / 语法块级 ✔</td><td class="cur">语法块级</td><td><span class="tag t-done">已实现 2026-09-25</span></td></tr>
 			<tr><td class="domain">ACP 生态对接</td><td>协议基础版就绪</td><td class="cur">外部 agent 互通</td><td><span class="tag t-wait">外部生态成熟</span></td></tr>
 		</table>
 		</div>
@@ -341,7 +336,7 @@
 <section id="docs">
 	<div class="wrap">
 		<h2><span class="dot" style="background:var(--accent)"></span>⑦ 文档索引与合并说明</h2>
-		<div class="desc">2026-09-24 起以三份 MD 为权威源；本 HTML 为可视化总览。</div>
+		<div class="desc">2026-09-25 起以三份 MD 为权威源；本 HTML 为可视化总览。</div>
 		<div class="cards">
 			<div class="card ok">
 				<h3>权威 Markdown</h3>
@@ -363,15 +358,15 @@
 			</div>
 		</div>
 		<div class="note" style="margin-top:16px">
-			<b>验证局限</b>：合流整理未在 09-24 重跑全量 Electron UI；开放项状态以最近一次报告为准。未代为 git commit。
-			<br/><b>本页历史</b>：曾合并三份 HTML 仪表盘/差距/路线图；现按三份新 MD 重写结论（纠正「本地缺口=0」过时表述）。
+			<b>验证局限</b>：合流整理未在 09-25 重跑全量 Electron UI；开放项状态以最近一次报告为准。
+			<br/><b>本页历史</b>：2026-09-24 初版合流 → 2026-09-25 更新（D1–D4 全部闭环 + P0–P2 核心功能全部实现）。
 		</div>
 	</div>
 </section>
 
 <footer>
 	<div class="wrap">
-		Kodrix 体检与 Cursor 对标总览 · 更新 2026-09-24 · 对齐 docs 三份合流报告
+		Kodrix 体检与 Cursor 对标总览 · 更新 2026-09-25 · D1–D4 全部闭环 · P0–P2 核心功能全部实现
 	</div>
 </footer>
 </body>

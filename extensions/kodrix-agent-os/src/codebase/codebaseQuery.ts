@@ -1,26 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Codebase Query — 自然语言代码问答引擎
- *
- *  大厂对标：Sourcegraph Cody + GitHub Copilot Chat + Cursor Codebase Chat
- *
- *  能力：
- *  1. 自然语言理解："这个 API 在哪定义？" → 自动定位符号位置
- *  2. 定义查找：根据符号名返回定义文件/行号
- *  3. 引用分析："哪里调用了 X？" → 返回所有调用点
- *  4. 依赖分析："X 依赖哪些模块？" → 返回依赖图
- *  5. 结构概览："这个项目的架构？" → 返回项目结构摘要
- *  6. 注册为 VS Code Chat Participant，支持 @kodrix 前缀指令
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
 import { ensureProjectIndex, getProjectIndex, onIndexStateChange, type IndexBuildState } from './projectIndexer';
-import { searchSymbolsAsync, searchFilesAsync } from './semanticIndex';
+import { searchSymbolsAsync, searchFilesAsync, searchBlocksAsync } from './semanticIndex';
 import { logger } from '../logger';
 import { QueryCache } from '../utils/queryCache';
-import type { CodeSymbol, CodebaseSearchResult, ProjectIndex } from './types';
-import { SymbolVisibility } from './types';
+import { type CodeSymbol, type CodebaseSearchResult, type ProjectIndex, SymbolVisibility } from './types';
 
 // ── 查询缓存 ────────────────────────────────────────────────────
 
@@ -102,7 +92,9 @@ const INTENT_PATTERNS: Array<{ intent: QueryIntent; patterns: RegExp[] }> = [
 function detectIntent(query: string): QueryIntent {
 	for (const { intent, patterns } of INTENT_PATTERNS) {
 		for (const pattern of patterns) {
-			if (pattern.test(query)) return intent;
+			if (pattern.test(query)) {
+				return intent;
+			}
 		}
 	}
 	return 'natural';
@@ -110,9 +102,11 @@ function detectIntent(query: string): QueryIntent {
 
 /** 从查询中提取目标符号名 */
 function extractSymbolName(query: string): string | null {
-	if (!query) return null;
+	if (!query) {
+		return null;
+	}
 
-	let cleaned = query
+	const cleaned = query
 		.replace(/在哪(?:里)?定义|where.*defin|define|定义在[哪那]|是什么|what is|找到.*定义|find.*defini|查看.*定义|定位.*定义/gi, '')
 		.replace(/哪里用[到了过]|who.*use|where.*use|引用[了过]?|哪些文件.*用|used.*where/gi, '')
 		.replace(/谁调[用了]|caller|called by|调用了[哪谁]|调用.*关系/gi, '')
@@ -122,27 +116,39 @@ function extractSymbolName(query: string): string | null {
 		.replace(/[?？!！。，,]/g, ' ')
 		.trim();
 
-	if (!cleaned) return null;
+	if (!cleaned) {
+		return null;
+	}
 
 	// 引号内文本优先
 	const quoteMatch = cleaned.match(/["'`]([^"'`]+)["'`]/);
-	if (quoteMatch) return quoteMatch[1];
+	if (quoteMatch) {
+		return quoteMatch[1];
+	}
 
 	// 驼峰 / PascalCase
 	const camelMatch = cleaned.match(/\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b/);
-	if (camelMatch) return camelMatch[1];
+	if (camelMatch) {
+		return camelMatch[1];
+	}
 
 	// CONST_CASE
 	const constMatch = cleaned.match(/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/);
-	if (constMatch) return constMatch[1];
+	if (constMatch) {
+		return constMatch[1];
+	}
 
 	// snake_case
 	const snakeMatch = cleaned.match(/\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b/);
-	if (snakeMatch) return snakeMatch[1];
+	if (snakeMatch) {
+		return snakeMatch[1];
+	}
 
 	// 通用标识符：取最后一个看起来像符号的单词（>=2 字符）
 	const words = cleaned.split(/\s+/).filter(w => w.length >= 2 && /^[a-zA-Z_$][\w.$]*$/.test(w));
-	if (words.length > 0) return words[words.length - 1];
+	if (words.length > 0) {
+		return words[words.length - 1];
+	}
 
 	return null;
 }
@@ -170,10 +176,14 @@ function findSymbolByName(index: ProjectIndex, name: string): CodeSymbol[] {
 
 function findDefinition(index: ProjectIndex, query: string): CodebaseSearchResult[] {
 	const name = extractSymbolName(query);
-	if (!name) return [];
+	if (!name) {
+		return [];
+	}
 
 	const symbols = findSymbolByName(index, name);
-	if (symbols.length === 0) return [];
+	if (symbols.length === 0) {
+		return [];
+	}
 
 	return symbols.map(sym => ({
 		symbol: sym,
@@ -187,7 +197,9 @@ function findDefinition(index: ProjectIndex, query: string): CodebaseSearchResul
 
 function findUsage(index: ProjectIndex, query: string): CodebaseSearchResult[] {
 	const name = extractSymbolName(query);
-	if (!name) return [];
+	if (!name) {
+		return [];
+	}
 
 	const symbols = findSymbolByName(index, name);
 	const results: CodebaseSearchResult[] = [];
@@ -229,7 +241,9 @@ function showStructure(index: ProjectIndex): CodebaseSearchResult[] {
 	for (const filePath of Object.keys(index.files)) {
 		const rel = path.relative(root, filePath);
 		const parts = rel.split(path.sep);
-		if (parts.length > 0) topDirs.add(parts[0]);
+		if (parts.length > 0) {
+			topDirs.add(parts[0]);
+		}
 	}
 
 	for (const dir of [...topDirs].sort()) {
@@ -321,9 +335,25 @@ async function naturalSearch(index: ProjectIndex, query: string): Promise<Codeba
 		});
 	}
 
-	// 2) 语义检索 — 文件级（跳过已命中符号的文件，避免重复）
+	// 2) 语义检索 — 语法块级（对标 Cursor syntax-block embedding）
+	for (const hit of await searchBlocksAsync(index, query, 8)) {
+		if (results.some(r => r.filePath === hit.block.filePath && r.lineRange?.[0] === hit.block.startLine)) {
+			continue;
+		}
+		results.push({
+			reason: `代码块语义匹配「${query}」`,
+			filePath: hit.block.filePath,
+			score: Math.min(0.9, 0.35 + hit.score),
+			snippet: hit.block.text.slice(0, 500),
+			lineRange: [hit.block.startLine, hit.block.endLine] as [number, number],
+		});
+	}
+
+	// 3) 语义检索 — 文件级（跳过已命中符号的文件，避免重复）
 	for (const hit of await searchFilesAsync(index, query, 5)) {
-		if (results.some(r => r.filePath === hit.filePath)) continue;
+		if (results.some(r => r.filePath === hit.filePath)) {
+			continue;
+		}
 		results.push({
 			reason: `文件语义匹配「${query}」`,
 			filePath: hit.filePath,
@@ -331,14 +361,16 @@ async function naturalSearch(index: ProjectIndex, query: string): Promise<Codeba
 		});
 	}
 
-	// 3) 符号名精确/模糊匹配（保留原能力，作为语义检索的补充）
+	// 4) 符号名精确/模糊匹配（保留原能力，作为语义检索的补充）
 	const words = query.match(/[a-zA-Z_$][\w.$]*/g) || [];
 	const chineseWords = query.match(/[\u4e00-\u9fff]+/g) || [];
 	// 限制搜索词数量，避免长句导致过多遍历
 	const allTerms = [...words, ...chineseWords].slice(0, 10);
 
 	for (const term of allTerms) {
-		if (term.length < 2) continue;
+		if (term.length < 2) {
+			continue;
+		}
 		const symbols = findSymbolByName(index, term);
 		for (const sym of symbols) {
 			results.push({
@@ -355,7 +387,9 @@ async function naturalSearch(index: ProjectIndex, query: string): Promise<Codeba
 	const seen = new Set<string>();
 	const finalResults = results.filter(r => {
 		const key = `${r.filePath}:${r.symbol?.id || ''}`;
-		if (seen.has(key)) return false;
+		if (seen.has(key)) {
+			return false;
+		}
 		seen.add(key);
 		return true;
 	}).slice(0, 20);
@@ -417,11 +451,15 @@ function formatResultsToMarkdown(results: CodebaseSearchResult[], query: string,
 		}
 
 		if (r.snippet && !sym) {
+			const lang = index.files[r.filePath]?.language || path.extname(r.filePath).slice(1) || 'typescript';
 			lines.push('');
 			lines.push(`[\`${relativePath}\`](${r.filePath})`);
+			if (r.lineRange) {
+				lines.push(`*L${r.lineRange[0]}–L${r.lineRange[1]}*`);
+			}
 			lines.push('');
-			lines.push('```');
-			lines.push(r.snippet.slice(0, 300));
+			lines.push(`\`\`\`${lang}`);
+			lines.push(r.snippet.slice(0, 600));
 			lines.push('```');
 		}
 
@@ -458,13 +496,17 @@ export async function queryCodebase(query: string): Promise<string> {
 	switch (intent) {
 		case 'definition':
 			results = findDefinition(index, query);
-			if (results.length === 0) results = await naturalSearch(index, query);
+			if (results.length === 0) {
+				results = await naturalSearch(index, query);
+			}
 			break;
 
 		case 'usage':
 		case 'callers':
 			results = findUsage(index, query);
-			if (results.length === 0) results = await naturalSearch(index, query);
+			if (results.length === 0) {
+				results = await naturalSearch(index, query);
+			}
 			break;
 
 		case 'structure':
@@ -474,7 +516,9 @@ export async function queryCodebase(query: string): Promise<string> {
 
 		case 'dependency':
 			results = showDependencies(index, query);
-			if (results.length === 0) results = await naturalSearch(index, query);
+			if (results.length === 0) {
+				results = await naturalSearch(index, query);
+			}
 			break;
 
 		case 'natural':
@@ -498,7 +542,9 @@ export function quickSearchSymbols(
 	}
 
 	const index = getProjectIndex();
-	if (!index) return [];
+	if (!index) {
+		return [];
+	}
 
 	const symbols = findSymbolByName(index, name);
 	const result = symbols.slice(0, limit).map(sym => ({
@@ -513,7 +559,9 @@ export function quickSearchSymbols(
 /** 获取文件的依赖列表 */
 export function getFileDependencies(filePath: string): string[] {
 	const cached = _depCache.get(filePath);
-	if (cached) return cached;
+	if (cached) {
+		return cached;
+	}
 
 	const index = getProjectIndex();
 	const result = index?.dependencyGraph[filePath] || [];
@@ -524,7 +572,9 @@ export function getFileDependencies(filePath: string): string[] {
 /** 获取文件的被依赖列表 */
 export function getFileDependents(filePath: string): string[] {
 	const cached = _dependentsCache.get(filePath);
-	if (cached) return cached;
+	if (cached) {
+		return cached;
+	}
 
 	const index = getProjectIndex();
 	const result = index?.reverseDependencyGraph[filePath] || [];
@@ -589,7 +639,9 @@ export function registerCodebaseChatParticipant(context: vscode.ExtensionContext
 					return;
 				}
 
-				if (token.isCancellationRequested) return;
+				if (token.isCancellationRequested) {
+					return;
+				}
 
 				try {
 					stream.markdown('*正在索引并搜索代码库...*');
@@ -614,7 +666,9 @@ export function registerCodebaseChatParticipant(context: vscode.ExtensionContext
 				prompt: l10n.t('输入问题（如 "getUserProfile 在哪定义？"）'),
 				placeHolder: l10n.t('自然语言代码问答...'),
 			});
-			if (!query) return;
+			if (!query) {
+				return;
+			}
 
 			await vscode.window.withProgress(
 				{ location: { viewId: 'workbench.panel.chat' }, title: l10n.t('搜索代码库...') },

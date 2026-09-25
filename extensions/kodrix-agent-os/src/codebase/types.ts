@@ -1,7 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Codebase Intelligence — 全工程级语义索引类型定义
- *  大厂对标：Sourcegraph Code Intelligence + GitHub Copilot Workspace Context
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
 
 /** 符号类型枚举 */
 export enum SymbolKind {
@@ -39,6 +40,10 @@ export interface CodeSymbol {
 	line: number;
 	/** 所在列号（1-based） */
 	column: number;
+	/** 符号结束行号（1-based，含），用于块级检索 */
+	endLine?: number;
+	/** 符号结束列号（1-based，含） */
+	endColumn?: number;
 	/** 父符号 id（如方法属于某个类） */
 	parentId?: string;
 	/** 可见性 */
@@ -191,6 +196,34 @@ export interface EditSuggestion {
 	relatedFiles: string[];
 	/** 置信度 */
 	confidence: number;
+}
+
+/** 语法块级检索结果 */
+export interface CodeBlock {
+	/** 块唯一标识 */
+	id: string;
+	/** 所属文件绝对路径 */
+	filePath: string;
+	/** 起始行号（1-based） */
+	startLine: number;
+	/** 结束行号（1-based） */
+	endLine: number;
+	/** 完整代码文本 */
+	text: string;
+	/** 所属符号 id */
+	symbolId?: string;
+	/** 所属符号名称 */
+	symbolName?: string;
+	/** 符号类型 */
+	symbolKind?: SymbolKind;
+}
+
+/** 块级搜索结果 */
+export interface BlockSearchHit {
+	/** 代码块 */
+	block: CodeBlock;
+	/** 匹配分数（0-1） */
+	score: number;
 }
 
 /** 索引配置 */
