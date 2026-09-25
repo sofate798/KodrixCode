@@ -5,5 +5,4 @@ scope:
     - resources/
 source_files: []
 depends_on: []
-related_to:
-    - path: remote_runtime
+related_to: []

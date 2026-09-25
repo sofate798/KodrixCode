@@ -3,9 +3,11 @@
 <cite>
 **本文引用的文件**   
 - [learningEngine.ts](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts)
-- [learningRetrieval.ts](file://extensions/kodrix-agent-os/src/learning/learningRetrieval.ts)
 - [semanticMemory.ts](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts)
+- [learningRetrieval.ts](file://extensions/kodrix-agent-os/src/learning/learningRetrieval.ts)
 - [sessionIndex.ts](file://extensions/kodrix-agent-os/src/learning/sessionIndex.ts)
+- [paths.ts](file://extensions/kodrix-agent-os/src/paths.ts)
+- [learning-dashboard.html](file://extensions/kodrix-agent-os/resources/learning-dashboard.html)
 - [contextIntelligence.ts](file://extensions/kodrix-agent-os/src/context/contextIntelligence.ts)
 - [ideaFlow.ts](file://extensions/kodrix-agent-os/src/experience/ideaFlow.ts)
 - [projectMemory.ts](file://extensions/kodrix-agent-os/src/memory/projectMemory.ts)
@@ -14,6 +16,13 @@
 - [repoWiki.ts](file://extensions/kodrix-agent-os/src/wiki/repoWiki.ts)
 - [项目非常有必要新实现的核心功能总报告.md](file://docs/项目非常有必要新实现的核心功能总报告.md)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 学习引擎采用 async/await 模式提升性能，避免阻塞主线程
+- 语义索引操作改为异步执行，防止影响用户体验
+- 学习仪表板新增编辑和删除功能，支持交互式知识管理
+- 优化了索引重建和缓存机制，提升整体性能
 
 ## 目录
 1. [引言](#引言)
@@ -30,7 +39,7 @@
 12. [结论](#结论)
 
 ## 引言
-Learning Engine 是 Kodrix 的“越用越聪明”学习系统，负责沉淀项目知识、自动分类、语义检索、权重衰减、指令同步以及学习仪表盘展示。它通过记录学习条目、构建本地向量索引、结合时间衰减进行相似检索，并将近期学习结果注入 Agent 指令，从而让后续对话和代码生成更贴合项目上下文。
+Learning Engine 是 Kodrix 的"越用越聪明"学习系统，负责沉淀项目知识、自动分类、语义检索、权重衰减、指令同步以及学习仪表盘展示。它通过记录学习条目、构建本地向量索引、结合时间衰减进行相似检索，并将近期学习结果注入 Agent 指令，从而让后续对话和代码生成更贴合项目上下文。
 
 根据仓库中的规划文档，Learning Engine 当前已闭环 TF-IDF 本地向量、余弦检索、时间衰减、自动分类、学习仪表盘与 Instructions 同步；下一步目标是升级为真实 embeddings 并增强交互式仪表盘能力。
 
@@ -58,15 +67,15 @@ RW["repoWiki.ts"] --> LE
 ```
 
 **图表来源**
-- [learningEngine.ts:1-360](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L1-L360)
+- [learningEngine.ts:1-432](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L1-L432)
 - [learningRetrieval.ts:1-31](file://extensions/kodrix-agent-os/src/learning/learningRetrieval.ts#L1-L31)
-- [semanticMemory.ts:1-272](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L1-L272)
+- [semanticMemory.ts:1-379](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L1-L379)
 - [sessionIndex.ts:1-63](file://extensions/kodrix-agent-os/src/learning/sessionIndex.ts#L1-L63)
 
 **章节来源**
-- [learningEngine.ts:1-360](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L1-L360)
+- [learningEngine.ts:1-432](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L1-L432)
 - [learningRetrieval.ts:1-31](file://extensions/kodrix-agent-os/src/learning/learningRetrieval.ts#L1-L31)
-- [semanticMemory.ts:1-272](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L1-L272)
+- [semanticMemory.ts:1-379](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L1-L379)
 - [sessionIndex.ts:1-63](file://extensions/kodrix-agent-os/src/learning/sessionIndex.ts#L1-L63)
 
 ## 核心组件
@@ -79,7 +88,7 @@ RW["repoWiki.ts"] --> LE
 - 仪表盘：Webview 面板，展示学习条目、统计、本周新增、Memory 计数、语义向量数等。
 
 **章节来源**
-- [learningEngine.ts:27-39](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L27-L39)
+- [learningEngine.ts:27-36](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L27-L36)
 - [learningEngine.ts:66-96](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L66-L96)
 - [semanticMemory.ts:24-34](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L24-L34)
 - [sessionIndex.ts:11-22](file://extensions/kodrix-agent-os/src/learning/sessionIndex.ts#L11-L22)
@@ -87,7 +96,7 @@ RW["repoWiki.ts"] --> LE
 ## 架构总览
 Learning Engine 的整体数据流如下：
 - 外部调用 recordLearning 写入学习日志。
-- 同时构建语义向量索引。
+- 同时构建语义向量索引（异步）。
 - 限流同步 Instructions 文件，将近期学习注入 Agent 指令。
 - 仪表盘读取日志、语义统计与会话统计，渲染可视化面板。
 - 语义检索使用 TF-IDF 向量与时间衰减计算综合得分。
@@ -102,7 +111,7 @@ participant Instr as "syncProjectInstructionsFile"
 participant Panel as "showLearningDashboard"
 Caller->>LE : recordLearning(content, options)
 LE->>Log : appendLearningLog(entry)
-LE->>SM : indexLearningEntry(entry)
+LE->>SM : indexLearningEntry(entry) (异步)
 LE->>Instr : scheduleSyncInstructions()
 Panel->>Panel : pushLearningDashboard()
 Panel-->>Caller : 仪表盘数据(entries, stats)
@@ -112,12 +121,12 @@ Panel-->>Caller : 仪表盘数据(entries, stats)
 - [learningEngine.ts:98-126](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L98-L126)
 - [learningEngine.ts:128-157](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L128-L157)
 - [learningEngine.ts:234-337](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L234-L337)
-- [semanticMemory.ts:132-141](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L132-L141)
+- [semanticMemory.ts:183-212](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L183-L212)
 
 **章节来源**
-- [learningEngine.ts:98-157](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L98-L157)
+- [learningEngine.ts:98-126](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L98-L126)
 - [learningEngine.ts:234-337](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L234-L337)
-- [semanticMemory.ts:132-141](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L132-L141)
+- [semanticMemory.ts:183-212](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L183-L212)
 
 ## 关键流程与算法详解
 
@@ -127,9 +136,11 @@ recordLearning 是学习引擎的主入口，负责：
 - 生成唯一 id 与时间戳。
 - 若未指定 category，则调用 inferLearningCategory 智能分类。
 - 追加学习日志。
-- 构建语义向量索引。
+- 构建语义向量索引（异步，不阻塞写入）。
 - 限流同步 Instructions 文件。
 - 通知上下文变更并发布事件。
+
+**更新** 现在使用 `void indexLearningEntry(entry)` 异步调用，避免阻塞主线程，提升响应性能。
 
 ```mermaid
 flowchart TD
@@ -141,7 +152,7 @@ InferCat --> |否| Infer["inferLearningCategory(content)"]
 InferCat --> |是| UseProvided["使用传入 category"]
 Infer --> AppendLog["appendLearningLog(entry)"]
 UseProvided --> AppendLog
-AppendLog --> IndexVec["indexLearningEntry(entry)"]
+AppendLog --> IndexVec["indexLearningEntry(entry) (异步)"]
 IndexVec --> ScheduleSync["scheduleSyncInstructions()"]
 ScheduleSync --> NotifyCtx["notifyContextChanged()"]
 NotifyCtx --> EmitEvent["emitKodrixEvent('learning.recorded')"]
@@ -199,16 +210,18 @@ Sort --> TopK["取前 K 条"]
 ```
 
 **图表来源**
-- [semanticMemory.ts:152-186](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L152-L186)
+- [semanticMemory.ts:225-275](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L225-L275)
 
 **章节来源**
-- [semanticMemory.ts:152-186](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L152-L186)
+- [semanticMemory.ts:225-275](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L225-L275)
 
 ## 学习仪表盘与可视化
 学习仪表盘通过 Webview 面板展示：
 - 学习条目列表（entries）。
 - 统计信息：totalEntries、sessionProcessed、semanticVectors、thisWeek、memoryCount。
-- 交互命令：ready、refresh、capture。
+- 交互命令：ready、refresh、capture、edit、delete。
+
+**更新** 新增了编辑和删除功能，用户可以直接在仪表盘中修改或删除学习条目。
 
 仪表盘数据来源：
 - readLearningLog：读取学习日志。
@@ -228,7 +241,7 @@ participant Sem as "getSemanticStats"
 participant Sess as "getSessionLearningStats"
 participant Mem as "readMemoryContent"
 User->>Panel : 打开仪表盘
-Panel->>LE : postMessage('ready' | 'refresh')
+Panel->>LE : postMessage('ready' | 'refresh' | 'edit' | 'delete')
 LE->>Log : 读取学习条目
 LE->>Stats : 获取统计
 LE->>Sem : 获取语义统计
@@ -239,9 +252,41 @@ LE-->>Panel : postMessage({type : 'dashboard', entries, stats})
 
 **图表来源**
 - [learningEngine.ts:234-337](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L234-L337)
+- [learning-dashboard.html:394-614](file://extensions/kodrix-agent-os/resources/learning-dashboard.html#L394-L614)
 
 **章节来源**
 - [learningEngine.ts:234-337](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L234-L337)
+- [learning-dashboard.html:394-614](file://extensions/kodrix-agent-os/resources/learning-dashboard.html#L394-L614)
+
+### 仪表盘编辑和删除功能
+**新增功能** 学习仪表表现在支持交互式编辑和删除学习条目：
+
+- **编辑功能**：用户可以点击编辑按钮，直接修改学习条目的内容，保存后会自动重建索引并同步到 Instructions。
+- **删除功能**：用户可以确认删除特定的学习条目，删除后会清理相关索引并刷新显示。
+- **实时反馈**：所有操作都会立即反映在界面上，并提供相应的日志记录。
+
+```mermaid
+flowchart TD
+EditClick["点击编辑按钮"] --> EditMode["进入编辑模式<br/>显示文本框"]
+DeleteClick["点击删除按钮"] --> Confirm["确认删除对话框"]
+EditMode --> SaveEdit["保存编辑"]
+Confirm --> DeleteEntry["删除条目"]
+SaveEdit --> UpdateLog["更新学习日志"]
+DeleteEntry --> UpdateLog
+UpdateLog --> RebuildIndex["重建索引"]
+RebuildIndex --> RefreshUI["刷新界面"]
+RefreshUI --> Complete["完成操作"]
+```
+
+**图表来源**
+- [learningEngine.ts:286-291](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L286-L291)
+- [learningEngine.ts:348-410](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L348-L410)
+- [learning-dashboard.html:492-559](file://extensions/kodrix-agent-os/resources/learning-dashboard.html#L492-L559)
+
+**章节来源**
+- [learningEngine.ts:286-291](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L286-L291)
+- [learningEngine.ts:348-410](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L348-L410)
+- [learning-dashboard.html:492-559](file://extensions/kodrix-agent-os/resources/learning-dashboard.html#L492-L559)
 
 ## 数据存储结构与索引优化
 - 学习日志：JSON Lines 格式，每行一个 LearningEntry。
@@ -250,6 +295,8 @@ LE-->>Panel : postMessage({type : 'dashboard', entries, stats})
 - 缓存机制：语义记忆模块维护 EntryCache，基于 mtime 失效，避免重复读盘。
 - 原子写入：atomicWriteFileSync 保证写入安全。
 - 索引清理：saveIndex 会清理不在学习日志中的旧条目。
+
+**更新** 现在所有索引操作都采用异步模式，避免阻塞主线程，提升整体性能。
 
 ```mermaid
 erDiagram
@@ -327,6 +374,8 @@ RW["repoWiki.ts"] --> LE
 - 原子写入 atomicWriteFileSync 保证数据安全。
 - 索引重建 rebuildIndex 批量处理所有学习条目。
 - 仪表盘延迟初始化，避免阻塞扩展启动。
+- **更新** 采用 async/await 模式，所有耗时操作都异步执行，不阻塞主线程。
+- **更新** 语义索引操作改为异步，使用 `void indexLearningEntry(entry)` 避免等待。
 - 未来可替换为真实 embeddings（本地 transformer 或 Copilot embeddings API），提升语义理解精度。
 
 **章节来源**
@@ -334,6 +383,7 @@ RW["repoWiki.ts"] --> LE
 - [semanticMemory.ts:87-128](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L87-L128)
 - [semanticMemory.ts:215-236](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L215-L236)
 - [learningEngine.ts:340-359](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L340-L359)
+- [learningEngine.ts:121](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L121)
 - [项目非常有必要新实现的核心功能总报告.md:38-44](file://docs/项目非常有必要新实现的核心功能总报告.md#L38-L44)
 
 ## 高级配置与调优
@@ -349,11 +399,14 @@ RW["repoWiki.ts"] --> LE
 - 仪表盘：
   - 可通过 Webview 消息接口扩展交互命令。
   - 可调整 maxEntries 与 maxChars 控制摘要长度。
+- **更新** 异步配置：
+  - 所有索引操作现在都是异步的，可以通过 Promise 链处理完成状态。
+  - 支持错误处理和超时机制。
 
 **章节来源**
 - [learningEngine.ts:102-103](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L102-L103)
 - [semanticMemory.ts:133-134](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L133-L134)
-- [semanticMemory.ts:152-186](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L152-L186)
+- [semanticMemory.ts:225-275](file://extensions/kodrix-agent-os/src/learning/semanticMemory.ts#L225-L275)
 - [learningRetrieval.ts:12-30](file://extensions/kodrix-agent-os/src/learning/learningRetrieval.ts#L12-L30)
 
 ## 故障排查指南
@@ -365,6 +418,12 @@ RW["repoWiki.ts"] --> LE
   - 解析失败时跳过坏行，保证其他条目正常读取。
 - 功能关闭：
   - recordLearning 返回禁用占位条目，不影响调用方逻辑。
+- **更新** 异步操作问题：
+  - 如果异步索引操作失败，不会影响主流程继续执行。
+  - 错误会被记录到日志中，便于后续排查。
+- **更新** 编辑删除功能问题：
+  - 编辑失败时会保持原内容不变。
+  - 删除操作有确认对话框，防止误删。
 
 **章节来源**
 - [learningEngine.ts:270-277](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L270-L277)
@@ -373,4 +432,11 @@ RW["repoWiki.ts"] --> LE
 - [learningEngine.ts:102-111](file://extensions/kodrix-agent-os/src/learning/learningEngine.ts#L102-L111)
 
 ## 结论
-Learning Engine 通过结构化学习日志、启发式分类、TF-IDF 向量与时间衰减的语义检索，实现了项目知识的自动沉淀与智能检索。其仪表盘提供了直观的可视化能力，帮助开发者监控学习行为与效果。未来升级至真实 embeddings 将进一步增强语义理解精度，而交互式仪表盘将提升用户操作体验。
+Learning Engine 通过结构化学习日志、启发式分类、TF-IDF 向量与时间衰减的语义检索，实现了项目知识的自动沉淀与智能检索。其仪表盘提供了直观的可视化能力，帮助开发者监控学习行为与效果。
+
+**更新亮点**：
+- **性能优化**：全面采用 async/await 模式，所有耗时操作异步执行，显著提升响应性能。
+- **用户体验**：学习仪表板新增编辑和删除功能，支持交互式知识管理。
+- **稳定性提升**：异步操作确保即使索引构建失败也不会影响主流程。
+
+未来升级至真实 embeddings 将进一步增强语义理解精度，而交互式仪表盘将提升用户操作体验。

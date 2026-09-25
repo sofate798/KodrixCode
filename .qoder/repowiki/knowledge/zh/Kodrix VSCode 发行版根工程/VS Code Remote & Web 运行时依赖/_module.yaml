@@ -6,4 +6,4 @@ scope:
 source_files: []
 depends_on: []
 related_to:
-    - path: resources_platform
+    - path: core_runtime/bootstrap_and_entrypoints

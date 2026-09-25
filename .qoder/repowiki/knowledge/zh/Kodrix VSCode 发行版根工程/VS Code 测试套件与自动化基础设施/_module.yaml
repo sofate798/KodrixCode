@@ -5,5 +5,4 @@ scope:
     - test/
 source_files: []
 depends_on: []
-related_to:
-    - path: build_scripts
+related_to: []

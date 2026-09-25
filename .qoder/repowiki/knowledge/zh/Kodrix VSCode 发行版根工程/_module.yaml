@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: Kodrix Code 发行版根工程
+title: Kodrix VSCode 发行版根工程
 scope:
     - README.md
     - LICENSE.txt
