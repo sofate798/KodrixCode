@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: remote_runtime
+title: VS Code Remote & Web 运行时依赖
+scope:
+    - remote/
+source_files: []
+depends_on: []
+related_to:
+    - path: resources_platform

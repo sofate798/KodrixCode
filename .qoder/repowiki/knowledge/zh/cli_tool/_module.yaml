@@ -1,8 +1,0 @@
-schema_version: 1
-module_path: cli_tool
-title: cli_tool
-scope:
-    - cli/
-source_files: []
-depends_on: []
-related_to: []

@@ -1,0 +1,35 @@
+schema_version: 1
+module_path: ""
+title: Kodrix Code 发行版根工程
+scope:
+    - README.md
+    - LICENSE.txt
+    - package.json
+    - package-lock.json
+    - product.json
+    - gulpfile.mjs
+    - eslint.config.js
+    - .npmrc
+    - .editorconfig
+    - .gitignore
+    - .gitattributes
+    - .gitleaks.toml
+    - SECURITY.md
+    - ThirdPartyNotices.txt
+    - AGENTS.md
+    - REPAIR-NOTES.md
+    - Directory.Build.props
+    - debug.bat
+    - debug-rebuild.bat
+    - build.bat
+    - .eslint-allowed-javascript-files
+    - .eslint-ignore
+    - .nvmrc
+    - .vscode-test.js
+    - CODEOWNERS
+    - LICENSE
+    - cglicenses.json
+    - cgmanifest.json
+source_files: []
+depends_on: []
+related_to: []

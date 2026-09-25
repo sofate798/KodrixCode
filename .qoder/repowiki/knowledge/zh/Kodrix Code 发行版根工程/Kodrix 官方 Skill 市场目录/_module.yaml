@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: marketplace_catalog
+title: Kodrix 官方 Skill 市场目录
+scope:
+    - marketplace/
+source_files: []
+depends_on: []
+related_to:
+    - path: extensions

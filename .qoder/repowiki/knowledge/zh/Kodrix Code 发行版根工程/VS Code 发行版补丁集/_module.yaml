@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: patches
+title: VS Code 发行版补丁集
+scope:
+    - patches/
+source_files: []
+depends_on: []
+related_to:
+    - path: build_scripts

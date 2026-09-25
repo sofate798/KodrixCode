@@ -3,30 +3,81 @@ schema_version: 1
 locale: zh-CN
 branch: master
 nodes_managed: true
-exported_at: "2026-09-25T08:37:28Z"
+exported_at: "2026-09-25T09:12:01Z"
 modules:
+    "":
+        dir_name: Kodrix Code 发行版根工程
+        title: Kodrix Code 发行版根工程
+        scope:
+            - README.md
+            - LICENSE.txt
+            - package.json
+            - package-lock.json
+            - product.json
+            - gulpfile.mjs
+            - eslint.config.js
+            - .npmrc
+            - .editorconfig
+            - .gitignore
+            - .gitattributes
+            - .gitleaks.toml
+            - SECURITY.md
+            - ThirdPartyNotices.txt
+            - AGENTS.md
+            - REPAIR-NOTES.md
+            - Directory.Build.props
+            - debug.bat
+            - debug-rebuild.bat
+            - build.bat
+            - .eslint-allowed-javascript-files
+            - .eslint-ignore
+            - .nvmrc
+            - .vscode-test.js
+            - CODEOWNERS
+            - LICENSE
+            - cglicenses.json
+            - cgmanifest.json
+        source_files: []
+        children:
+            - build_scripts
+            - cli_tool
+            - core_runtime
+            - eslint_plugin
+            - extensions
+            - github_config
+            - marketplace_catalog
+            - patches
+            - remote_runtime
+            - resources_platform
+            - tests
+        depends_on: []
+        related_to: []
     build_scripts:
-        dir_name: build_scripts
-        title: build_scripts
+        dir_name: 构建、测试与开发辅助脚本集
+        title: 构建、测试与开发辅助脚本集
         scope:
             - scripts/
             - dev/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: github_config
+            - path: patches
+            - path: tests
     cli_tool:
-        dir_name: cli_tool
-        title: cli_tool
+        dir_name: VS Code CLI 与 Dev Tunnels 客户端
+        title: VS Code CLI 与 Dev Tunnels 客户端
         scope:
             - cli/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: core_runtime/bootstrap_and_entrypoints
     core_runtime:
-        dir_name: core_runtime
-        title: core_runtime
+        dir_name: VSCode 核心运行时（src）
+        title: VSCode 核心运行时（src）
         scope:
             - src/
         source_files: []
@@ -35,8 +86,8 @@ modules:
         depends_on: []
         related_to: []
     core_runtime/bootstrap_and_entrypoints:
-        dir_name: bootstrap_and_entrypoints
-        title: bootstrap_and_entrypoints
+        dir_name: VSCode 运行时引导与进程入口
+        title: VSCode 运行时引导与进程入口
         scope:
             - src/bootstrap-cli.ts
             - src/bootstrap-esm.ts
@@ -52,10 +103,11 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: cli_tool
     eslint_plugin:
-        dir_name: eslint_plugin
-        title: eslint_plugin
+        dir_name: VS Code 自定义 ESLint 规则插件
+        title: VS Code 自定义 ESLint 规则插件
         scope:
             - .eslint-plugin-local/
         source_files: []
@@ -63,65 +115,72 @@ modules:
         depends_on: []
         related_to: []
     extensions:
-        dir_name: extensions
-        title: extensions
+        dir_name: VS Code 内置扩展集合
+        title: VS Code 内置扩展集合
         scope:
             - extensions/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: marketplace_catalog
     github_config:
-        dir_name: github_config
-        title: github_config
+        dir_name: GitHub 仓库配置与 CI_CD 流水线
+        title: GitHub 仓库配置与 CI/CD 流水线
         scope:
             - .github/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: build_scripts
     marketplace_catalog:
-        dir_name: marketplace_catalog
-        title: marketplace_catalog
+        dir_name: Kodrix 官方 Skill 市场目录
+        title: Kodrix 官方 Skill 市场目录
         scope:
             - marketplace/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: extensions
     patches:
-        dir_name: patches
-        title: patches
+        dir_name: VS Code 发行版补丁集
+        title: VS Code 发行版补丁集
         scope:
             - patches/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: build_scripts
     remote_runtime:
-        dir_name: remote_runtime
-        title: remote_runtime
+        dir_name: VS Code Remote & Web 运行时依赖
+        title: VS Code Remote & Web 运行时依赖
         scope:
             - remote/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: resources_platform
     resources_platform:
-        dir_name: resources_platform
-        title: resources_platform
+        dir_name: 跨平台资源与打包模板
+        title: 跨平台资源与打包模板
         scope:
             - resources/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: remote_runtime
     tests:
-        dir_name: tests
-        title: tests
+        dir_name: VS Code 测试套件与自动化基础设施
+        title: VS Code 测试套件与自动化基础设施
         scope:
             - test/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: build_scripts

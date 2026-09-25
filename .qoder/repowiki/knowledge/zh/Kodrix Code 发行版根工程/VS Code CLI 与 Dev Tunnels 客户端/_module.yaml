@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: cli_tool
+title: VS Code CLI 与 Dev Tunnels 客户端
+scope:
+    - cli/
+source_files: []
+depends_on: []
+related_to:
+    - path: core_runtime/bootstrap_and_entrypoints

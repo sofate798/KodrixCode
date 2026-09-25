@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: eslint_plugin
+title: VS Code 自定义 ESLint 规则插件
+scope:
+    - .eslint-plugin-local/
+source_files: []
+depends_on: []
+related_to: []

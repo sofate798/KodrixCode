@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: build_scripts
-title: build_scripts
-scope:
-    - scripts/
-    - dev/
-source_files: []
-depends_on: []
-related_to: []

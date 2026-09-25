@@ -1,8 +1,0 @@
-schema_version: 1
-module_path: extensions
-title: extensions
-scope:
-    - extensions/
-source_files: []
-depends_on: []
-related_to: []
