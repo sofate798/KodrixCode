@@ -68,9 +68,13 @@ function getHtml(webview: vscode.Webview, extensionPath: string): string {
 		const codiconsCssUri = webview.asWebviewUri(
 			vscode.Uri.file(path.join(resourcesDir, 'codicons', 'codicon.css')),
 		);
+		const logoUri = webview.asWebviewUri(
+			vscode.Uri.file(path.join(resourcesDir, 'kodrix-logo.png')),
+		);
 		return html
 			.replace(/\{\{cspSource\}\}/g, webview.cspSource)
-			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString());
+			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString())
+			.replace(/\{\{logoUri\}\}/g, logoUri.toString());
 	} catch (err) {
 		logger.warn('加载 onboarding HTML 资源失败', err);
 		return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`

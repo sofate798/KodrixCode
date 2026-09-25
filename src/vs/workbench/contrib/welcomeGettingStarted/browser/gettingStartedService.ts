@@ -185,7 +185,10 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 
 			this._registerWalkthrough({
 				...category,
-				icon: { type: 'icon', icon: category.icon },
+				icon: {
+					type: 'image',
+					path: FileAccess.uriToBrowserUri(FileAccess.asFileUri('vs/workbench/contrib/welcomeGettingStarted/common/media/kodrix-logo.png')).toString(true)
+				},
 				order: walkthroughs.length - index,
 				source: BUILT_IN_SOURCE,
 				when: ContextKeyExpr.deserialize(category.when) ?? ContextKeyExpr.true(),

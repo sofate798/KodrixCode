@@ -3,12 +3,12 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}};">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<title>Welcome to Kodrix</title>
 	<style>
 		.codicon { vertical-align: -0.15em; }
-		.logo .codicon { font-size: 48px; color: var(--accent, #3994BC); }
+		.logo img { width: 56px; height: 56px; border-radius: 12px; }
 		.ei-icon .codicon { font-size: 18px; }
 		.qc-icon .codicon { font-size: 34px; }
 		h3 .codicon { margin-right: 6px; }
@@ -391,7 +391,7 @@
 </head>
 <body>
 <div class="container">
-	<div class="logo"><i class="codicon codicon-robot" aria-hidden="true"></i></div>
+	<div class="logo"><img src="{{logoUri}}" alt="Kodrix" width="56" height="56" /></div>
 	<h1>Welcome to Kodrix</h1>
 	<p class="tagline">Agent-First IDE · 本地优先 · 越用越聪明<br>3 步配置，即刻开启 AI 编程新时代</p>
 

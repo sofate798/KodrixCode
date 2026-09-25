@@ -170,6 +170,14 @@
 	align-self: end;
 }
 
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .header .kodrix-logo {
+	display: block;
+	width: 56px;
+	height: 56px;
+	border-radius: 12px;
+	margin-bottom: 10px;
+}
+
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .footer {
 	grid-area: footer;
 	justify-self: center;
@@ -385,8 +393,14 @@
 	right: 8px;
 }
 
-.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .getting-started-category.featured .icon-widget {
-	visibility: hidden;
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories .getting-started-category.featured img.icon-widget {
+	width: 28px;
+	height: 28px;
+	max-width: 28px;
+	max-height: 28px;
+	border-radius: 6px;
+	flex-shrink: 0;
+	top: auto;
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories .getting-started-category img.category-icon {
