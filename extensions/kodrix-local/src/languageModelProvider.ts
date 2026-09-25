@@ -365,24 +365,28 @@ async function readSse(
 	}
 	const decoder = new TextDecoder();
 	let buffer = '';
-	while (!token.isCancellationRequested) {
-		const { done, value } = await reader.read();
-		if (done) {
-			break;
-		}
-		buffer += decoder.decode(value, { stream: true });
-		const lines = buffer.split(/\r?\n/);
-		buffer = lines.pop() ?? '';
-		for (const line of lines) {
-			const trimmed = line.trim();
-			if (!trimmed.startsWith('data:')) {
-				continue;
+	try {
+		while (!token.isCancellationRequested) {
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
 			}
-			const payload = trimmed.slice(5).trim();
-			if (!payload) {
-				continue;
+			buffer += decoder.decode(value, { stream: true });
+			const lines = buffer.split(/\r?\n/);
+			buffer = lines.pop() ?? '';
+			for (const line of lines) {
+				const trimmed = line.trim();
+				if (!trimmed.startsWith('data:')) {
+					continue;
+				}
+				const payload = trimmed.slice(5).trim();
+				if (!payload) {
+					continue;
+				}
+				onData(payload);
 			}
-			onData(payload);
 		}
+	} finally {
+		reader.cancel();
 	}
 }

@@ -23,7 +23,7 @@ interface FontData {
 
 export const getFonts = async (): Promise<string[]> => {
 	try {
-		// @ts-ignore
+		// @ts-expect-error queryLocalFonts is not yet in the TypeScript DOM types
 		const fonts = await mainWindow.queryLocalFonts() as FontData[];
 		const fontsArray = [...fonts];
 		const families = fontsArray.map(font => font.family);

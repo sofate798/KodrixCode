@@ -6,6 +6,10 @@
     "name": "Microsoft Corporation"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=24.17.0",
+    "npm": ">=10.0.0 <12.0.0"
+  },
   "main": "./out/main.js",
   "type": "module",
   "private": true,
@@ -111,7 +115,12 @@
     "@microsoft/dev-tunnels-ssh-tcp": "^3.12.22",
     "@microsoft/mxc-sdk": "0.6.1",
     "@parcel/watcher": "^2.5.6",
-    "@types/semver": "^7.5.8",
+    "_outdatedDependencies": {
+      "husky@^0.13.1": "TODO: outdated (current ^9.x), upgrade requires migrating hook config from package.json scripts to .husky/ directory",
+      "rimraf@^2.2.8": "TODO: outdated (current ^5.x), upgrade requires switching to async API or using rimraf@5 sync wrapper",
+      "glob@^5.0.13": "TODO: outdated (current ^10.x), upgrade requires switching to glob@10 API (no sync, promise-based)",
+      "event-stream@3.3.4": "pinned: supply chain attack history (CVE-2018-16487), intentional freeze at 3.3.4"
+    },
     "@vscode/codicons": "^0.0.46-21",
     "@vscode/copilot-api": "^0.4.2",
     "@vscode/deviceid": "^0.1.1",
@@ -219,6 +228,7 @@
     "eslint-plugin-header": "3.1.1",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsdoc": "^50.3.1",
+    "@types/semver": "^7.5.8",
     "event-stream": "3.3.4",
     "fancy-log": "^1.3.3",
     "glob": "^5.0.13",
@@ -283,10 +293,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/microsoft/vscode.git"
+    "url": ""
   },
   "bugs": {
-    "url": "https://github.com/microsoft/vscode/issues"
+    "url": ""
   },
   "optionalDependencies": {
     "windows-foreground-love": "0.6.1"

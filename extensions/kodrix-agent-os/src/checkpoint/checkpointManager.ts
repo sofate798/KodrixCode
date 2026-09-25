@@ -285,6 +285,7 @@ export function listOperations(limit = 50): CheckpointOperation[] {
 }
 
 /** 自动捕获：文件保存时记录版本（滚动保留 maxEntries 条） */
+let _autoCaptureThrottle: NodeJS.Timeout | null = null;
 export function autoCaptureFileSave(doc: vscode.TextDocument): void {
 	if (!vscode.workspace.getConfiguration(CHECKPOINT_CONFIG)
 		.get<boolean>(CHECKPOINT_CONFIG_KEYS.autoCapture, true)) {
@@ -301,23 +302,32 @@ export function autoCaptureFileSave(doc: vscode.TextDocument): void {
 	if (!root) {
 		return;
 	}
+	// 简单节流：1 秒内只执行一次
+	if (_autoCaptureThrottle) {
+		return;
+	}
+	_autoCaptureThrottle = setTimeout(() => { _autoCaptureThrottle = null; }, 1000);
+	void doAutoCaptureFileSave(doc, rel, root);
+}
+
+async function doAutoCaptureFileSave(doc: vscode.TextDocument, rel: string, root: string): Promise<void> {
 	try {
 		const autoDir = path.join(root, 'auto');
-		fs.mkdirSync(autoDir, { recursive: true });
-		const stat = fs.statSync(doc.uri.fsPath);
+		await fs.promises.mkdir(autoDir, { recursive: true });
+		const stat = await fs.promises.stat(doc.uri.fsPath);
 		if (stat.size > CHECKPOINT_MAX_FILE_BYTES) {
 			return;
 		}
 		const id = new Date().toISOString().replace(/[:.]/g, '-');
 		const entry = { relPath: rel, content: doc.getText(), savedAt: new Date().toISOString() };
-		fs.writeFileSync(path.join(autoDir, `${id}-${rel.replace(/[\\/]/g, '_')}.json`), JSON.stringify(entry), 'utf-8');
+		await fs.promises.writeFile(path.join(autoDir, `${id}-${rel.replace(/[\\/]/g, '_')}.json`), JSON.stringify(entry), 'utf-8');
 
 		// 滚动清理：超过 maxEntries 删除最旧
 		const max = vscode.workspace.getConfiguration(CHECKPOINT_CONFIG)
 			.get<number>(CHECKPOINT_CONFIG_KEYS.maxEntries, CHECKPOINT_DEFAULT_MAX_ENTRIES);
-		const entries = fs.readdirSync(autoDir).sort();
+		const entries = (await fs.promises.readdir(autoDir)).sort();
 		for (const name of entries.slice(0, Math.max(0, entries.length - max))) {
-			fs.unlinkSync(path.join(autoDir, name));
+			await fs.promises.unlink(path.join(autoDir, name));
 		}
 	} catch (err) {
 		logger.error('[Checkpoint] 自动捕获失败', err);

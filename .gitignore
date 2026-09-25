@@ -64,3 +64,8 @@ extensions/copilot/test/simulation/cache/
 # CodeGraph local index (regenerate with 'codegraph init')
 .codegraph/
 
+# AI tool runtime directories
+.qoder/
+.agents/
+.claude/
+

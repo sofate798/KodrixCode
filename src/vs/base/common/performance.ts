@@ -71,7 +71,7 @@ function _define() {
 
 	// Identify browser environment when following property is not present
 	// https://nodejs.org/dist/latest-v16.x/docs/api/perf_hooks.html#performancenodetiming
-	// @ts-ignore
+	// @ts-expect-error performance.nodeTiming is Node.js-specific, not in standard DOM types
 	if (typeof performance === 'object' && typeof performance.mark === 'function' && !performance.nodeTiming) {
 		// in a browser context, reuse performance-util
 

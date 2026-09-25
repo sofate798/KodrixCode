@@ -78,7 +78,9 @@ export class AuthenticationAccessService extends Disposable implements IAuthenti
 			if (trustedExtensionSrc) {
 				trustedExtensions = JSON.parse(trustedExtensionSrc);
 			}
-		} catch (err) { }
+		} catch (err) {
+			console.warn('Failed to parse extension trust list from storage:', err);
+		}
 
 		// Add trusted extensions from product.json if they're not already in the list
 		const trustedExtensionAuthAccess = this._productService.trustedExtensionAuthAccess;

@@ -6,7 +6,7 @@
   "publisher": "kodrix",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.128.0"
   },
   "categories": [
     "Other",
@@ -174,15 +174,11 @@
           "default": "",
           "description": "%config.implementAgentModel.description%"
         },
-        "kodrix.features.tabCompletion": {
-          "type": "boolean",
-          "default": true,
-          "description": "%config.tabCompletion.description%"
-        },
         "kodrix.features.backgroundAgents": {
           "type": "boolean",
           "default": true,
-          "description": "%config.backgroundAgents.description%"
+          "description": "%config.backgroundAgents.description%",
+          "markdownDescription": "Kodrix Local 功能开关（注意：部分功能开关由 Kodrix Agent OS 扩展控制）"
         },
         "kodrix.features.cloudAgents": {
           "type": "boolean",
@@ -279,6 +275,8 @@
     "test": "npm run compile:test && node ./out-test/test/runTests.js"
   },
   "devDependencies": {
-    "@types/node": "24.x"
+    "@types/node": "24.x",
+    "@types/mocha": "^36.2.0",
+    "mocha": "^10.0.0"
   }
 }

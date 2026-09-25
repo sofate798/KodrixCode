@@ -54,7 +54,6 @@ jobs:
         run: |
           npm run compile:test
           npm test
-        continue-on-error: true
 
   security:
     name: Security Scan

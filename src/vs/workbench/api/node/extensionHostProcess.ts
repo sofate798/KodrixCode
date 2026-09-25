@@ -351,7 +351,7 @@ function connectToRenderer(protocol: IMessagePassingProtocol): Promise<IRenderer
 			if (initData.parentPid) {
 				// Kill oneself if one's parent dies. Much drama.
 				let epermErrors = 0;
-				setInterval(function () {
+				const parentWatchdogInterval = setInterval(function () {
 					try {
 						process.kill(initData.parentPid, 0); // throws an exception if the main process doesn't exist anymore.
 						epermErrors = 0;
@@ -369,6 +369,7 @@ function connectToRenderer(protocol: IMessagePassingProtocol): Promise<IRenderer
 						}
 					}
 				}, 1000);
+				process.on('exit', () => clearInterval(parentWatchdogInterval));
 
 				// In certain cases, the event loop can become busy and never yield
 				// e.g. while-true or process.nextTick endless loops

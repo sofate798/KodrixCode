@@ -11,10 +11,10 @@
 	"win32RegValueName": "Kodrix",
 	"win32AppUserModelId": "Kodrix.Kodrix",
 	"win32ShellNameShort": "K&odrix",
-	"win32x64AppId": "{7F4A6B2C-9E1D-4F3A-8C7B-5D2E6A1F4C3B}",
-	"win32x64UserAppId": "{7F4A6B2C-9E1D-4F3A-8C7B-5D2E6A1F4C3B}",
-	"win32arm64AppId": "{8A5B7C3D-0F2E-5A4B-9D8C-6E3F7B2A5D4C}",
-	"win32arm64UserAppId": "{8A5B7C3D-0F2E-5A4B-9D8C-6E3F7B2A5D4C}",
+	"win32x64AppId": "{C6BD8E25-C034-4411-93B9-DF7FB3E4B135}",
+	"win32x64UserAppId": "{E42C9CF4-7F82-4E9C-A8A6-0B8E66026CDA}",
+	"win32arm64AppId": "{A20CA646-8075-4632-B4E4-40C159B38FE7}",
+	"win32arm64UserAppId": "{A20CA646-8075-4632-B4E4-40C159B38FE7}",
 	"win32TunnelMutex": "kodrixtunnel",
 	"win32TunnelServiceMutex": "kodrixtunnelservice",
 	"tunnelApplicationName": "kodrixtunnel",
@@ -57,14 +57,14 @@
 		"resourceUrlTemplate": "https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}",
 		"extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest",
 		"controlUrl": "https://raw.githubusercontent.com/EclipseFdn/publish-extensions/refs/heads/master/extension-control/extensions.json",
-		"nlsBaseUrl": ""
+		"nlsBaseUrl": null
 	},
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org"
 	],
 	"win32VersionedUpdate": false,
 	"serverGreeting": [],
-	"serverLicense": "https://github.com/microsoft/vscode/blob/main/LICENSE.txt",
+	"serverLicense": "LICENSE.txt",
 	"serverLicensePrompt": "",
 	"portable": "kodrix-portable-data",
 	"crashReporter": {

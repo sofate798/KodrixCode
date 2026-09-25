@@ -331,7 +331,11 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 
 			const override = await Promise.race([
 				this.tasExperimentService?.getTreatment<string>(`gettingStarted.overrideCategory.${extension.identifier.value + '.' + walkthrough.id}.when`),
-				new Promise<string | undefined>(resolve => setTimeout(() => resolve(walkthrough.when), 5000))
+				new Promise<string | undefined>(resolve => {
+					const timeoutId = setTimeout(() => resolve(walkthrough.when), 5000);
+					// Ensure timer is cleaned up if the other promise resolves first
+					Promise.resolve(this.tasExperimentService?.getTreatment<string>(`gettingStarted.overrideCategory.${extension.identifier.value + '.' + walkthrough.id}.when`)).finally(() => clearTimeout(timeoutId));
+				})
 			]);
 
 			if (this.sessionInstalledExtensions.has(extension.identifier.value.toLowerCase())
@@ -407,9 +411,13 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 			let isFeatured = false;
 			if (walkthrough.featuredFor) {
 				const folders = this.workspaceContextService.getWorkspace().folders.map(f => f.uri);
-				const token = new CancellationTokenSource();
-				setTimeout(() => token.cancel(), 2000);
-				isFeatured = await this.instantiationService.invokeFunction(a => checkGlobFileExists(a, folders, walkthrough.featuredFor!, token.token));
+				const tokenSource = new CancellationTokenSource();
+				try {
+					setTimeout(() => tokenSource.cancel(), 2000);
+					isFeatured = await this.instantiationService.invokeFunction(a => checkGlobFileExists(a, folders, walkthrough.featuredFor!, tokenSource.token));
+				} finally {
+					tokenSource.dispose();
+				}
 			}
 
 			const iconStr = walkthrough.icon ?? extension.icon;

@@ -6,7 +6,7 @@
 	"publisher": "kodrix",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.90.0"
+		"vscode": "^1.128.0"
 	},
 	"categories": [
 		"Other",
@@ -862,8 +862,8 @@
 					"markdownDescription": "%config.tabCompletion.fimEndpoint.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimApiKey": {
-					"type": "string",
-					"default": "",
+					"type": "null",
+					"deprecationMessage": "API Key 已迁移至安全存储（SecretStorage），请通过 Kodrix 设置页 FIM 配置区域输入。",
 					"markdownDescription": "%config.tabCompletion.fimApiKey.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimModel": {
@@ -877,8 +877,8 @@
 					"markdownDescription": "%config.semanticEmbedding.enabled.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.apiKey": {
-					"type": "string",
-					"default": "",
+					"type": "null",
+					"deprecationMessage": "API Key 已迁移至安全存储（SecretStorage），请通过 Kodrix 设置页 Embedding 配置区域输入。",
 					"markdownDescription": "%config.semanticEmbedding.apiKey.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.endpoint": {
@@ -906,6 +906,8 @@
 		"test": "npm run compile:test && node ./out-test/test/runTests.js"
 	},
 	"devDependencies": {
-		"@types/node": "24.x"
+		"@types/node": "24.x",
+		"@types/mocha": "^36.2.0",
+		"mocha": "^10.0.0"
 	}
 }

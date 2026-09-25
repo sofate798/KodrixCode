@@ -4,13 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
-import * as https from 'https';
-import * as http from 'http';
 import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
-import { pipeline } from 'stream/promises';
-import { createWriteStream } from 'fs';
 import * as vscode from 'vscode';
 
 const _diag = vscode.window.createOutputChannel('Kodrix Skills', { log: true });
@@ -53,15 +49,20 @@ function validateNoPathTraversal(extractDir: string): void {
 }
 
 /**
- * Extract a zip file using platform-native tools with spawn + argument arrays.
- * No shell string interpolation — prevents command injection even with unusual paths.
+ * Extract a zip file using platform-native tools.
+ * Security: paths are passed as positional arguments (never interpolated into
+ * the command string), eliminating shell / PowerShell injection entirely.
  */
 function extractZip(zipPath: string, destDir: string): void {
 	if (process.platform === 'win32') {
+		// Paths are passed as separate arguments and referenced positionally ($args[0], $args[1])
+		// inside the PowerShell script body — never embedded in the -Command string.
 		const result = spawnSync('powershell', [
 			'-NoProfile',
 			'-Command',
-			`Expand-Archive -Path '${zipPath.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`,
+			'Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force',
+			zipPath,
+			destDir,
 		], { stdio: 'pipe', timeout: 60000 });
 		if (result.status !== 0) {
 			const stderr = result.stderr?.toString() || '';
@@ -323,116 +324,102 @@ function parseGithubRepo(ref: string): string | undefined {
 	return `${m[1]}/${m[2].replace(/\.git$/, '')}`;
 }
 
+/** Trusted domains for redirect following */
+const TRUSTED_DOMAINS_RE = /^(https?:\/\/)?(raw\.githubusercontent\.com|github\.com|api\.github\.com)/i;
+
 /**
  * Fetch text content from URL with redirect limit (MAX_REDIRECTS) and size cap (MAX_TEXT_FETCH_BYTES).
  * Blocks redirects to untrusted domains.
  */
-function fetchText(url: string, _depth = 0, extraHeaders?: Record<string, string>): Promise<string> {
+async function fetchText(url: string, _depth = 0, extraHeaders?: Record<string, string>): Promise<string> {
 	if (_depth > MAX_REDIRECTS) {
-		return Promise.reject(new Error(`Too many redirects (>${MAX_REDIRECTS}): ${url}`));
+		throw new Error(`Too many redirects (>${MAX_REDIRECTS}): ${url}`);
 	}
-	return new Promise((resolve, reject) => {
-		const lib = url.startsWith('https') ? https : http;
-		const req = lib.get(url, {
-			headers: {
-				'User-Agent': 'Kodrix-Skills/1.0',
-				...extraHeaders,
-			},
-		}, res => {
-			if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-				const redirectUrl = new URL(res.headers.location, url);
-				if (!/^(https?:\/\/)?(raw\.githubusercontent\.com|github\.com|api\.github\.com)/i.test(redirectUrl.href)) {
-					reject(new Error(`Redirect to untrusted domain blocked: ${redirectUrl.hostname}`));
-					return;
-				}
-				res.resume(); // drain response body
-				fetchText(redirectUrl.href, _depth + 1, extraHeaders).then(resolve, reject);
-				return;
-			}
-			if (res.statusCode && res.statusCode >= 400) {
-				res.resume();
-				reject(new Error(`HTTP ${res.statusCode}: ${url}`));
-				return;
-			}
-			const chunks: Buffer[] = [];
-			let totalSize = 0;
-			res.on('data', (c: Buffer) => {
-				totalSize += c.length;
-				if (totalSize > MAX_TEXT_FETCH_BYTES) {
-					res.destroy();
-					reject(new Error(`SKILL.md content exceeds ${MAX_TEXT_FETCH_BYTES / (1024 * 1024)}MB limit`));
-					return;
-				}
-				chunks.push(c);
-			});
-			res.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-			res.on('error', reject);
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+	try {
+		const response = await fetch(url, {
+			headers: { 'User-Agent': 'Kodrix-Skills/1.0', ...extraHeaders },
+			signal: controller.signal,
+			redirect: 'manual',
 		});
-		req.on('error', reject);
-		req.setTimeout(HTTP_TIMEOUT_MS, () => {
-			req.destroy();
-			reject(new Error(`请求超时：${url}`));
-		});
-	});
+		if (response.status >= 300 && response.status < 400) {
+			const location = response.headers.get('location');
+			if (!location) {
+				throw new Error(`Redirect without location header: ${url}`);
+			}
+			const redirectUrl = new URL(location, url);
+			if (!TRUSTED_DOMAINS_RE.test(redirectUrl.href)) {
+				throw new Error(`Redirect to untrusted domain blocked: ${redirectUrl.hostname}`);
+			}
+			return fetchText(redirectUrl.href, _depth + 1, extraHeaders);
+		}
+		if (response.status >= 400) {
+			throw new Error(`HTTP ${response.status}: ${url}`);
+		}
+		const buffer = Buffer.from(await response.arrayBuffer());
+		if (buffer.length > MAX_TEXT_FETCH_BYTES) {
+			throw new Error(`SKILL.md content exceeds ${MAX_TEXT_FETCH_BYTES / (1024 * 1024)}MB limit`);
+		}
+		return buffer.toString('utf-8');
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 async function downloadFile(url: string, dest: string, _depth = 0): Promise<void> {
 	if (_depth > MAX_REDIRECTS) {
 		throw new Error(`Too many redirects (>${MAX_REDIRECTS}): ${url}`);
 	}
-	return new Promise((resolve, reject) => {
-		const lib = url.startsWith('https') ? https : http;
-		const file = createWriteStream(dest);
-		let size = 0;
-		const req = lib.get(url, {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+	try {
+		const response = await fetch(url, {
 			headers: { 'User-Agent': 'Kodrix-Skills/1.0' },
-		}, res => {
-			if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-				const redirectUrl = new URL(res.headers.location, url);
-				if (!/^(https?:\/\/)?(raw\.githubusercontent\.com|github\.com|api\.github\.com)/i.test(redirectUrl.href)) {
-					file.close();
-					fs.rmSync(dest, { force: true });
-					reject(new Error(`Redirect to untrusted domain blocked: ${redirectUrl.hostname}`));
-					return;
-				}
-				file.close();
-				fs.rmSync(dest, { force: true });
-				downloadFile(redirectUrl.href, dest, _depth + 1).then(resolve, reject);
-				return;
+			signal: controller.signal,
+			redirect: 'manual',
+		});
+		if (response.status >= 300 && response.status < 400) {
+			const location = response.headers.get('location');
+			if (!location) {
+				throw new Error(`Redirect without location header: ${url}`);
 			}
-			if (res.statusCode && res.statusCode >= 400) {
-				file.close();
-				fs.rmSync(dest, { force: true });
-				reject(new Error(`HTTP ${res.statusCode}: ${url}`));
-				return;
+			const redirectUrl = new URL(location, url);
+			if (!TRUSTED_DOMAINS_RE.test(redirectUrl.href)) {
+				throw new Error(`Redirect to untrusted domain blocked: ${redirectUrl.hostname}`);
 			}
-			res.on('data', (chunk: Buffer) => {
-				size += chunk.length;
-				if (size > MAX_DOWNLOAD_BYTES) {
-					res.destroy();
-					file.close();
-					fs.rmSync(dest, { force: true });
-					reject(new Error('下载文件过大'));
-				}
-			});
-			void pipeline(res, file).then(resolve, (err: Error) => {
-				file.close();
-				fs.rmSync(dest, { force: true });
-				reject(err);
-			});
-		});
-		req.on('error', (err: Error) => {
-			file.close();
-			fs.rmSync(dest, { force: true });
-			reject(err);
-		});
-		req.setTimeout(HTTP_TIMEOUT_MS, () => {
-			req.destroy();
-			file.close();
-			fs.rmSync(dest, { force: true });
-			reject(new Error(`下载超时：${url}`));
-		});
-	});
+			return downloadFile(redirectUrl.href, dest, _depth + 1);
+		}
+		if (response.status >= 400) {
+			throw new Error(`HTTP ${response.status}: ${url}`);
+		}
+		const contentLength = Number(response.headers.get('content-length'));
+		if (contentLength > MAX_DOWNLOAD_BYTES) {
+			throw new Error('下载文件过大');
+		}
+		if (!response.body) {
+			throw new Error('Response body is null');
+		}
+		const reader = response.body.getReader();
+		const chunks: Uint8Array[] = [];
+		let size = 0;
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
+			}
+			size += value.length;
+			if (size > MAX_DOWNLOAD_BYTES) {
+				await reader.cancel();
+				try { fs.unlinkSync(dest); } catch { /* ignore ENOENT */ }
+				throw new Error('下载文件过大');
+			}
+			chunks.push(value);
+		}
+		fs.writeFileSync(dest, Buffer.concat(chunks));
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 export function loadCatalog(extensionPath: string): { items: CatalogItem[] } {

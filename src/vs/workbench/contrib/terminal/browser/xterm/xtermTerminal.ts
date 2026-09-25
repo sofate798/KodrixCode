@@ -874,12 +874,6 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 			// WebGL renderer cell dimensions differ from the DOM renderer, make sure the terminal
 			// gets resized after the webgl addon is loaded
 			this._onDidRequestRefreshDimensions.fire();
-			// Uncomment to add the texture atlas to the DOM
-			// setTimeout(() => {
-			// 	if (this._webglAddon?.textureAtlas) {
-			// 		document.body.appendChild(this._webglAddon?.textureAtlas);
-			// 	}
-			// }, 5000);
 		} catch (e) {
 			this._logService.warn(`Webgl could not be loaded. Falling back to the DOM renderer`, e);
 			XtermTerminal._suggestedRendererType = 'dom';

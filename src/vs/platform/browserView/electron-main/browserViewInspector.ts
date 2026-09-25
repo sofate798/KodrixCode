@@ -154,7 +154,7 @@ export class BrowserViewInspector extends Disposable {
 		}));
 
 		// Attach the main debugger session and watch it for contexts
-		this.browser.debugger.attach().then(conn => this._watchSession(conn)).catch(() => { });
+		this.browser.debugger.attach().then(conn => this._watchSession(conn)).catch(e => console.warn('CDP debugger attach failed:', e));
 	}
 
 	/**
@@ -214,8 +214,8 @@ export class BrowserViewInspector extends Disposable {
 		});
 
 		// Enable Runtime + Page to start receiving context and frame events
-		session.sendCommand('Runtime.enable').catch(() => { });
-		session.sendCommand('Page.enable').catch(() => { });
+		session.sendCommand('Runtime.enable').catch(e => console.warn('CDP Runtime.enable failed:', e));
+		session.sendCommand('Page.enable').catch(e => console.warn('CDP Page.enable failed:', e));
 	}
 
 	/**
@@ -241,7 +241,7 @@ export class BrowserViewInspector extends Disposable {
 
 		// If element selection is currently active, start it on the new frame
 		if (this._activeSelection.value) {
-			inspector.startInspection().catch(() => { });
+			inspector.startInspection().catch(e => console.warn('CDP startInspection failed:', e));
 		}
 
 		inspector.setTheme(this._theme);
@@ -282,7 +282,7 @@ export class BrowserViewInspector extends Disposable {
 					this._elementSelectionActive = false;
 					this._onDidChangeElementSelectionActive.fire(false);
 					this._activeSelection.clearAndLeak();
-					void stop().catch(() => { });
+					void stop().catch(e => console.warn('CDP stopInspection failed:', e));
 				}
 			}
 		};

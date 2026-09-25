@@ -142,6 +142,7 @@ class TaskDefinitionRegistryImpl implements ITaskDefinitionRegistry {
 						this._onDefinitionsChanged.fire();
 					}
 				} catch (error) {
+					console.warn('Failed to parse task definition config:', error);
 				}
 				resolve(undefined);
 			});

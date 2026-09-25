@@ -50,6 +50,7 @@ import {
 } from './codebase/index';
 import { registerEmbeddingProvider, clearEmbeddingProvider } from './codebase/semanticIndex';
 import { createZhipuEmbeddingProvider, ZHIPU_DEFAULT_ENDPOINT, ZHIPU_DEFAULT_MODEL } from './codebase/embeddingProvider';
+import { getEmbeddingApiKey } from './secretStorage';
 import { setEmbeddingProvider as setSemanticEmbeddingProvider } from './learning/semanticMemory';
 import { registerIndexManager } from './codebase/indexManager';
 import { registerSettingsPage } from './codebase/settingsPage';
@@ -146,14 +147,14 @@ async function showAgentOsWelcome(): Promise<void> {
 	await vscode.window.showTextDocument(doc);
 }
 
-/** 语义检索 Embedding：设置 kodrix.semanticEmbedding.enabled + apiKey 即启用（默认智谱 embedding-3） */
-function syncEmbeddingProvider(): void {
+/** 语义检索 Embedding：设置 kodrix.semanticEmbedding.enabled + SecretStorage 中存有 apiKey 即启用（默认智谱 embedding-3） */
+async function syncEmbeddingProvider(): Promise<void> {
 	const cfg = vscode.workspace.getConfiguration('kodrix.semanticEmbedding');
 	const enabled = cfg.get<boolean>('enabled', false);
-	const apiKey = cfg.get<string>('apiKey', '');
-	if (enabled && apiKey.trim()) {
+	const apiKey = _extCtx ? await getEmbeddingApiKey(_extCtx) : undefined;
+	if (enabled && apiKey) {
 		const provider = createZhipuEmbeddingProvider({
-			apiKey: apiKey.trim(),
+			apiKey,
 			endpoint: cfg.get<string>('endpoint', ZHIPU_DEFAULT_ENDPOINT),
 			model: cfg.get<string>('model', ZHIPU_DEFAULT_MODEL),
 		});
@@ -178,7 +179,11 @@ export function activate(context: vscode.ExtensionContext): void {
 	}
 }
 
+/** 模块级 ExtensionContext 引用，供 SecretStorage 读取使用 */
+let _extCtx: vscode.ExtensionContext | undefined;
+
 function activateInternal(context: vscode.ExtensionContext): void {
+	_extCtx = context;
 	// Register all commands and event listeners immediately (lightweight)
 	registerContextIntelligence(context);
 	registerContextStatusBar(context);
@@ -195,11 +200,11 @@ function activateInternal(context: vscode.ExtensionContext): void {
 	registerNaturalCommandPalette(context);
 	registerArena(context);
 	registerHooks(context);
-	syncEmbeddingProvider();
+	void syncEmbeddingProvider();
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('kodrix.semanticEmbedding')) {
-				syncEmbeddingProvider();
+				void syncEmbeddingProvider();
 			}
 		}),
 	);

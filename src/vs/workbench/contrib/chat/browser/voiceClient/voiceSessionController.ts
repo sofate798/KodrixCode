@@ -1466,7 +1466,7 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 					const switched = await this.commandService.executeCommand<boolean>('_chat.voice.switchToSession', target.toString()).catch(() => false);
 					if (switched) {
 						await new Promise(resolve => setTimeout(resolve, 200));
-						await this.commandService.executeCommand('_chat.voice.acceptInput', text).catch(() => { });
+						await this.commandService.executeCommand('_chat.voice.acceptInput', text).catch(e => console.warn('Voice command execution failed:', e));
 					}
 					return;
 				}

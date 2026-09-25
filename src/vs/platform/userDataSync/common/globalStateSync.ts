@@ -459,7 +459,9 @@ export class GlobalStateInitializer extends AbstractInitializer {
 			try {
 				const fileContent = await this.fileService.readFile(this.environmentService.argvResource);
 				content = fileContent.value.toString();
-			} catch (error) { }
+			} catch (error) {
+				console.warn('Failed to read argv file:', error);
+			}
 			for (const argvProperty of Object.keys(argv)) {
 				content = edit(content, [argvProperty], argv[argvProperty], {});
 			}

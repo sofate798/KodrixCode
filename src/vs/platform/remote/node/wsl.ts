@@ -41,6 +41,7 @@ async function testWSLFeatureInstalled(): Promise<boolean> {
 					return true;
 				}
 			} catch (e) {
+				console.warn('WSL DLL stat failed:', e);
 			}
 		}
 	}

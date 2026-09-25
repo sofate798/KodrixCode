@@ -122,3 +122,10 @@ jobs:
           path: ${{ steps.pack.outputs.archive }}
           retention-days: 14
           if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pack.outputs.archive }}
+          generate_release_notes: true

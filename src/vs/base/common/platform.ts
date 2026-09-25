@@ -89,6 +89,7 @@ if (typeof nodeProcess === 'object') {
 			_language = nlsConfig.resolvedLanguage || LANGUAGE_DEFAULT;
 			_translationsConfigFile = nlsConfig.languagePack?.translationsConfigFile;
 		} catch (e) {
+			console.warn('Failed to parse NLS config:', e);
 		}
 	}
 	_isNative = true;

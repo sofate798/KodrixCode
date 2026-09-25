@@ -33,6 +33,7 @@ import {
 	IndexBuildState,
 } from './projectIndexer';
 import { logger } from '../logger';
+import { setFimApiKey, setEmbeddingApiKey, getFimApiKey, getEmbeddingApiKey, FIM_API_KEY_SECRET, EMBEDDING_API_KEY_SECRET } from '../secretStorage';
 
 const VIEW_TYPE = 'kodrix.settings';
 
@@ -105,6 +106,34 @@ async function handleMessage(webview: vscode.Webview, msg: any): Promise<void> {
 			case 'editCursorignore':
 				await openCursorignoreFile();
 				break;
+			case 'getSecretStatus': {
+				const ctx = getSettingsContext();
+				const statuses: Record<string, boolean> = {};
+				for (const key of (msg.keys as string[] ?? [])) {
+					if (key === FIM_API_KEY_SECRET) {
+						statuses[key] = !!(await getFimApiKey(ctx));
+					} else if (key === EMBEDDING_API_KEY_SECRET) {
+						statuses[key] = !!(await getEmbeddingApiKey(ctx));
+					}
+				}
+				await webview.postMessage({ type: 'secretStatus', statuses });
+				break;
+			}
+			case 'setSecret': {
+				const sctx = getSettingsContext();
+				const secretKey = msg.key as string;
+				const secretValue = msg.value as string;
+				if (secretKey === FIM_API_KEY_SECRET) {
+					await setFimApiKey(sctx, secretValue);
+				} else if (secretKey === EMBEDDING_API_KEY_SECRET) {
+					await setEmbeddingApiKey(sctx, secretValue);
+				}
+				await webview.postMessage({
+					type: 'secretStatus',
+					statuses: { [secretKey]: !!secretValue },
+				});
+				break;
+			}
 		}
 	} catch (err) {
 		logger.warn(`[Kodrix Settings] Failed to handle message ${msg?.type}: ${err instanceof Error ? err.message : String(err)}`);
@@ -452,6 +481,19 @@ button[hidden] { display: none; }
 const vscode = acquireVsCodeApi();
 const $ = id => document.getElementById(id);
 
+// ── 密钥存储状态监听：更新密码字段的 placeholder ──
+window.addEventListener('message', e => {
+	if (e.data.type === 'secretStatus') {
+		const statuses = e.data.statuses || {};
+		document.querySelectorAll('input[data-secret-key]').forEach(input => {
+			const sk = input.dataset.secretKey;
+			if (sk in statuses) {
+				input.placeholder = statuses[sk] ? '\u2713 \u5DF2\u914D\u7F6E' : '\u672A\u914D\u7F6E\uFF0C\u8BF7\u8F93\u5165';
+			}
+		});
+	}
+});
+
 const PAGES = {
 	general: ['常规', 'Kodrix 核心功能总开关'],
 	codebase: ['代码库', '索引与文档管理 — 全工程语义索引 · Grep 索引 · 忽略规则'],
@@ -512,13 +554,13 @@ const FIM_FIELDS = [
 	{ key: 'kodrix.tabCompletion.mode', label: '补全模式', type: 'select', options: [['fim', 'FIM 专用通道'], ['fast', '通用模型通道']] },
 	{ key: 'kodrix.tabCompletion.fimProvider', label: 'FIM 提供方', type: 'select', options: [['deepseek', 'DeepSeek FIM'], ['custom', '自定义 FIM 接口']] },
 	{ key: 'kodrix.tabCompletion.fimEndpoint', label: 'FIM 端点', type: 'text', hint: 'custom 提供方时填写自定义 URL（OpenAI 兼容 completions 格式）', showIf: 'kodrix.tabCompletion.fimProvider' },
-	{ key: 'kodrix.tabCompletion.fimApiKey', label: 'FIM API Key', type: 'password' },
+	{ key: 'kodrix.tabCompletion.fimApiKey', label: 'FIM API Key', type: 'password', secretKey: 'kodrix.agent-os.tabCompletion.fimApiKey' },
 	{ key: 'kodrix.tabCompletion.fimModel', label: 'FIM 模型', type: 'text', hint: 'DeepSeek 默认 deepseek-chat' },
 ];
 
 const EMBEDDING_FIELDS = [
 	{ key: 'kodrix.semanticEmbedding.enabled', label: '启用真向量语义检索', hint: '需同时填写 API Key。保存后自动启用。', type: 'switch' },
-	{ key: 'kodrix.semanticEmbedding.apiKey', label: '智谱（BigModel）API Key', hint: 'https://open.bigmodel.cn', type: 'password' },
+	{ key: 'kodrix.semanticEmbedding.apiKey', label: '智谱（BigModel）API Key', hint: 'https://open.bigmodel.cn', type: 'password', secretKey: 'kodrix.agent-os.semanticEmbedding.apiKey' },
 	{ key: 'kodrix.semanticEmbedding.endpoint', label: 'Embedding 端点', type: 'text' },
 	{ key: 'kodrix.semanticEmbedding.model', label: 'Embedding 模型', hint: '默认 embedding-3', type: 'text' },
 ];
@@ -565,6 +607,11 @@ function renderFeatures() {
 		renderForm('aiContainer', AI_FIELDS, values);
 		renderForm('fimContainer', FIM_FIELDS, values);
 		renderForm('embeddingContainer', EMBEDDING_FIELDS, values);
+		// 加载密钥存储状态
+		const allSecretKeys = [...FIM_FIELDS, ...EMBEDDING_FIELDS].filter(f => f.secretKey).map(f => f.secretKey);
+		if (allSecretKeys.length) {
+			post({ type: 'getSecretStatus', keys: allSecretKeys });
+		}
 		window.removeEventListener('message', onConfig);
 	});
 }
@@ -572,6 +619,7 @@ function renderFeatures() {
 // ── 表单渲染（AI / FIM / Embedding 页） ──
 function renderForm(containerId, fields, values) {
 	const rows = {};
+	const secretFields = fields.filter(f => f.secretKey);
 	fields.forEach(f => {
 		const val = values[f.key];
 		let control = '';
@@ -580,12 +628,14 @@ function renderForm(containerId, fields, values) {
 		} else if (f.type === 'select') {
 			control = '<select data-key="' + esc(f.key) + '">' + f.options.map(o =>
 				'<option value="' + esc(o[0]) + '"' + (String(val) === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
+		} else if (f.type === 'password' && f.secretKey) {
+			control = '<input type="password" data-key="' + esc(f.key) + '" data-secret-key="' + esc(f.secretKey) + '" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" autocomplete="off">';
 		} else {
 			control = '<input type="' + (f.type === 'password' ? 'password' : 'text') + '" data-key="' + esc(f.key) + '" value="' + esc(val == null ? '' : val) + '">';
 		}
 		rows[f.key] = '<div class="form-row" data-key="' + esc(f.key) + '"><label>' + esc(f.label) + '</label>' + control +
 			(f.hint ? '<div class="hint">' + esc(f.hint) + '</div>' : '') +
-			'<div class="save-hint">已保存</div></div>';
+			'<div class="save-hint">\u5DF2\u4FDD\u5B58</div></div>';
 	});
 
 	const html = fields.map(f => rows[f.key]).join('');
@@ -606,9 +656,18 @@ function renderForm(containerId, fields, values) {
 	container.querySelectorAll('.toggle input').forEach(input => {
 		input.addEventListener('change', () => post({ type: 'setConfig', key: input.dataset.key, value: input.checked }));
 	});
-	container.querySelectorAll('input[type="text"], input[type="password"]').forEach(input => {
+	container.querySelectorAll('input[type="text"]').forEach(input => {
 		input.addEventListener('change', () => {
 			post({ type: 'setConfig', key: input.dataset.key, value: input.value });
+			input.parentElement.classList.add('saved');
+			setTimeout(() => input.parentElement.classList.remove('saved'), 1500);
+		});
+	});
+	container.querySelectorAll('input[type="password"][data-secret-key]').forEach(input => {
+		input.addEventListener('change', () => {
+			post({ type: 'setSecret', key: input.dataset.secretKey, value: input.value });
+			input.placeholder = '\u2713 \u5DF2\u914D\u7F6E';
+			input.value = '';
 			input.parentElement.classList.add('saved');
 			setTimeout(() => input.parentElement.classList.remove('saved'), 1500);
 		});

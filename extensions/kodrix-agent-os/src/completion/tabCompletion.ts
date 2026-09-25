@@ -28,6 +28,7 @@ import {
 	FIM_MAX_TOKENS,
 	FIM_TEMPERATURE,
 } from '../shared/constants';
+import { getFimApiKey } from '../secretStorage';
 
 /** 补全上下文 */
 export interface CompletionContext {
@@ -157,6 +158,9 @@ async function provideFastCompletion(ctx: CompletionContext): Promise<string | u
 	}
 }
 
+/** 模块级 ExtensionContext 引用（由 registerTabCompletion 注入） */
+let _extCtx: vscode.ExtensionContext | undefined;
+
 /**
  * 生成 Tab 补全：mode=fim 且配 Key → FIM 通道（失败降级 fast）；否则 fast 通道。
  * 未启用 / 无模型 / 失败时返回 undefined（调用方静默降级）。
@@ -169,8 +173,8 @@ export async function provideTabCompletion(ctx: CompletionContext): Promise<stri
 	}
 	const mode = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.mode, TAB_COMPLETION_MODE_FIM);
 	if (mode === TAB_COMPLETION_MODE_FIM) {
-		const apiKey = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimApiKey, '');
-		if (apiKey.trim()) {
+		const apiKey = _extCtx ? await getFimApiKey(_extCtx) : undefined;
+		if (apiKey) {
 			const provider = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimProvider, FIM_PROVIDER_DEEPSEEK);
 			const endpoint = provider === FIM_PROVIDER_CUSTOM
 				? cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimEndpoint, FIM_DEFAULT_ENDPOINT)
@@ -188,6 +192,7 @@ export async function provideTabCompletion(ctx: CompletionContext): Promise<stri
 
 /** 注册 Tab 补全（InlineCompletion 提供者，默认关闭） */
 export function registerTabCompletion(context: vscode.ExtensionContext): void {
+	_extCtx = context;
 	context.subscriptions.push(
 		vscode.languages.registerInlineCompletionItemProvider(
 			{ scheme: 'file' },

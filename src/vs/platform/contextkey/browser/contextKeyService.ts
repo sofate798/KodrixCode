@@ -323,9 +323,6 @@ export abstract class AbstractContextKeyService extends Disposable implements IC
 		}
 		const context = this.getContextValuesContainer(this._myContextId);
 		const result = (rules ? rules.evaluate(context) : true);
-		// console.group(rules.serialize() + ' -> ' + result);
-		// rules.keys().forEach(key => { console.log(key, ctx[key]); });
-		// console.groupEnd();
 		return result;
 	}
 

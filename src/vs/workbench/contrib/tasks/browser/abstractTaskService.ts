@@ -1119,7 +1119,7 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
 					}
 				}
 			} catch (error) {
-				// Ignore. We use the empty result
+				console.warn('Failed to read persisted tasks (v1):', error);
 			}
 		}
 		return this._recentlyUsedTasksV1;
@@ -1170,7 +1170,7 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
 					}
 				}
 			} catch (error) {
-				// Ignore. We use the empty result
+				console.warn('Failed to read persisted recent tasks:', error);
 			}
 		}
 		return this._recentlyUsedTasks;
@@ -1193,7 +1193,7 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
 					}
 				}
 			} catch (error) {
-				// Ignore. We use the empty result
+				console.warn('Failed to read persisted tasks:', error);
 			}
 		}
 		return this._persistentTasks;
