@@ -16,6 +16,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { ensureDir, getWorkspaceKodrixDir } from '../paths';
 import { recordLearning } from '../learning/learningEngine';
 import { CrewConfig, saveCrew, loadCrew, CrewTask, AgentRole, WorkflowType, runAllRunnableTasks } from '../crew/agentCrew';
@@ -310,7 +311,7 @@ export async function startIdeaFlow(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
 	if (isFlowRunning) {
-		vscode.window.showWarningMessage('Idea Flow 正在进行中，请等待完成或使用「重置 Idea Flow」重新开始。');
+		vscode.window.showWarningMessage(l10n.t('Idea Flow 正在进行中，请等待完成或使用「重置 Idea Flow」重新开始。'));
 		return;
 	}
 	isFlowRunning = true;
@@ -352,7 +353,7 @@ export async function startIdeaFlow(
 		const errMsg = err instanceof Error ? err.message : String(err);
 		pushLog(`错误: ${errMsg}`);
 		updateState({ phase: 'error' });
-		vscode.window.showErrorMessage(`Idea Flow 出错: ${errMsg}`);
+		vscode.window.showErrorMessage(l10n.t('Idea Flow 出错: {0}', errMsg));
 	} finally {
 		isFlowRunning = false;
 	}
@@ -682,7 +683,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 	if (!crew || !crew.tasks.length) {
 		if (!vscode.workspace.workspaceFolders?.length) {
 			pushLog('请先打开一个工作区文件夹');
-			vscode.window.showWarningMessage('Idea Flow 需要一个打开的工作区才能构建项目。请先打开文件夹。');
+			vscode.window.showWarningMessage(l10n.t('Idea Flow 需要一个打开的工作区才能构建项目。请先打开文件夹。'));
 			return;
 		}
 		pushLog('无 Agent Crew 配置，直接打开 Agent 模式');
@@ -732,10 +733,10 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 	pushLog(`任务 1/${crew.tasks.length}: 「${firstTask.title}」已启动 — 完成后请执行「Kodrix: 标记 Crew 任务完成」继续`);
 
 	vscode.window.showInformationMessage(
-		`Idea Flow: 「${firstTask.title}」已启动 (1/${crew.tasks.length})`,
-		'查看 Crew 状态',
+		l10n.t('Idea Flow: 「{0}」已启动 (1/{1})', firstTask.title, crew.tasks.length),
+		l10n.t('查看 Crew 状态'),
 	).then(async choice => {
-		if (choice === '查看 Crew 状态') {
+		if (choice === l10n.t('查看 Crew 状态')) {
 			await Promise.resolve(vscode.commands.executeCommand(COMMANDS.crewStatus)).catch(() => {});
 		}
 	}, () => {});
@@ -849,12 +850,12 @@ async function handleBuildComplete(): Promise<void> {
 	updateState({ phase: 'preview-ready' });
 
 	const devChoice = await vscode.window.showInformationMessage(
-		'构建完成！是否启动开发服务器查看预览？',
-		'启动 Dev Server',
-		'稍后手动启动',
+		l10n.t('构建完成！是否启动开发服务器查看预览？'),
+		l10n.t('启动 Dev Server'),
+		l10n.t('稍后手动启动'),
 	);
 
-	if (devChoice === '启动 Dev Server') {
+	if (devChoice === l10n.t('启动 Dev Server')) {
 		const folder = vscode.workspace.workspaceFolders?.[0];
 		if (folder) {
 			const hasPackageJson = fs.existsSync(path.join(folder.uri.fsPath, 'package.json'));
@@ -919,7 +920,7 @@ async function captureProductIntelligence(): Promise<void> {
 		}
 
 		vscode.window.showInformationMessage(
-			`项目【${analysis.appName}】知识已沉淀！越用越聪明。`,
+			l10n.t('项目【{0}】知识已沉淀！越用越聪明。', analysis.appName),
 		);
 	} catch (err: unknown) {
 		pushLog(`产品智能沉淀部分失败: ${err instanceof Error ? err.message : String(err)}`);
@@ -934,7 +935,7 @@ async function captureProductIntelligence(): Promise<void> {
 async function openIdeaPreview(): Promise<void> {
 	const url = currentState?.previewUrl;
 	if (!url) {
-		vscode.window.showWarningMessage('尚无可用预览。请先完成构建。');
+		vscode.window.showWarningMessage(l10n.t('尚无可用预览。请先完成构建。'));
 		return;
 	}
 
@@ -954,7 +955,7 @@ export function getCurrentIdeaState(): IdeaFlowState | undefined {
 export async function showIdeaFlowStatus(): Promise<void> {
 	const state = currentState || loadState();
 	if (!state) {
-		vscode.window.showWarningMessage('尚无进行中的 Idea Flow。按 Ctrl+Shift+I 或从 Hub 启动。');
+		vscode.window.showWarningMessage(l10n.t('尚无进行中的 Idea Flow。按 Ctrl+Shift+I 或从 Hub 启动。'));
 		return;
 	}
 
@@ -1012,8 +1013,8 @@ export function registerIdeaFlow(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.ideaOpen, () => openIdeaCanvas(context)),
 		vscode.commands.registerCommand(COMMANDS.ideaStart, async (promptArg?: string) => {
 			const idea = promptArg?.trim() || await vscode.window.showInputBox({
-				prompt: '描述你的想法，AI 将全自动将其变为现实',
-				placeHolder: '一个 AI 驱动的知识管理工具，支持双向链接和图谱视图…',
+				prompt: l10n.t('描述你的想法，AI 将全自动将其变为现实'),
+				placeHolder: l10n.t('一个 AI 驱动的知识管理工具，支持双向链接和图谱视图…'),
 				ignoreFocusOut: true,
 			});
 			if (idea?.trim()) {

@@ -9,6 +9,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
@@ -199,26 +200,26 @@ export function registerCrewVisualizer(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.crewVisualize, async () => {
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (!folder) {
-				await vscode.window.showErrorMessage('请先打开工作区');
+				await vscode.window.showErrorMessage(l10n.t('请先打开工作区'));
 				return;
 			}
 			const crewsDir = path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, 'crews');
 			if (!fs.existsSync(crewsDir)) {
-				await vscode.window.showInformationMessage('尚未创建 Crew（.kodrix/crews/）。可先通过「Kodrix: 新建 Agent Crew」创建。');
+				await vscode.window.showInformationMessage(l10n.t('尚未创建 Crew（.kodrix/crews/）。可先通过「Kodrix: 新建 Agent Crew」创建。'));
 				return;
 			}
 			const files = fs.readdirSync(crewsDir).filter(f => f.endsWith('.json'));
 			if (!files.length) {
-				await vscode.window.showInformationMessage('.kodrix/crews/ 下没有 Crew 文件');
+				await vscode.window.showInformationMessage(l10n.t('.kodrix/crews/ 下没有 Crew 文件'));
 				return;
 			}
-			const picked = await vscode.window.showQuickPick(files, { placeHolder: '选择要可视化的 Crew 文件' });
+			const picked = await vscode.window.showQuickPick(files, { placeHolder: l10n.t('选择要可视化的 Crew 文件') });
 			if (!picked) {
 				return;
 			}
 			const html = await renderCrewFileToHtml(path.join(crewsDir, picked));
 			if (!html) {
-				await vscode.window.showErrorMessage('Crew 文件解析失败');
+				await vscode.window.showErrorMessage(l10n.t('Crew 文件解析失败'));
 				return;
 			}
 			const doc = await vscode.workspace.openTextDocument({ content: html, language: 'html' });

@@ -1,1 +1,15 @@
-{}
+{
+	"displayName": "Kodrix Skill 市场",
+	"description": "Skill 技能插件市场 — 卡片安装、搜索、GitHub / URL 安装、导入 Cursor Skills",
+	"command.refresh.title": "刷新",
+	"command.install.title": "安装 Skill",
+	"command.uninstall.title": "卸载 Skill",
+	"command.installFromUrl.title": "从 URL / GitHub 安装 Skill",
+	"command.importCursor.title": "导入 ~/.cursor/skills",
+	"command.searchGithub.title": "打开 Skill 市场（GitHub）",
+	"command.openMarketplace.title": "打开 Skill 市场",
+	"viewContainer.skillMarket.title": "Skill 市场",
+	"view.skillMarket.name": "Skill 市场",
+	"config.installDir.description": "Skill 安装目录（每个 Skill 为子文件夹，内含 SKILL.md）",
+	"config.registryUrls.description": "额外远程 Skill 目录 URL"
+}

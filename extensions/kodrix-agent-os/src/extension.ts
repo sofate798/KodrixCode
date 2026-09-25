@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { registerAcp } from './acp/acpRegistry';
 import { registerArena } from './arena/arenaCompare';
 import { registerContextIntelligence } from './context/contextIntelligence';
@@ -163,7 +164,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
 		logger.error('Agent OS activation failed', err);
-		vscode.window.showErrorMessage(`Kodrix Agent OS 激活失败: ${msg}`);
+		vscode.window.showErrorMessage(l10n.t('Kodrix Agent OS 激活失败: {0}', msg));
 	}
 }
 
@@ -243,17 +244,17 @@ function activateInternal(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.codebaseBuildIndex, async () => {
 			try {
 				await vscode.window.withProgress(
-					{ location: vscode.ProgressLocation.Notification, title: 'Kodrix: 重建全工程语义索引...' },
+					{ location: vscode.ProgressLocation.Notification, title: l10n.t('Kodrix: 重建全工程语义索引...') },
 					async () => {
 						const idx = await ensureProjectIndex(true);
 						vscode.window.showInformationMessage(
-							`索引重建完成: ${idx.stats.totalFiles} 个文件 · ${idx.stats.totalSymbols} 个符号 · ${idx.stats.indexDurationMs}ms`,
+							l10n.t('索引重建完成: {0} 个文件 · {1} 个符号 · {2}ms', idx.stats.totalFiles, idx.stats.totalSymbols, idx.stats.indexDurationMs),
 						);
 					},
 				);
 			} catch (err) {
 				logger.error('Codebase intelligence: manual index rebuild failed', err);
-				vscode.window.showErrorMessage(`索引重建失败：${err instanceof Error ? err.message : String(err)}`);
+				vscode.window.showErrorMessage(l10n.t('索引重建失败：{0}', err instanceof Error ? err.message : String(err)));
 			}
 		}),
 	);
@@ -263,7 +264,7 @@ function activateInternal(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.codebaseStats, async () => {
 			const idx = await ensureProjectIndex();
 			if (!idx) {
-				vscode.window.showWarningMessage('暂无项目索引，请先打开工作区');
+				vscode.window.showWarningMessage(l10n.t('暂无项目索引，请先打开工作区'));
 				return;
 			}
 			const stats = idx.stats;

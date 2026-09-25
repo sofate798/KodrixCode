@@ -14,6 +14,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { ensureProjectIndex, getProjectIndex } from './projectIndexer';
 import { searchSymbolsAsync, searchFilesAsync } from './semanticIndex';
 import { logger } from '../logger';
@@ -562,13 +563,13 @@ export function registerCodebaseChatParticipant(context: vscode.ExtensionContext
 	context.subscriptions.push(
 		vscode.commands.registerCommand('kodrix.codebase.search', async () => {
 			const query = await vscode.window.showInputBox({
-				prompt: '输入问题（如 "getUserProfile 在哪定义？"）',
-				placeHolder: '自然语言代码问答...',
+				prompt: l10n.t('输入问题（如 "getUserProfile 在哪定义？"）'),
+				placeHolder: l10n.t('自然语言代码问答...'),
 			});
 			if (!query) return;
 
 			await vscode.window.withProgress(
-				{ location: { viewId: 'workbench.panel.chat' }, title: '搜索代码库...' },
+				{ location: { viewId: 'workbench.panel.chat' }, title: l10n.t('搜索代码库...') },
 				async () => {
 					const result = await queryCodebase(query);
 					const doc = await vscode.workspace.openTextDocument({

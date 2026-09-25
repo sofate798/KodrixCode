@@ -1,7 +1,7 @@
 {
   "name": "kodrix-skills",
-  "displayName": "Kodrix Skill 市场",
-  "description": "Skill 技能插件市场 — 卡片安装、搜索、GitHub / URL 安装、导入 Cursor Skills",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "1.1.0",
   "publisher": "kodrix",
   "license": "MIT",
@@ -34,7 +34,7 @@
       "activitybar": [
         {
           "id": "kodrix-skills",
-          "title": "Skill 市场",
+          "title": "%viewContainer.skillMarket.title%",
           "icon": "$(sparkle)"
         }
       ]
@@ -44,7 +44,7 @@
         {
           "type": "webview",
           "id": "kodrix.skillsMarketplace",
-          "name": "Skill 市场",
+          "name": "%view.skillMarket.name%",
           "icon": "$(sparkle)"
         }
       ]
@@ -52,39 +52,39 @@
     "commands": [
       {
         "command": "kodrix.skills.refresh",
-        "title": "刷新",
+        "title": "%command.refresh.title%",
         "icon": "$(refresh)",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.install",
-        "title": "安装 Skill",
+        "title": "%command.install.title%",
         "icon": "$(cloud-download)",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.uninstall",
-        "title": "卸载 Skill",
+        "title": "%command.uninstall.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.installFromUrl",
-        "title": "从 URL / GitHub 安装 Skill",
+        "title": "%command.installFromUrl.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.importCursor",
-        "title": "导入 ~/.cursor/skills",
+        "title": "%command.importCursor.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.searchGithub",
-        "title": "打开 Skill 市场（GitHub）",
+        "title": "%command.searchGithub.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.skills.openMarketplace",
-        "title": "打开 Skill 市场",
+        "title": "%command.openMarketplace.title%",
         "category": "Kodrix"
       }
     ],
@@ -108,7 +108,7 @@
         "kodrix.skills.installDir": {
           "type": "string",
           "default": "~/.agents/skills",
-          "description": "Skill 安装目录（每个 Skill 为子文件夹，内含 SKILL.md）"
+          "description": "%config.installDir.description%"
         },
         "kodrix.skills.registryUrls": {
           "type": "array",
@@ -116,14 +116,16 @@
             "type": "string"
           },
           "default": [],
-          "description": "额外远程 Skill 目录 URL"
+          "description": "%config.registryUrls.description%"
         }
       }
     }
   },
   "scripts": {
     "compile": "gulp compile-extension:kodrix-skills",
-    "watch": "gulp watch-extension:kodrix-skills"
+    "watch": "gulp watch-extension:kodrix-skills",
+    "compile:test": "tsc -p tsconfig.test.json",
+    "test": "npm run compile:test && node ./out-test/test/runTests.js"
   },
   "devDependencies": {
     "@types/node": "24.x"

@@ -6,6 +6,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { notifyContextChanged } from '../context/contextEvents';
 import { persistMemoryAppend } from '../memory/memoryHelpers';
 import {
@@ -128,17 +129,17 @@ async function applyInsights(
 	if (mode === 'prompt') {
 		const preview = insights.map(i => `• [${i.category}] ${i.content}`).join('\n');
 		const choice = await vscode.window.showInformationMessage(
-			`Kodrix 从 Agent 会话提炼了 ${insights.length} 条项目知识，是否沉淀？\n\n${preview}`,
-			'全部沉淀', '逐条选择', '忽略',
+			l10n.t('Kodrix 从 Agent 会话提炼了 {0} 条项目知识，是否沉淀？\n\n{1}', insights.length, preview),
+			l10n.t('全部沉淀'), l10n.t('逐条选择'), l10n.t('忽略'),
 		);
-		if (choice === '忽略' || !choice) {
+		if (choice === l10n.t('忽略') || !choice) {
 			return 0;
 		}
-		if (choice === '逐条选择') {
+		if (choice === l10n.t('逐条选择')) {
 			const picked: SessionInsight[] = [];
 			for (const insight of insights) {
 				const ok = await vscode.window.showQuickPick(
-					[{ label: '沉淀', apply: true }, { label: '跳过', apply: false }],
+					[{ label: l10n.t('沉淀'), apply: true }, { label: l10n.t('跳过'), apply: false }],
 					{ placeHolder: `[${insight.category}] ${insight.content}` },
 				);
 				if (ok?.apply) {
@@ -157,7 +158,7 @@ async function applyInsights(
 	}
 	if (applied > 0) {
 		notifyContextChanged();
-		vscode.window.showInformationMessage(`已沉淀 ${applied} 条会话知识（会话 ${sessionId.slice(0, 8)}…）`);
+		vscode.window.showInformationMessage(l10n.t('已沉淀 {0} 条会话知识（会话 {1}…）', applied, sessionId.slice(0, 8)));
 	}
 	return applied;
 }
@@ -277,7 +278,7 @@ export async function installSessionLearningHook(
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
 		if (!options?.silent) {
-			vscode.window.showWarningMessage('请先打开工作区以安装 Session Learning Hook');
+			vscode.window.showWarningMessage(l10n.t('请先打开工作区以安装 Session Learning Hook'));
 		}
 		return false;
 	}
@@ -316,7 +317,7 @@ export async function installSessionLearningHook(
 	await context.workspaceState.update(HOOK_INSTALLED_KEY, true);
 	if (!options?.silent) {
 		vscode.window.showInformationMessage(
-			'Session Learning Hook 已安装 — Agent 会话结束时将自动提炼项目知识',
+			l10n.t('Session Learning Hook 已安装 — Agent 会话结束时将自动提炼项目知识'),
 		);
 	}
 	return true;

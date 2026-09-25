@@ -4,6 +4,7 @@
 
 import * as fs from 'fs';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { ensureDir, getKanbanPath } from '../paths';
 import { logger } from '../logger';
 import { isRecord } from '../utils/jsonValidator';
@@ -26,11 +27,11 @@ interface KanbanData {
 }
 
 const STATUS_CONFIG: Record<KanbanStatus, { label: string; icon: string; color: string; order: number }> = {
-	in_progress: { label: '进行中', icon: 'sync~spin', color: '#3794ff', order: 0 },
-	review: { label: '待审核', icon: 'eye', color: '#cca700', order: 1 },
-	blocked: { label: '阻塞', icon: 'error', color: '#f14c4c', order: 2 },
-	todo: { label: '待办', icon: 'circle-outline', color: '#999999', order: 3 },
-	done: { label: '已完成', icon: 'pass-filled', color: '#40c969', order: 4 },
+	in_progress: { label: l10n.t('进行中'), icon: 'sync~spin', color: '#3794ff', order: 0 },
+	review: { label: l10n.t('待审核'), icon: 'eye', color: '#cca700', order: 1 },
+	blocked: { label: l10n.t('阻塞'), icon: 'error', color: '#f14c4c', order: 2 },
+	todo: { label: l10n.t('待办'), icon: 'circle-outline', color: '#999999', order: 3 },
+	done: { label: l10n.t('已完成'), icon: 'pass-filled', color: '#40c969', order: 4 },
 };
 
 function loadKanban(): KanbanData {
@@ -63,12 +64,12 @@ function saveKanban(data: KanbanData): void {
 function timeAgo(iso: string): string {
 	const diff = Date.now() - new Date(iso).getTime();
 	const mins = Math.floor(diff / 60000);
-	if (mins < 1) return '刚刚';
-	if (mins < 60) return `${mins}分钟前`;
+	if (mins < 1) return l10n.t('刚刚');
+	if (mins < 60) return l10n.t('{0}分钟前', mins);
 	const hours = Math.floor(mins / 60);
-	if (hours < 24) return `${hours}小时前`;
+	if (hours < 24) return l10n.t('{0}小时前', hours);
 	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days}天前`;
+	if (days < 7) return l10n.t('{0}天前', days);
 	return new Date(iso).toLocaleDateString('zh-CN');
 }
 
@@ -90,10 +91,10 @@ export class KanbanTreeItem extends vscode.TreeItem {
 		this.contextValue = `kanbanTask:${task.status}`;
 		this.tooltip = [
 			task.description || task.title,
-			`状态: ${cfg.label}`,
-			`创建: ${timeAgo(task.createdAt)}`,
-			`更新: ${timeAgo(task.updatedAt)}`,
-			task.sessionHint ? `关联会话: ${task.sessionHint}` : '',
+			l10n.t('状态: {0}', cfg.label),
+			l10n.t('创建: {0}', timeAgo(task.createdAt)),
+			l10n.t('更新: {0}', timeAgo(task.updatedAt)),
+			task.sessionHint ? l10n.t('关联会话: {0}', task.sessionHint) : '',
 		].filter(Boolean).join('\n');
 
 		if (task.description) {
@@ -102,7 +103,7 @@ export class KanbanTreeItem extends vscode.TreeItem {
 
 		this.command = {
 			command: 'kodrix.kanban.openSession',
-			title: '打开 Agent 会话',
+			title: l10n.t('打开 Agent 会话'),
 			arguments: [this],
 		};
 	}
@@ -137,27 +138,27 @@ class KanbanProvider implements vscode.TreeDataProvider<KanbanTreeItem> {
 
 export async function addKanbanTask(): Promise<void> {
 	if (!getKanbanPath()) {
-		vscode.window.showWarningMessage('请先打开工作区');
+		vscode.window.showWarningMessage(l10n.t('请先打开工作区'));
 		return;
 	}
 	const title = await vscode.window.showInputBox({
-		prompt: '任务标题',
-		placeHolder: '实现用户登录页面',
+		prompt: l10n.t('任务标题'),
+		placeHolder: l10n.t('实现用户登录页面'),
 	});
 	if (!title?.trim()) {
 		return;
 	}
 	const description = await vscode.window.showInputBox({
-		prompt: '任务描述（可选，将传递给 Agent）',
-		placeHolder: '包含表单验证、JWT token 存储、错误提示',
+		prompt: l10n.t('任务描述（可选，将传递给 Agent）'),
+		placeHolder: l10n.t('包含表单验证、JWT token 存储、错误提示'),
 	}) || undefined;
 
 	const status = await vscode.window.showQuickPick(
 		[
-			{ label: '$(circle-outline) 待办', status: 'todo' as KanbanStatus },
-			{ label: '$(sync) 立即开始（进行中）', status: 'in_progress' as KanbanStatus },
+			{ label: `$(circle-outline) ${l10n.t('待办')}`, status: 'todo' as KanbanStatus },
+			{ label: `$(sync) ${l10n.t('立即开始（进行中）')}`, status: 'in_progress' as KanbanStatus },
 		],
-		{ placeHolder: '任务状态' },
+		{ placeHolder: l10n.t('任务状态') },
 	);
 
 	const data = loadKanban();
@@ -171,12 +172,12 @@ export async function addKanbanTask(): Promise<void> {
 	};
 	data.tasks.unshift(task);
 	saveKanban(data);
-	vscode.window.showInformationMessage(`已添加任务：${title}`);
+	vscode.window.showInformationMessage(l10n.t('已添加任务：{0}', title));
 }
 
 export async function moveKanbanTask(item?: KanbanTreeItem): Promise<void> {
 	if (!item?.task) {
-		vscode.window.showWarningMessage('请从看板中选择任务');
+		vscode.window.showWarningMessage(l10n.t('请从看板中选择任务'));
 		return;
 	}
 	const currentCfg = STATUS_CONFIG[item.task.status];
@@ -186,12 +187,12 @@ export async function moveKanbanTask(item?: KanbanTreeItem): Promise<void> {
 		.filter(s => s !== item.task.status)
 		.map(s => ({
 			label: `${STATUS_CONFIG[s].icon === 'sync~spin' ? '$(sync~spin)' : `$(${STATUS_CONFIG[s].icon})`} ${STATUS_CONFIG[s].label}`,
-			description: s === item.task.status ? '（当前）' : '',
+			description: s === item.task.status ? l10n.t('（当前）') : '',
 			status: s,
 		}));
 
 	const next = await vscode.window.showQuickPick(picks, {
-		placeHolder: `当前：${currentCfg.label} → 移动到…`,
+		placeHolder: l10n.t('当前：{0} → 移动到…', currentCfg.label),
 	});
 	if (!next) {
 		return;
@@ -203,7 +204,7 @@ export async function moveKanbanTask(item?: KanbanTreeItem): Promise<void> {
 		task.updatedAt = new Date().toISOString();
 		saveKanban(data);
 		vscode.window.showInformationMessage(
-			`${task.title} → ${STATUS_CONFIG[next.status].label}`
+			l10n.t('{0} → {1}', task.title, STATUS_CONFIG[next.status].label)
 		);
 	}
 }
@@ -214,9 +215,9 @@ export async function openKanbanSession(item?: KanbanTreeItem): Promise<void> {
 
 	let prompt: string | undefined;
 	if (title) {
-		const parts = [`【Kanban 任务】${title}`];
-		if (description) parts.push(`\n需求描述：${description}`);
-		parts.push('\n请实施此任务。完成后更新看板状态。');
+		const parts = [l10n.t('【Kanban 任务】{0}', title)];
+		if (description) parts.push(l10n.t('\n需求描述：{0}', description));
+		parts.push(l10n.t('\n请实施此任务。完成后更新看板状态。'));
 		prompt = parts.join('\n');
 	}
 
@@ -239,19 +240,19 @@ export async function openKanbanSession(item?: KanbanTreeItem): Promise<void> {
 
 export async function deleteKanbanTask(item?: KanbanTreeItem): Promise<void> {
 	if (!item?.task) {
-		vscode.window.showWarningMessage('请从看板中选择任务');
+		vscode.window.showWarningMessage(l10n.t('请从看板中选择任务'));
 		return;
 	}
 	const confirm = await vscode.window.showQuickPick(
-		[{ label: '$(trash) 确认删除', confirm: true }, { label: '取消', confirm: false }],
-		{ placeHolder: `删除「${item.task.title}」？` },
+		[{ label: l10n.t('$(trash) 确认删除'), confirm: true }, { label: l10n.t('取消'), confirm: false }],
+		{ placeHolder: l10n.t('删除「{0}」？', item.task.title) },
 	);
 	if (!confirm?.confirm) return;
 
 	const data = loadKanban();
 	data.tasks = data.tasks.filter(t => t.id !== item.task.id);
 	saveKanban(data);
-	vscode.window.showInformationMessage(`已删除：${item.task.title}`);
+	vscode.window.showInformationMessage(l10n.t('已删除：{0}', item.task.title));
 }
 
 export function getKanbanStats(): { total: number; todo: number; inProgress: number; done: number; blocked: number } {

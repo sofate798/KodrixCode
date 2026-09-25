@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { getContextStatus } from '../context/contextIntelligence';
 import { onContextChanged } from '../context/contextEvents';
 import { onKodrixEvent } from '../context/kodrixEventBus';
@@ -196,7 +197,7 @@ export function registerStatusBar(context: vscode.ExtensionContext): void {
 	brandStatusItem.name = 'Kodrix';
 	brandStatusItem.command = 'kodrix.hub.open';
 	brandStatusItem.accessibilityInformation = {
-		label: 'Kodrix — 打开 Agent 指挥中心',
+		label: l10n.t('Kodrix — 打开 Agent 指挥中心'),
 	};
 
 	// Context readiness — second from left.
@@ -204,7 +205,7 @@ export function registerStatusBar(context: vscode.ExtensionContext): void {
 	contextStatusItem.name = 'Kodrix Agent Context';
 	contextStatusItem.command = 'kodrix.context.status';
 	contextStatusItem.accessibilityInformation = {
-		label: 'Agent 上下文状态',
+		label: l10n.t('Agent 上下文状态'),
 	};
 
 	// Last route — third from left.
@@ -212,7 +213,7 @@ export function registerStatusBar(context: vscode.ExtensionContext): void {
 	routeStatusItem.name = 'Kodrix Last Route';
 	routeStatusItem.command = 'kodrix.router.repeatLast';
 	routeStatusItem.accessibilityInformation = {
-		label: '上次智能路由',
+		label: l10n.t('上次智能路由'),
 	};
 
 	context.subscriptions.push(

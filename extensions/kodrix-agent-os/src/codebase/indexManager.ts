@@ -13,6 +13,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import {
 	onIndexStateChange,
 	getIndexState,
@@ -97,7 +98,7 @@ function openIndexManagerPanel(): void {
 					break;
 				case 'rebuild':
 					void ensureProjectIndex(true).catch(err => {
-						void vscode.window.showErrorMessage(`索引重建失败：${err instanceof Error ? err.message : String(err)}`);
+						void vscode.window.showErrorMessage(l10n.t('索引重建失败：{0}', err instanceof Error ? err.message : String(err)));
 					});
 					break;
 				case 'toggle':
@@ -149,7 +150,7 @@ async function handleToggle(key: string, value: boolean): Promise<void> {
 		if (value) {
 			const n = (await ensureGrepIndex()).length;
 			_grepFileCount = n;
-			void vscode.window.setStatusBarMessage(`Grep 索引已构建：${n} 个文件`, 4000);
+			void vscode.window.setStatusBarMessage(l10n.t('Grep 索引已构建：{0} 个文件', n), 4000);
 		} else {
 			clearGrepIndex();
 			_grepFileCount = 0;
@@ -160,7 +161,7 @@ async function handleToggle(key: string, value: boolean): Promise<void> {
 		else disposeIndexWatcher();
 	} else if (key === 'ignoreCursorignore') {
 		void ensureProjectIndex(true).catch(err => {
-			void vscode.window.showErrorMessage(`索引重建失败：${err instanceof Error ? err.message : String(err)}`);
+			void vscode.window.showErrorMessage(l10n.t('索引重建失败：{0}', err instanceof Error ? err.message : String(err)));
 		});
 	}
 
@@ -173,7 +174,7 @@ async function handleToggle(key: string, value: boolean): Promise<void> {
 async function openCursorignoreFile(): Promise<void> {
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		void vscode.window.showErrorMessage('当前没有打开的工作区文件夹');
+		void vscode.window.showErrorMessage(l10n.t('当前没有打开的工作区文件夹'));
 		return;
 	}
 
@@ -185,7 +186,7 @@ async function openCursorignoreFile(): Promise<void> {
 		const doc = await vscode.workspace.openTextDocument(file);
 		await vscode.window.showTextDocument(doc);
 	} catch (err) {
-		void vscode.window.showErrorMessage(`打开 .cursorignore 失败：${err instanceof Error ? err.message : String(err)}`);
+		void vscode.window.showErrorMessage(l10n.t('打开 .cursorignore 失败：{0}', err instanceof Error ? err.message : String(err)));
 	}
 }
 

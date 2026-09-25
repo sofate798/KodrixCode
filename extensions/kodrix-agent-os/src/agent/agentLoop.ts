@@ -13,6 +13,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getModelCandidates, routeModel, recordModelCall } from '../model/modelRouter';
@@ -723,8 +724,8 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('kodrix.agent.plan', async () => {
 			const task = await vscode.window.showInputBox({
-				prompt: '描述任务（计划模式：只读分析代码库，输出实施计划，不修改任何文件）',
-				placeHolder: '例如：为 src/router 增加并发限流的实施方案',
+				prompt: l10n.t('描述任务（计划模式：只读分析代码库，输出实施计划，不修改任何文件）'),
+				placeHolder: l10n.t('例如：为 src/router 增加并发限流的实施方案'),
 			});
 			if (!task) return;
 			const folder = vscode.workspace.workspaceFolders?.[0];
@@ -732,7 +733,7 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 			const ws = folder.uri.fsPath;
 			const runDir = path.join(ws, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			fs.mkdirSync(runDir, { recursive: true });
-			void vscode.window.showInformationMessage(`Plan 模式分析中：${task.slice(0, 40)}…`);
+			void vscode.window.showInformationMessage(l10n.t('Plan 模式分析中：{0}…', task.slice(0, 40)));
 			const result = await runAgentLoop({ task, workspace: ws, planOnly: true });
 			const pid = persistRun(runDir, task, result, undefined, 'plan');
 			const doc = await vscode.workspace.openTextDocument(path.join(runDir, `${pid}.md`));
@@ -741,30 +742,30 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 
 		vscode.commands.registerCommand('kodrix.agent.run', async () => {
 			const task = await vscode.window.showInputBox({
-				prompt: '描述 Agent 任务（Agent 将自主读/写/搜索/执行并迭代完成）',
-				placeHolder: '例如：读取 src/utils.ts 中的 TODO，整理并写入 docs/todos.md',
+				prompt: l10n.t('描述 Agent 任务（Agent 将自主读/写/搜索/执行并迭代完成）'),
+				placeHolder: l10n.t('例如：读取 src/utils.ts 中的 TODO，整理并写入 docs/todos.md'),
 			});
 			if (!task) return;
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (!folder) {
-				await vscode.window.showErrorMessage('请先打开工作区');
+				await vscode.window.showErrorMessage(l10n.t('请先打开工作区'));
 				return;
 			}
 			const ws = folder.uri.fsPath;
 			const runDir = path.join(ws, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			fs.mkdirSync(runDir, { recursive: true });
-			await vscode.window.showInformationMessage(`Agent 任务已启动：${task.slice(0, 40)}…（完成后自动打开记录）`);
+			await vscode.window.showInformationMessage(l10n.t('Agent 任务已启动：{0}…（完成后自动打开记录）', task.slice(0, 40)));
 			const result = await runAgentLoop({ task, workspace: ws });
 			const id = persistRun(runDir, task, result);
 			const doc = await vscode.workspace.openTextDocument(path.join(runDir, `${id}.md`));
 			await vscode.window.showTextDocument(doc, { preview: true });
 			if (result.checkpointId) {
-				await vscode.window.showInformationMessage(`已创建检查点 ${result.checkpointId}（可运行「Kodrix: 恢复检查点」回滚 Agent 改动）`);
+				await vscode.window.showInformationMessage(l10n.t('已创建检查点 {0}（可运行「Kodrix: 恢复检查点」回滚 Agent 改动）', result.checkpointId));
 			}
 			if (result.status === 'completed') {
-				await vscode.window.showInformationMessage(`Agent 任务完成（${result.iterations} 轮，${(result.durationMs / 1000).toFixed(1)}s）`);
+				await vscode.window.showInformationMessage(l10n.t('Agent 任务完成（{0} 轮，{1}s）', result.iterations, (result.durationMs / 1000).toFixed(1)));
 			} else {
-				await vscode.window.showWarningMessage(`Agent 任务未完成：${result.status}（${(result.durationMs / 1000).toFixed(1)}s）`);
+				await vscode.window.showWarningMessage(l10n.t('Agent 任务未完成：{0}（{1}s）', result.status, (result.durationMs / 1000).toFixed(1)));
 			}
 		}),
 
@@ -774,22 +775,22 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 			const runDir = path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			const runs = loadRuns(runDir);
 			if (!runs.length) {
-				await vscode.window.showInformationMessage('暂无会话记录（先运行 Agent 任务）');
+				await vscode.window.showInformationMessage(l10n.t('暂无会话记录（先运行 Agent 任务）'));
 				return;
 			}
-			const picked = await pickRun(runs, '选择要续聊的会话（同一节点多次续聊即分支）');
+			const picked = await pickRun(runs, l10n.t('选择要续聊的会话（同一节点多次续聊即分支）'));
 			if (!picked) return;
-			const task = await vscode.window.showInputBox({ prompt: '续聊任务（将作为该会话的子分支继续）', value: `继续：${picked.task}` });
+			const task = await vscode.window.showInputBox({ prompt: l10n.t('续聊任务（将作为该会话的子分支继续）'), value: `继续：${picked.task}` });
 			if (!task) return;
-			await vscode.window.showInformationMessage(`Agent 续聊已启动：${task.slice(0, 40)}…`);
+			await vscode.window.showInformationMessage(l10n.t('Agent 续聊已启动：{0}…', task.slice(0, 40)));
 			const result = await runAgentLoop({ task, workspace: folder.uri.fsPath, resumeFrom: picked.result as AgentLoopResult });
 			const id2 = persistRun(runDir, task, result, picked.id);
 			const doc2 = await vscode.workspace.openTextDocument(path.join(runDir, `${id2}.md`));
 			await vscode.window.showTextDocument(doc2, { preview: true });
 			if (result.status === 'completed') {
-				await vscode.window.showInformationMessage(`Agent 续聊完成（${result.iterations} 轮）`);
+				await vscode.window.showInformationMessage(l10n.t('Agent 续聊完成（{0} 轮）', result.iterations));
 			} else {
-				await vscode.window.showWarningMessage(`Agent 续聊未完成：${result.status}`);
+				await vscode.window.showWarningMessage(l10n.t('Agent 续聊未完成：{0}', result.status));
 			}
 		}),
 
@@ -798,15 +799,15 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 			if (!folder) return;
 			const runDir = path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			if (!fs.existsSync(runDir)) {
-				await vscode.window.showInformationMessage('暂无 Agent 运行记录');
+				await vscode.window.showInformationMessage(l10n.t('暂无 Agent 运行记录'));
 				return;
 			}
 			const files = fs.readdirSync(runDir).filter(f => f.endsWith('.md')).sort().reverse();
 			if (!files.length) {
-				await vscode.window.showInformationMessage('暂无 Agent 运行记录');
+				await vscode.window.showInformationMessage(l10n.t('暂无 Agent 运行记录'));
 				return;
 			}
-			const picked = await vscode.window.showQuickPick(files, { placeHolder: '选择 Agent 运行记录' });
+			const picked = await vscode.window.showQuickPick(files, { placeHolder: l10n.t('选择 Agent 运行记录') });
 			if (!picked) return;
 			const doc = await vscode.workspace.openTextDocument(path.join(runDir, picked));
 			await vscode.window.showTextDocument(doc, { preview: true });

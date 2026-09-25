@@ -77,30 +77,30 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 				case 'install': {
 					const item = this.catalog.find(it => it.id === msg.id);
 					if (!item) {
-						throw new Error(`未找到市场项：${msg.id}`);
+						throw new Error(vscode.l10n.t('未找到市场项：{0}', msg.id));
 					}
 					this.busy(msg.id);
 					const name = await installFromCatalogItem(this.extensionPath, item);
-					this.pushState(`已安装 ${name}`);
-					vscode.window.showInformationMessage(`Skill 已安装：${name}`);
+					this.pushState(vscode.l10n.t('已安装 {0}', name));
+					vscode.window.showInformationMessage(vscode.l10n.t('Skill 已安装：{0}', name));
 					return;
 				}
 				case 'uninstall': {
 					this.busy(msg.id);
 					uninstallSkill(msg.id);
-					this.pushState(`已卸载 ${msg.id}`);
+					this.pushState(vscode.l10n.t('已卸载 {0}', msg.id));
 					return;
 				}
 				case 'installGithub': {
 					this.busy(msg.id);
 					const name = await installFromUrl(msg.id);
-					this.pushState(`已从 GitHub 安装 ${name}`);
-					vscode.window.showInformationMessage(`Skill 已安装：${name}`);
+					this.pushState(vscode.l10n.t('已从 GitHub 安装 {0}', name));
+					vscode.window.showInformationMessage(vscode.l10n.t('Skill 已安装：{0}', name));
 					return;
 				}
 				case 'installFromUrl': {
 					const url = await vscode.window.showInputBox({
-						prompt: 'GitHub 仓库 URL 或 raw SKILL.md 链接',
+						prompt: vscode.l10n.t('GitHub 仓库 URL 或 raw SKILL.md 链接'),
 						placeHolder: 'https://github.com/owner/repo',
 					});
 					if (!url) {
@@ -109,8 +109,8 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 					}
 					this.busy(url);
 					const name = await installFromUrl(url);
-					this.pushState(`已安装 ${name}`);
-					vscode.window.showInformationMessage(`Skill 已安装：${name}`);
+					this.pushState(vscode.l10n.t('已安装 {0}', name));
+					vscode.window.showInformationMessage(vscode.l10n.t('Skill 已安装：{0}', name));
 					return;
 				}
 				case 'importCursor': {
@@ -118,8 +118,8 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 					const count = await importCursorSkills();
 					this.pushState(
 						count > 0
-							? `已从 ~/.cursor/skills 导入 ${count} 个`
-							: '未找到 ~/.cursor/skills',
+							? vscode.l10n.t('已从 ~/.cursor/skills 导入 {0} 个', count)
+							: vscode.l10n.t('未找到 ~/.cursor/skills'),
 					);
 					return;
 				}
@@ -129,7 +129,7 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 					this.view?.webview.postMessage({
 						type: 'githubResults',
 						items,
-						status: `GitHub ${items.length} 个结果`,
+						status: vscode.l10n.t('GitHub {0} 个结果', items.length),
 					});
 					return;
 				}
@@ -144,7 +144,7 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 			const text = err instanceof Error ? err.message : String(err);
 			this.view?.webview.postMessage({ type: 'status', text, error: true });
 			this.pushState();
-			vscode.window.showErrorMessage(`Skill 市场：${text}`);
+			vscode.window.showErrorMessage(vscode.l10n.t('Skill 市场：{0}', text));
 		}
 	}
 
@@ -163,7 +163,7 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 				.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString());
 		} catch {
 			return `<!DOCTYPE html><html><body style="padding:16px;font-family:sans-serif">
-				<p>Skill 市场资源加载失败，请重新编译 kodrix-skills。</p></body></html>`;
+				<p>${vscode.l10n.t('Skill 市场资源加载失败，请重新编译 kodrix-skills。')}</p></body></html>`;
 		}
 	}
 }

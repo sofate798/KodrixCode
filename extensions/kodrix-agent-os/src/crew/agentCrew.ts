@@ -17,6 +17,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { ensureDir, getWorkspaceKodrixDir } from '../paths';
 import { logger } from '../logger';
 import { routeModel } from '../model/modelRouter';
@@ -177,13 +178,13 @@ export function saveCrew(config: CrewConfig): void {
 export async function createCrew(): Promise<CrewConfig | undefined> {
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		vscode.window.showWarningMessage('请先打开工作区');
+		vscode.window.showWarningMessage(l10n.t('请先打开工作区'));
 		return undefined;
 	}
 
 	// Step 1: Name
 	const name = await vscode.window.showInputBox({
-		prompt: 'Crew 名称',
+		prompt: l10n.t('Crew 名称'),
 		placeHolder: 'feature-payment-system',
 	});
 	if (!name?.trim()) return undefined;
@@ -191,11 +192,11 @@ export async function createCrew(): Promise<CrewConfig | undefined> {
 	// Step 2: Workflow type
 	const workflowPick = await vscode.window.showQuickPick(
 		[
-			{ label: '$(list-ordered) 顺序流水线', description: 'Architect → Coder → Reviewer → Tester，依次执行', name: '顺序流水线', value: 'sequential' as WorkflowType },
-			{ label: '$(run-all) 并行协作', description: '多个 Coder 同时工作，最后 Reviewer 审查', name: '并行协作', value: 'parallel' as WorkflowType },
-			{ label: '$(pass) 审批门', description: '每个阶段需 Reviewer 批准才能进入下一阶段', name: '审批门', value: 'review-gate' as WorkflowType },
+			{ label: '$(list-ordered) ' + l10n.t('顺序流水线'), description: l10n.t('Architect → Coder → Reviewer → Tester，依次执行'), name: l10n.t('顺序流水线'), value: 'sequential' as WorkflowType },
+			{ label: '$(run-all) ' + l10n.t('并行协作'), description: l10n.t('多个 Coder 同时工作，最后 Reviewer 审查'), name: l10n.t('并行协作'), value: 'parallel' as WorkflowType },
+			{ label: '$(pass) ' + l10n.t('审批门'), description: l10n.t('每个阶段需 Reviewer 批准才能进入下一阶段'), name: l10n.t('审批门'), value: 'review-gate' as WorkflowType },
 		],
-		{ placeHolder: '选择协作模式' },
+		{ placeHolder: l10n.t('选择协作模式') },
 	);
 	if (!workflowPick) return undefined;
 
@@ -208,7 +209,7 @@ export async function createCrew(): Promise<CrewConfig | undefined> {
 			picked: r === 'coder' || r === 'reviewer',
 			role: r,
 		})),
-		{ canPickMany: true, placeHolder: '选择参与角色（多选）' },
+		{ canPickMany: true, placeHolder: l10n.t('选择参与角色（多选）') },
 	);
 	if (!rolePicks?.length) return undefined;
 
@@ -229,7 +230,7 @@ export async function createCrew(): Promise<CrewConfig | undefined> {
 	};
 
 	saveCrew(config);
-	vscode.window.showInformationMessage(`Agent Crew「${config.name}」已创建 — ${agents.length} 个角色，${workflowPick.name}`);
+	vscode.window.showInformationMessage(l10n.t('Agent Crew「{0}」已创建 — {1} 个角色，{2}', config.name, agents.length, workflowPick.name));
 	return config;
 }
 
@@ -238,19 +239,19 @@ export async function createCrew(): Promise<CrewConfig | undefined> {
 export async function addCrewTask(config?: CrewConfig): Promise<void> {
 	const crew = config || loadCrew();
 	if (!crew) {
-		await vscode.window.showWarningMessage('未找到 Crew 配置。请先创建 Crew。');
+		await vscode.window.showWarningMessage(l10n.t('未找到 Crew 配置。请先创建 Crew。'));
 		return;
 	}
 
 	const title = await vscode.window.showInputBox({
-		prompt: '任务标题',
-		placeHolder: '实现用户认证模块',
+		prompt: l10n.t('任务标题'),
+		placeHolder: l10n.t('实现用户认证模块'),
 	});
 	if (!title?.trim()) return;
 
 	const description = await vscode.window.showInputBox({
-		prompt: '任务描述（可选）',
-		placeHolder: '包含 JWT、session、OAuth 等…',
+		prompt: l10n.t('任务描述（可选）'),
+		placeHolder: l10n.t('包含 JWT、session、OAuth 等…'),
 	}) || '';
 
 	// Select role
@@ -260,7 +261,7 @@ export async function addCrewTask(config?: CrewConfig): Promise<void> {
 			description: a.role,
 			role: a.role,
 		})),
-		{ placeHolder: '分配角色' },
+		{ placeHolder: l10n.t('分配角色') },
 	);
 	if (!rolePick) return;
 
@@ -270,10 +271,10 @@ export async function addCrewTask(config?: CrewConfig): Promise<void> {
 	}
 	const modePick = await vscode.window.showQuickPick<ModePickItem>(
 		[
-			{ label: '$(play) 自动执行（后台并行）', description: 'vscode.lm 并行驱动，完成后自动推进，输出写入任务结果', mode: 'auto' as CrewExecutionMode },
-			{ label: '$(comment-discussion) 手动执行（Agent 面板）', description: '打开 Agent Chat，可带工具执行，完成后手动标记', mode: 'chat' as CrewExecutionMode },
+			{ label: '$(play) ' + l10n.t('自动执行（后台并行）'), description: l10n.t('vscode.lm 并行驱动，完成后自动推进，输出写入任务结果'), mode: 'auto' as CrewExecutionMode },
+			{ label: '$(comment-discussion) ' + l10n.t('手动执行（Agent 面板）'), description: l10n.t('打开 Agent Chat，可带工具执行，完成后手动标记'), mode: 'chat' as CrewExecutionMode },
 		],
-		{ placeHolder: '执行模式（默认自动）' },
+		{ placeHolder: l10n.t('执行模式（默认自动）') },
 	);
 	const mode: CrewExecutionMode = modePick?.mode ?? 'auto';
 
@@ -282,8 +283,8 @@ export async function addCrewTask(config?: CrewConfig): Promise<void> {
 		taskId: string;
 	}
 	const depPick = await vscode.window.showQuickPick(
-		[{ label: '（无依赖）', taskId: '' } as DepPickItem, ...crew.tasks.map(t => ({ label: t.title, taskId: t.id }))],
-		{ canPickMany: true, placeHolder: '前置依赖任务（可多选，无则跳过）' },
+		[{ label: l10n.t('（无依赖）'), taskId: '' } as DepPickItem, ...crew.tasks.map(t => ({ label: t.title, taskId: t.id }))],
+		{ canPickMany: true, placeHolder: l10n.t('前置依赖任务（可多选，无则跳过）') },
 	);
 
 	const task: CrewTask = {
@@ -300,7 +301,7 @@ export async function addCrewTask(config?: CrewConfig): Promise<void> {
 
 	crew.tasks.push(task);
 	saveCrew(crew);
-	vscode.window.showInformationMessage(`已添加任务：${title} → ${rolePick.label}（${mode === 'auto' ? '自动执行' : '手动执行'}）`);
+	vscode.window.showInformationMessage(l10n.t('已添加任务：{0} → {1}（{2}）', title, rolePick.label, mode === 'auto' ? l10n.t('自动执行') : l10n.t('手动执行')));
 }
 
 // ── v2 并行执行引擎 ─────────────────────────────────────────────
@@ -521,8 +522,8 @@ export async function runAllRunnableTasks(crew: CrewConfig): Promise<void> {
 	if (!runnable.length) {
 		vscode.window.showInformationMessage(
 			chatPending
-				? '没有可自动执行的任务（存在 chat 模式任务，请用「执行下一个 Crew 任务」在 Agent 面板中完成）'
-				: '没有可执行任务（全部完成或依赖未就绪）',
+				? l10n.t('没有可自动执行的任务（存在 chat 模式任务，请用「执行下一个 Crew 任务」在 Agent 面板中完成）')
+				: l10n.t('没有可执行任务（全部完成或依赖未就绪）'),
 		);
 		return;
 	}
@@ -530,7 +531,7 @@ export async function runAllRunnableTasks(crew: CrewConfig): Promise<void> {
 	const executed: CrewTask[] = [];
 
 	await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: `Agent Crew「${crew.name}」并行执行中…`, cancellable: false },
+		{ location: vscode.ProgressLocation.Notification, title: l10n.t('Agent Crew「{0}」并行执行中…', crew.name), cancellable: false },
 		async () => {
 			let wave = 0;
 			while (runnable.length) {
@@ -566,7 +567,7 @@ export async function runAllRunnableTasks(crew: CrewConfig): Promise<void> {
 	const completed = executed.filter(t => t.status === 'completed').length;
 	const failed = executed.filter(t => t.status === 'failed').length;
 	vscode.window.showInformationMessage(
-		`Crew「${crew.name}」执行结束：${completed} 完成 / ${failed} 失败 / ${executed.length} 个任务`,
+		l10n.t('Crew「{0}」执行结束：{1} 完成 / {2} 失败 / {3} 个任务', crew.name, completed, failed, executed.length),
 	);
 	await showCrewExecutionReport(crew, executed);
 }
@@ -676,7 +677,7 @@ export async function markTaskComplete(taskId?: string): Promise<void> {
 		const running = crew.tasks.filter(t => t.status === 'running');
 		const pick = await vscode.window.showQuickPick(
 			running.map(t => ({ label: t.title, task: t })),
-			{ placeHolder: '选择已完成的任务' },
+			{ placeHolder: l10n.t('选择已完成的任务') },
 		);
 		task = pick?.task;
 	}
@@ -690,18 +691,18 @@ export async function markTaskComplete(taskId?: string): Promise<void> {
 	const next = getNextRunnableTasks(crew);
 	if (next.length) {
 		const choice = await vscode.window.showInformationMessage(
-			`「${task.title}」已完成。还有 ${next.length} 个可执行任务。`,
-			'执行下一个', '并行执行全部', '查看状态',
+			l10n.t('「{0}」已完成。还有 {1} 个可执行任务。', task.title, next.length),
+			l10n.t('执行下一个'), l10n.t('并行执行全部'), l10n.t('查看状态'),
 		);
-		if (choice === '执行下一个') {
+		if (choice === l10n.t('执行下一个')) {
 			await runNextTask(crew);
-		} else if (choice === '并行执行全部') {
+		} else if (choice === l10n.t('并行执行全部')) {
 			await runAllRunnableTasks(crew);
 		}
 	} else {
 		const allDone = crew.tasks.every(t => t.status === 'completed');
 		if (allDone) {
-			vscode.window.showInformationMessage(`Crew「${crew.name}」全部任务完成`);
+			vscode.window.showInformationMessage(l10n.t('Crew「{0}」全部任务完成', crew.name));
 		}
 	}
 }
@@ -711,7 +712,7 @@ export async function markTaskComplete(taskId?: string): Promise<void> {
 export async function showCrewStatus(): Promise<void> {
 	const crew = loadCrew();
 	if (!crew) {
-		vscode.window.showWarningMessage('未找到 Crew 配置。使用「Kodrix: 创建 Agent Crew」开始。');
+		vscode.window.showWarningMessage(l10n.t('未找到 Crew 配置。使用「Kodrix: 创建 Agent Crew」开始。'));
 		return;
 	}
 

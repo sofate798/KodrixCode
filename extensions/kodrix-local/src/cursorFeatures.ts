@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { logInfo, logWarn } from './logger';
 import { waitForCopilotReady } from './copilotReady';
 import {
@@ -49,7 +50,7 @@ export async function triggerCodebaseIndexBuild(options?: { silent?: boolean }):
 				logInfo('构建代码库索引已跳过：未检测到 GitHub 登录');
 			} else {
 				vscode.window.showWarningMessage(
-					'无法构建代码库索引：未检测到 GitHub 登录。请先在「账号」中登录 GitHub（Copilot 代码库索引需要 GitHub 账号）。',
+					l10n.t('无法构建代码库索引：未检测到 GitHub 登录。请先在「账号」中登录 GitHub（Copilot 代码库索引需要 GitHub 账号）。'),
 				);
 			}
 			return;
@@ -72,7 +73,7 @@ export async function triggerCodebaseIndexBuild(options?: { silent?: boolean }):
 		logWarn('构建代码库索引失败', err);
 		if (!silent) {
 			vscode.window.showWarningMessage(
-				'无法构建代码库索引。请确认已登录 GitHub Copilot 后重载窗口；或直接在聊天中输入 #codebase 使用即时检索。',
+				l10n.t('无法构建代码库索引。请确认已登录 GitHub Copilot 后重载窗口；或直接在聊天中输入 #codebase 使用即时检索。'),
 			);
 		}
 	}
@@ -105,7 +106,7 @@ export async function openAgentsWindow(): Promise<void> {
 	} catch (err) {
 		logWarn('打开 Agents 窗口失败', err);
 		vscode.window.showWarningMessage(
-			'无法打开 Agents 窗口。请确认已启用 Agent 模式（chat.agent.enabled）并重载窗口。',
+			l10n.t('无法打开 Agents 窗口。请确认已启用 Agent 模式（chat.agent.enabled）并重载窗口。'),
 		);
 	}
 }
@@ -116,7 +117,7 @@ export async function openWorkspaceInAgentsWindow(): Promise<void> {
 	} catch (err) {
 		logWarn('在当前工作区打开 Agents 窗口失败', err);
 		vscode.window.showWarningMessage(
-			'无法在当前工作区打开 Agents 窗口。请确认已启用 Agent 模式并重载窗口。',
+			l10n.t('无法在当前工作区打开 Agents 窗口。请确认已启用 Agent 模式并重载窗口。'),
 		);
 	}
 }
@@ -132,12 +133,12 @@ export function registerCursorFeatureCommands(context: vscode.ExtensionContext):
 		vscode.commands.registerCommand('kodrix.openWorkspaceInAgentsWindow', () => openWorkspaceInAgentsWindow()),
 		vscode.commands.registerCommand('kodrix.applyCursorFeatures', async () => {
 			await applyCursor3ExperienceDefaults(context, { force: true });
-			vscode.window.showInformationMessage('Kodrix：已应用 Cursor 对标功能默认配置');
+			vscode.window.showInformationMessage(l10n.t('Kodrix：已应用 Cursor 对标功能默认配置'));
 		}),
 		vscode.commands.registerCommand('kodrix.applyCursor3Experience', async () => {
 			await applyCursor3ExperienceDefaults(context, { force: true });
 			await bootstrapCursor3WorkspaceLayout(context);
-			vscode.window.showInformationMessage('Kodrix：已应用 Cursor 3.0 完整体验并重载布局');
+			vscode.window.showInformationMessage(l10n.t('Kodrix：已应用 Cursor 3.0 完整体验并重载布局'));
 		}),
 		vscode.workspace.onDidChangeWorkspaceFolders(() => {
 			void bootstrapCursor3WorkspaceLayout(context);

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { onContextChanged, notifyContextChanged } from '../context/contextEvents';
 import { registerInstructionFolders } from './instructionRegistry';
 import { getLearningContextSummary, syncProjectInstructionsFile, getRecentLearning } from '../learning/learningEngine';
@@ -185,12 +186,12 @@ export function getContextStatus(): {
 
 export async function refreshAllContext(): Promise<void> {
 	if (!vscode.workspace.workspaceFolders?.length) {
-		vscode.window.showWarningMessage('请先打开工作区文件夹');
+		vscode.window.showWarningMessage(l10n.t('请先打开工作区文件夹'));
 		return;
 	}
 
 	await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: 'Kodrix: 刷新 Agent 上下文…' },
+		{ location: vscode.ProgressLocation.Notification, title: l10n.t('Kodrix: 刷新 Agent 上下文…') },
 		async () => {
 			await generateRepoWiki({ recordLearning: true });
 			syncProjectInstructionsFile();
@@ -200,7 +201,7 @@ export async function refreshAllContext(): Promise<void> {
 			notifyContextChanged();
 		},
 	);
-	vscode.window.showInformationMessage('Agent 上下文已刷新（Wiki + Memory + Semantic + Instructions）');
+	vscode.window.showInformationMessage(l10n.t('Agent 上下文已刷新（Wiki + Memory + Semantic + Instructions）'));
 }
 
 export async function showContextStatus(): Promise<void> {
@@ -303,9 +304,9 @@ export function registerContextIntelligence(context: vscode.ExtensionContext): v
 				if (!value.trim()) return [];
 
 				return [{
-					label: 'Kodrix 项目上下文（Wiki + Memory + Semantic）',
+					label: l10n.t('Kodrix 项目上下文（Wiki + Memory + Semantic）'),
 					icon: new vscode.ThemeIcon('brain'),
-					modelDescription: 'Repo Wiki + Memory + 学习沉淀 + 语义记忆的智能组装',
+					modelDescription: l10n.t('Repo Wiki + Memory + 学习沉淀 + 语义记忆的智能组装'),
 					value,
 				}];
 			},

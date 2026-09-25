@@ -1,7 +1,7 @@
 {
 	"name": "kodrix-agent-os",
-	"displayName": "Kodrix Agent OS",
-	"description": "让软件开发回归想法本身 — Idea Flow 全自动流水线 · Repo Wiki · Spec 驱动 · Memory · Kanban · Agent 路由 · Arena · Hooks · ACP · 属性测试 · 越用越聪明",
+	"displayName": "%displayName%",
+	"description": "%description%",
 	"version": "1.0.0",
 	"publisher": "kodrix",
 	"license": "MIT",
@@ -30,25 +30,25 @@
 			{
 				"id": "kodrix.codebase",
 				"name": "codebase",
-				"fullName": "Codebase Intelligence",
-				"description": "自然语言代码问答：查询符号定义 / 引用 / 依赖 / 架构（本地语义索引，零外部依赖）",
+				"fullName": "%chatParticipant.codebase.fullName%",
+				"description": "%chatParticipant.codebase.description%",
 				"isSticky": true,
 				"commands": [
 					{
 						"name": "def",
-						"description": "查找符号定义位置"
+						"description": "%chatParticipant.codebase.command.def.description%"
 					},
 					{
 						"name": "refs",
-						"description": "查找符号的所有引用"
+						"description": "%chatParticipant.codebase.command.refs.description%"
 					},
 					{
 						"name": "deps",
-						"description": "查看文件的依赖关系"
+						"description": "%chatParticipant.codebase.command.deps.description%"
 					},
 					{
 						"name": "dependents",
-						"description": "查看哪些文件依赖该文件"
+						"description": "%chatParticipant.codebase.command.dependents.description%"
 					}
 				]
 			}
@@ -70,7 +70,7 @@
 			"explorer": [
 				{
 					"id": "kodrix.agentKanban",
-					"name": "Agent 看板",
+					"name": "%view.agentKanban.name%",
 					"when": "config.kodrix.features.kanban"
 				}
 			]
@@ -78,377 +78,377 @@
 		"commands": [
 			{
 				"command": "kodrix.wiki.generate",
-				"title": "生成 Repo Wiki",
+				"title": "%command.wiki.generate.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.wiki.open",
-				"title": "打开 Repo Wiki",
+				"title": "%command.wiki.open.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.spec.create",
-				"title": "新建 Spec（需求→设计→任务）",
+				"title": "%command.spec.create.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.spec.open",
-				"title": "打开 Spec",
+				"title": "%command.spec.open.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.spec.openWorkbench",
-				"title": "打开 Spec 三栏工作台（Kiro）",
+				"title": "%command.spec.openWorkbench.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.spec.implement",
-				"title": "实施 Spec 任务（Agent 模式）",
+				"title": "%command.spec.implement.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.memory.show",
-				"title": "查看项目 Memory",
+				"title": "%command.memory.show.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.memory.capture",
-				"title": "从对话捕获 Memory",
+				"title": "%command.memory.capture.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.kanban.addTask",
-				"title": "添加 Agent 任务",
+				"title": "%command.kanban.addTask.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.kanban.moveTask",
-				"title": "移动任务状态",
+				"title": "%command.kanban.moveTask.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.kanban.openSession",
-				"title": "打开关联 Agent 会话",
+				"title": "%command.kanban.openSession.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.kanban.deleteTask",
-				"title": "删除任务",
+				"title": "%command.kanban.deleteTask.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.kanban.refresh",
-				"title": "刷新看板",
+				"title": "%command.kanban.refresh.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.kanban.focus",
-				"title": "聚焦 Agent 看板",
+				"title": "%command.kanban.focus.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.router.route",
-				"title": "智能路由（自动选 Spec/Plan/Agent/Ask）",
+				"title": "%command.router.route.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.arena.compare",
-				"title": "Arena 双模型对比",
+				"title": "%command.arena.compare.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.hooks.installPresets",
-				"title": "安装 Hooks 预置包",
+				"title": "%command.hooks.installPresets.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.acp.register",
-				"title": "注册 ACP 外部 Agent",
+				"title": "%command.acp.register.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.acp.list",
-				"title": "列出 ACP 外部 Agent",
+				"title": "%command.acp.list.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.testing.generatePropertyTests",
-				"title": "生成属性测试（Spec / Kiro 风格）",
+				"title": "%command.testing.generatePropertyTests.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.agentOs.welcome",
-				"title": "Agent OS 功能概览",
+				"title": "%command.agentOs.welcome.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.learn.capture",
-				"title": "沉淀项目知识（越用越聪明）",
+				"title": "%command.learn.capture.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.learn.dashboard",
-				"title": "Learning 学习仪表盘",
+				"title": "%command.learn.dashboard.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.context.status",
-				"title": "查看上下文状态",
+				"title": "%command.context.status.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.context.refresh",
-				"title": "刷新 Agent 上下文",
+				"title": "%command.context.refresh.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.learn.installSessionHook",
-				"title": "安装 Session Learning Hook（Agent 结束自动学习）",
+				"title": "%command.learn.installSessionHook.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.learn.sessionStatus",
-				"title": "Session Learning 状态",
+				"title": "%command.learn.sessionStatus.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.learn.processPendingSessions",
-				"title": "处理待学习会话队列",
+				"title": "%command.learn.processPendingSessions.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.hub.open",
-				"title": "打开 Kodrix Hub（Agent 指挥中心）",
+				"title": "%command.hub.open.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.router.repeatLast",
-				"title": "重复上次智能路由",
+				"title": "%command.router.repeatLast.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.crew.create",
-				"title": "创建 Agent Crew（多智能体编排）",
+				"title": "%command.crew.create.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.crew.addTask",
-				"title": "添加 Crew 任务",
+				"title": "%command.crew.addTask.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.crew.runNext",
-				"title": "执行下一个 Crew 任务",
+				"title": "%command.crew.runNext.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.crew.runAll",
-				"title": "并行执行所有可执行 Crew 任务（自动）",
+				"title": "%command.crew.runAll.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.crew.markDone",
-				"title": "标记 Crew 任务完成",
+				"title": "%command.crew.markDone.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.crew.status",
-				"title": "查看 Crew 状态",
+				"title": "%command.crew.status.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.vibe.start",
-				"title": "Vibe Coding — 一句话生成项目",
+				"title": "%command.vibe.start.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.vibe.quick",
-				"title": "快速 Vibe（预设模板选择）",
+				"title": "%command.vibe.quick.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.idea.open",
-				"title": "打开 Idea Canvas（想法→产品）",
+				"title": "%command.idea.open.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.idea.start",
-				"title": "Idea Flow — 输入想法自动构建",
+				"title": "%command.idea.start.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.idea.status",
-				"title": "查看 Idea Flow 状态",
+				"title": "%command.idea.status.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.idea.restart",
-				"title": "重置 Idea Flow",
+				"title": "%command.idea.restart.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.rules.create",
-				"title": "创建 Agent 规则（Rules .mdc，AI 生成）",
+				"title": "%command.rules.create.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.rules.sync",
-				"title": "同步 Rules 到 Agent 指令",
+				"title": "%command.rules.sync.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.codebase.search",
-				"title": "代码库问答（自然语言搜索代码定义/引用/架构）",
+				"title": "%command.codebase.search.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.codebase.buildIndex",
-				"title": "重建全工程语义索引",
+				"title": "%command.codebase.buildIndex.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.codebase.stats",
-				"title": "查看项目索引统计",
+				"title": "%command.codebase.stats.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.codebase.indexManager.open",
-				"title": "打开代码库索引管理（索引与文档）",
+				"title": "%command.codebase.indexManager.open.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.terminal.aiPrompt",
-				"title": "终端 AI — 生成并运行命令（Cmd+K）",
+				"title": "%command.terminal.aiPrompt.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.terminal.aiRun",
-				"title": "运行终端 AI 命令（Cmd+Enter）",
+				"title": "%command.terminal.aiRun.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.checkpoint.create",
-				"title": "创建检查点（可回滚）",
+				"title": "%command.checkpoint.create.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.checkpoint.list",
-				"title": "查看检查点",
+				"title": "%command.checkpoint.list.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.checkpoint.restore",
-				"title": "回滚到检查点",
+				"title": "%command.checkpoint.restore.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.rules.list",
-				"title": "查看生效的 Agent 规则",
+				"title": "%command.rules.list.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.modelRouter.status",
-				"title": "模型路由状态（模型池 + 使用统计）",
+				"title": "%command.modelRouter.status.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.userProfile.view",
-				"title": "查看 / 编辑全局用户偏好画像",
+				"title": "%command.userProfile.view.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.userProfile.reset",
-				"title": "重置全局用户偏好画像",
+				"title": "%command.userProfile.reset.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.background.dispatch",
-				"title": "派发后台任务（Background Agent）",
+				"title": "%command.background.dispatch.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.background.list",
-				"title": "查看后台任务列表",
+				"title": "%command.background.list.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.crew.visualize",
-				"title": "可视化 Agent 编排（DAG）",
+				"title": "%command.crew.visualize.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.agent.run",
-				"title": "运行 Agent 任务（端到端推理循环）",
+				"title": "%command.agent.run.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.agent.list",
-				"title": "查看 Agent 运行记录",
+				"title": "%command.agent.list.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.agent.resume",
-				"title": "Agent 续聊（基于上次运行上下文继续）",
+				"title": "%command.agent.resume.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.apply.preview",
-				"title": "预览变更提案（diff 审查）",
+				"title": "%command.apply.preview.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.apply.commit",
-				"title": "应用变更提案（确认后应用）",
+				"title": "%command.apply.commit.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.agent.plan",
-				"title": "Agent: 计划模式（Plan，只读分析）",
+				"title": "%command.agent.plan.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.subagent.run",
-				"title": "Subagent: 并行派生任务（独立上下文）",
+				"title": "%command.subagent.run.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.subagent.list",
-				"title": "Subagent: 查看运行报告",
+				"title": "%command.subagent.list.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.threads.tree",
-				"title": "会话 Threads: 会话树（分支导航）",
+				"title": "%command.threads.tree.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.threads.rename",
-				"title": "会话 Threads: 重命名会话",
+				"title": "%command.threads.rename.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.threads.search",
-				"title": "会话 Threads: 搜索会话",
+				"title": "%command.threads.search.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.background.panel",
-				"title": "后台 Agent: 会话视图",
+				"title": "%command.background.panel.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.acp.dispatch",
-				"title": "ACP: 委派任务给外部 Agent",
+				"title": "%command.acp.dispatch.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.acp.runs",
-				"title": "ACP: 委派历史",
+				"title": "%command.acp.runs.title%",
 				"category": "Kodrix"
 			},
 			{
 				"command": "kodrix.tabCompletion.stats",
-				"title": "Tab 补全: 接受率统计",
+				"title": "%command.tabCompletion.stats.title%",
 				"category": "Kodrix"
 			}
 		],
@@ -536,77 +536,77 @@
 			]
 		},
 		"configuration": {
-			"title": "Kodrix Agent OS",
+			"title": "%config.title%",
 			"properties": {
 				"kodrix.settings": {
 					"type": "null",
 					"renderer": "kodrix.settings",
-					"markdownDescription": "**Kodrix Settings** — 集中管理 Kodrix 全部配置：代码库索引与文档 · AI 供应商 · FIM 补全 · Embedding · 功能开关"
+					"markdownDescription": "%config.settings.markdownDescription%"
 				},
 				"kodrix.features.wiki": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Repo Wiki 自动生成（Qoder 风格）"
+					"description": "%config.features.wiki.description%"
 				},
 				"kodrix.features.wikiAutoBuild": {
 					"type": "boolean",
 					"default": true,
-					"description": "打开工作区时自动生成 Repo Wiki"
+					"description": "%config.features.wikiAutoBuild.description%"
 				},
 				"kodrix.features.spec": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Spec 驱动工作流（Kiro 风格）"
+					"description": "%config.features.spec.description%"
 				},
 				"kodrix.features.memory": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用跨会话 Memory（Windsurf 风格）"
+					"description": "%config.features.memory.description%"
 				},
 				"kodrix.features.kanban": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Agent Kanban 看板（Devin/Qoder Quest 风格）"
+					"description": "%config.features.kanban.description%"
 				},
 				"kodrix.features.agentRouter": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用统一 Agent OS 智能路由"
+					"description": "%config.features.agentRouter.description%"
 				},
 				"kodrix.features.arena": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Arena 双模型对比（Windsurf 风格）"
+					"description": "%config.features.arena.description%"
 				},
 				"kodrix.features.hooks": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Hooks 预置包（Kiro 风格）"
+					"description": "%config.features.hooks.description%"
 				},
 				"kodrix.features.acp": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 ACP 外部 Agent 接入（Devin Desktop 风格）"
+					"description": "%config.features.acp.description%"
 				},
 				"kodrix.features.propertyTests": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用属性测试生成（Kiro 风格）"
+					"description": "%config.features.propertyTests.description%"
 				},
 				"kodrix.features.learning": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Learning Engine（越用越聪明 — 跨会话知识沉淀）"
+					"description": "%config.features.learning.description%"
 				},
 				"kodrix.features.contextInjection": {
 					"type": "boolean",
 					"default": true,
-					"description": "自动将 Wiki + Memory + Learning 注入 Agent Instructions 与 Chat 上下文"
+					"description": "%config.features.contextInjection.description%"
 				},
 				"kodrix.features.sessionLearning": {
 					"type": "boolean",
 					"default": true,
-					"description": "Agent 会话结束时自动蒸馏项目知识（Stop Hook + LLM）"
+					"description": "%config.features.sessionLearning.description%"
 				},
 				"kodrix.sessionLearning.mode": {
 					"type": "string",
@@ -616,178 +616,178 @@
 						"off"
 					],
 					"default": "prompt",
-					"description": "会话学习模式：auto 自动沉淀 / prompt 询问确认 / off 关闭"
+					"description": "%config.sessionLearning.mode.description%"
 				},
 				"kodrix.sessionLearning.minUserMessages": {
 					"type": "number",
 					"default": 1,
 					"minimum": 1,
-					"description": "至少多少条用户消息才触发会话学习（过滤 trivial 会话）"
+					"description": "%config.sessionLearning.minUserMessages.description%"
 				},
 				"kodrix.sessionLearning.autoInstallHook": {
 					"type": "boolean",
 					"default": true,
-					"description": "首次打开工作区时自动安装 .github/hooks Session Learning Hook"
+					"description": "%config.sessionLearning.autoInstallHook.description%"
 				},
 				"kodrix.arena.modelA": {
 					"type": "string",
 					"default": "",
-					"description": "Arena 对比模型 A（留空则使用当前默认模型）"
+					"description": "%config.arena.modelA.description%"
 				},
 				"kodrix.arena.modelB": {
 					"type": "string",
 					"default": "",
-					"description": "Arena 对比模型 B"
+					"description": "%config.arena.modelB.description%"
 				},
 				"kodrix.router.lastRoute": {
 					"type": "object",
 					"default": {},
-					"description": "上次智能路由结果（自动记录）"
+					"description": "%config.router.lastRoute.description%"
 				},
 				"kodrix.kanban.showCompleted": {
 					"type": "boolean",
 					"default": true,
-					"description": "在看板中显示已完成的任务"
+					"description": "%config.kanban.showCompleted.description%"
 				},
 				"kodrix.experience.autoBootstrap": {
 					"type": "boolean",
 					"default": true,
-					"description": "打开工作区时自动预热 Agent 上下文（Wiki · Memory · Learning · Hooks）"
+					"description": "%config.experience.autoBootstrap.description%"
 				},
 				"kodrix.experience.showBootstrapTip": {
 					"type": "boolean",
 					"default": true,
-					"description": "首次打开工作区时显示 Hub / 智能路由引导提示"
+					"description": "%config.experience.showBootstrapTip.description%"
 				},
 				"kodrix.features.contextIntelligence": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Context Intelligence（Wiki + Memory + Learning 自动注入 Chat）"
+					"description": "%config.features.contextIntelligence.description%"
 				},
 				"kodrix.features.semanticMemory": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用语义记忆索引（TF-IDF 向量检索，零外部依赖）"
+					"description": "%config.features.semanticMemory.description%"
 				},
 				"kodrix.features.proactiveContext": {
 					"type": "boolean",
 					"default": true,
-					"description": "打开文件时主动提示相关 Learning / Memory（状态栏指示）"
+					"description": "%config.features.proactiveContext.description%"
 				},
 				"kodrix.router.autoExecute": {
 					"type": "boolean",
 					"default": true,
-					"description": "智能路由高置信度时自动执行（无需二次确认）"
+					"description": "%config.router.autoExecute.description%"
 				},
 				"kodrix.features.agentCrew": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Agent Crew 多智能体协作编排（Devin / Cursor 3.0 风格）"
+					"description": "%config.features.agentCrew.description%"
 				},
 				"kodrix.crew.maxParallel": {
 					"type": "number",
 					"default": 3,
 					"minimum": 1,
 					"maximum": 10,
-					"description": "Crew 并行执行的最大并发任务数（对标 Cursor Subagent 并行派生，默认 3 路）"
+					"description": "%config.crew.maxParallel.description%"
 				},
 				"kodrix.crew.timeoutMs": {
 					"type": "number",
 					"default": 180000,
 					"minimum": 10000,
-					"description": "Crew 单任务自动执行超时（毫秒）"
+					"description": "%config.crew.timeoutMs.description%"
 				},
 				"kodrix.features.vibeCoding": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Vibe Coding（一句描述自动构建项目）"
+					"description": "%config.features.vibeCoding.description%"
 				},
 				"kodrix.features.ideaFlow": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Idea Flow — 想法到产品的全自动流水线。从模糊想法到完整可运行应用，AI 负责分析→规划→构建→预览全部环节"
+					"description": "%config.features.ideaFlow.description%"
 				},
 				"kodrix.hub.enableKeybinding": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Ctrl+Shift+H 打开 Kodrix Hub（关闭后恢复 VS Code 全局替换快捷键）"
+					"description": "%config.hub.enableKeybinding.description%"
 				},
 				"kodrix.features.codebaseIntelligence": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用 Codebase Intelligence — 全工程语义索引（AST 级符号/依赖/调用图分析）"
+					"description": "%config.features.codebaseIntelligence.description%"
 				},
 				"kodrix.features.predictiveCompletion": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用上下文预测补全 — 基于全工程索引的「下一步编辑」预测"
+					"description": "%config.features.predictiveCompletion.description%"
 				},
 				"kodrix.features.codebaseQuery": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用自然语言代码问答 — @codebase 查询定义/引用/架构"
+					"description": "%config.features.codebaseQuery.description%"
 				},
 				"kodrix.codebase.autoIndexNewFolders": {
 					"type": "boolean",
 					"default": true,
-					"description": "索引新文件夹：自动索引包含少于 50,000 个文件的文件夹（对标 Cursor 代码库索引）"
+					"description": "%config.codebase.autoIndexNewFolders.description%"
 				},
 				"kodrix.codebase.ignoreCursorignore": {
 					"type": "boolean",
 					"default": true,
-					"description": "忽略 .cursorignore 中的文件：除 .gitignore 外，还要从索引中排除的文件（对标 Cursor）"
+					"description": "%config.codebase.ignoreCursorignore.description%"
 				},
 				"kodrix.codebase.grepIndex": {
 					"type": "boolean",
 					"default": true,
-					"description": "为即时 Grep 索引仓库（测试版 BETA）：自动索引仓库以加速 Grep 搜索，所有数据均存储在本地（对标 Cursor）"
+					"description": "%config.codebase.grepIndex.description%"
 				},
 				"kodrix.features.terminalAI": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用终端 AI prompt 条 — Cmd+K 自然语言生成命令，Cmd+Enter 运行（对标 Cursor）"
+					"description": "%config.features.terminalAI.description%"
 				},
 				"kodrix.checkpoint.autoCapture": {
 					"type": "boolean",
 					"default": true,
-					"description": "文件保存时自动捕获版本（滚动保留，供回滚参考）"
+					"description": "%config.checkpoint.autoCapture.description%"
 				},
 				"kodrix.checkpoint.maxEntries": {
 					"type": "number",
 					"default": 100,
 					"minimum": 10,
 					"maximum": 1000,
-					"description": "自动捕获队列最大条目数（超过后删除最旧）"
+					"description": "%config.checkpoint.maxEntries.description%"
 				},
 				"kodrix.idea.autoExecute": {
 					"type": "boolean",
 					"default": true,
-					"description": "Idea Flow 构建阶段端到端自动执行（构建前自动创建检查点，Crew 自动执行全部任务）；关闭后回到手动 Agent 逐任务模式"
+					"description": "%config.idea.autoExecute.description%"
 				},
 				"kodrix.modelRouter.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "启用模型 Auto 路由 — 按任务类型（smart/balanced/fast）自动选择模型（对标 Cursor 多模型路由）"
+					"description": "%config.modelRouter.enabled.description%"
 				},
 				"kodrix.tabCompletion.enabled": {
 					"type": "boolean",
 					"default": false,
-					"description": "启用 Kodrix Tab 补全（专用 fast 模型通道，对标 Cursor Tab）。默认关闭以避免与上游 Copilot 内联补全冲突"
+					"description": "%config.tabCompletion.enabled.description%"
 				},
 				"kodrix.agentLoop.maxIterations": {
 					"type": "number",
 					"default": 20,
-					"description": "Agent 推理循环最大迭代轮数（防失控）"
+					"description": "%config.agentLoop.maxIterations.description%"
 				},
 				"kodrix.agentLoop.timeoutMs": {
 					"type": "number",
 					"default": 600000,
-					"description": "Agent 推理循环总超时（毫秒）"
+					"description": "%config.agentLoop.timeoutMs.description%"
 				},
 				"kodrix.agentLoop.allowCommands": {
 					"type": "boolean",
 					"default": true,
-					"description": "允许 Agent 推理循环执行终端命令（run_command 工具）"
+					"description": "%config.agentLoop.allowCommands.description%"
 				},
 				"kodrix.tabCompletion.mode": {
 					"type": "string",
@@ -796,7 +796,7 @@
 						"fast"
 					],
 					"default": "fim",
-					"markdownDescription": "Tab 补全模式：**fim**=专用 FIM 补全通道（默认 DeepSeek FIM，需填 API Key）；**fast**=通用模型通道（无需 Key）。"
+					"markdownDescription": "%config.tabCompletion.mode.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimProvider": {
 					"type": "string",
@@ -805,54 +805,56 @@
 						"custom"
 					],
 					"default": "deepseek",
-					"markdownDescription": "FIM 提供方：**deepseek**=DeepSeek FIM（默认端点）；**custom**=自定义 FIM 接口（OpenAI 兼容 completions 格式）。"
+					"markdownDescription": "%config.tabCompletion.fimProvider.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimEndpoint": {
 					"type": "string",
 					"default": "https://api.deepseek.com/beta/fim/completions",
-					"markdownDescription": "FIM 端点（custom 提供方时填写自定义 URL）。"
+					"markdownDescription": "%config.tabCompletion.fimEndpoint.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimApiKey": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "FIM API Key（DeepSeek Key 或自定义 Key）。"
+					"markdownDescription": "%config.tabCompletion.fimApiKey.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimModel": {
 					"type": "string",
 					"default": "deepseek-chat",
-					"markdownDescription": "FIM 模型名（DeepSeek 默认 deepseek-chat）。"
+					"markdownDescription": "%config.tabCompletion.fimModel.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.enabled": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "启用真向量语义检索（Embedding）。需同时填写 apiKey。"
+					"markdownDescription": "%config.semanticEmbedding.enabled.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.apiKey": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "智谱（BigModel）API Key（https://open.bigmodel.cn）。保存后自动启用。"
+					"markdownDescription": "%config.semanticEmbedding.apiKey.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.endpoint": {
 					"type": "string",
 					"default": "https://open.bigmodel.cn/api/paas/v4/embeddings",
-					"markdownDescription": "Embedding 端点（自定义时修改）。"
+					"markdownDescription": "%config.semanticEmbedding.endpoint.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.model": {
 					"type": "string",
 					"default": "embedding-3",
-					"markdownDescription": "Embedding 模型（默认 embedding-3）。"
+					"markdownDescription": "%config.semanticEmbedding.model.markdownDescription%"
 				},
 				"kodrix.agentLoop.checkpoint": {
 					"type": "boolean",
 					"default": true,
-					"description": "Agent 运行前自动创建检查点，可回滚 Agent 造成的全部改动"
+					"description": "%config.agentLoop.checkpoint.description%"
 				}
 			}
 		}
 	},
 	"scripts": {
 		"compile": "gulp compile-extension:kodrix-agent-os",
-		"watch": "gulp watch-extension:kodrix-agent-os"
+		"watch": "gulp watch-extension:kodrix-agent-os",
+		"compile:test": "tsc -p tsconfig.test.json",
+		"test": "npm run compile:test && node ./out-test/test/runTests.js"
 	},
 	"devDependencies": {
 		"@types/node": "24.x"

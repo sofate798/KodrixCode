@@ -4,6 +4,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { registerInstructionFolders } from '../context/instructionRegistry';
 import { notifyContextChanged } from '../context/contextEvents';
 import { recordLearning, syncProjectInstructionsFile } from '../learning/learningEngine';
@@ -32,8 +33,8 @@ export async function captureMemoryFromSelection(): Promise<void> {
 	const editor = vscode.window.activeTextEditor;
 	const selection = editor?.document.getText(editor.selection);
 	const input = selection || await vscode.window.showInputBox({
-		prompt: '输入要记住的项目知识（架构、约定、陷阱等）',
-		placeHolder: '此项目使用 pnpm，测试框架为 vitest',
+		prompt: l10n.t('输入要记住的项目知识（架构、约定、陷阱等）'),
+		placeHolder: l10n.t('此项目使用 pnpm，测试框架为 vitest'),
 	});
 	if (!input?.trim()) {
 		return;
@@ -44,7 +45,7 @@ export async function captureMemoryFromSelection(): Promise<void> {
 		// 不强制 category，交由 recordLearning 按内容推断（inferLearningCategory）
 		recordLearning(input.trim(), { source: 'capture' });
 	}
-	vscode.window.showInformationMessage('已写入项目 Memory 并同步到 Agent 上下文');
+	vscode.window.showInformationMessage(l10n.t('已写入项目 Memory 并同步到 Agent 上下文'));
 }
 
 export async function injectMemoryIntoInstructions(): Promise<void> {

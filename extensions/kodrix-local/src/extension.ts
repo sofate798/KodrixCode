@@ -8,6 +8,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { applyCursorLikeDefaults, applyModelRoutes } from './cursorDefaults';
 import { applyCursorFeatureDefaults, registerCursorFeatureCommands } from './cursorFeatures';
 import { openAgentsWindowWithWorkspace } from './cursor3Experience';
@@ -35,7 +36,7 @@ const WELCOME_DELAY_MS = 1500;
 /** 弹出 API Key 输入框 — 消除两个 preset 应用命令中的重复逻辑 */
 async function promptApiKey(presetName: string): Promise<string | undefined> {
 	return await vscode.window.showInputBox({
-		prompt: `${presetName} API Key（只保存在本机，不需要登录 GitHub）`,
+		prompt: l10n.t('{0} API Key（只保存在本机，不需要登录 GitHub）', presetName),
 		password: true,
 		ignoreFocusOut: true,
 	}) || undefined;
@@ -46,33 +47,33 @@ async function promptApiKey(presetName: string): Promise<string | undefined> {
 async function showWelcome(context: vscode.ExtensionContext, migrated: boolean): Promise<void> {
 	const choice = await vscode.window.showInformationMessage(
 		migrated
-			? '欢迎使用 Kodrix — Cursor 3.0 以 Agent 为中心的全新编程体验。'
-			: '欢迎使用 Kodrix！并行 Agent、云端/本地大模型、Agents 窗口，精仿 Cursor 3.0。',
+			? l10n.t('欢迎使用 Kodrix — Cursor 3.0 以 Agent 为中心的全新编程体验。')
+			: l10n.t('欢迎使用 Kodrix！并行 Agent、云端/本地大模型、Agents 窗口，精仿 Cursor 3.0。'),
 		{ modal: false },
-		'配置 AI 模型',
-		'Agents 窗口',
-		'打开 Hub',
-		'Agent 聊天',
-		'IDE + Agents 并行',
-		'Agent OS 概览',
-		'从 Cursor 导入',
-		'Skill 市场',
-		'稍后',
+		l10n.t('配置 AI 模型'),
+		l10n.t('Agents 窗口'),
+		l10n.t('打开 Hub'),
+		l10n.t('Agent 聊天'),
+		l10n.t('IDE + Agents 并行'),
+		l10n.t('Agent OS 概览'),
+		l10n.t('从 Cursor 导入'),
+		l10n.t('Skill 市场'),
+		l10n.t('稍后'),
 	);
 	// 使用对象映射替代 if-else 链，更清晰可维护
 	const commandMap: Record<string, string> = {
-		'配置 AI 模型': 'kodrix.openProviderWorkbench',
-		'Agents 窗口': 'kodrix.openAgentsWindow',
-		'打开 Hub': 'kodrix.hub.open',
-		'Agent OS 概览': 'kodrix.agentOs.welcome',
-		'从 Cursor 导入': 'kodrix.importCursor',
-		'Skill 市场': 'kodrix.skills.openMarketplace',
+		[l10n.t('配置 AI 模型')]: 'kodrix.openProviderWorkbench',
+		[l10n.t('Agents 窗口')]: 'kodrix.openAgentsWindow',
+		[l10n.t('打开 Hub')]: 'kodrix.hub.open',
+		[l10n.t('Agent OS 概览')]: 'kodrix.agentOs.welcome',
+		[l10n.t('从 Cursor 导入')]: 'kodrix.importCursor',
+		[l10n.t('Skill 市场')]: 'kodrix.skills.openMarketplace',
 	};
 	if (choice && commandMap[choice]) {
 		await vscode.commands.executeCommand(commandMap[choice]);
-	} else if (choice === 'Agent 聊天') {
+	} else if (choice === l10n.t('Agent 聊天')) {
 		await vscode.commands.executeCommand('workbench.action.chat.open', { mode: 'agent' });
-	} else if (choice === 'IDE + Agents 并行') {
+	} else if (choice === l10n.t('IDE + Agents 并行')) {
 		await openAgentsWindowWithWorkspace();
 		await vscode.commands.executeCommand('workbench.action.chat.open', { mode: 'agent' });
 	}
@@ -87,7 +88,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
 		logError('Kodrix Local activation failed', err);
-		vscode.window.showErrorMessage(`Kodrix Local 激活失败: ${msg}`);
+		vscode.window.showErrorMessage(l10n.t('Kodrix Local 激活失败: {0}', msg));
 	}
 }
 
@@ -139,13 +140,13 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 				const icon = p.icon && /^[a-z0-9-]+$/i.test(p.icon) ? p.icon : undefined;
 				return {
 					label: icon ? `$(${icon}) ${p.name}` : p.name,
-					description: `${p.category === 'local' ? '本地' : '云端'} · ${p.base_url || p.hint || '自定义'}`,
-					detail: p.category === 'local' ? '无需 API Key' : (p.needs_api_key ? '需要 API Key' : ''),
+					description: `${p.category === 'local' ? l10n.t('本地') : l10n.t('云端')} · ${p.base_url || p.hint || l10n.t('自定义')}`,
+					detail: p.category === 'local' ? l10n.t('无需 API Key') : (p.needs_api_key ? l10n.t('需要 API Key') : ''),
 					preset: p,
 				};
 			});
 			const picked = await vscode.window.showQuickPick(items, {
-				placeHolder: '选择模型供应商预设',
+				placeHolder: l10n.t('选择模型供应商预设'),
 				matchOnDescription: true,
 			});
 			if (picked) {

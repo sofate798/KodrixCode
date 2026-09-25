@@ -8,6 +8,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { classifyIntent } from '../router/agentRouter';
 
 /**
@@ -20,13 +21,13 @@ import { classifyIntent } from '../router/agentRouter';
 export async function vibeCode(prompt?: string): Promise<void> {
 	const enabled = vscode.workspace.getConfiguration('kodrix.features').get<boolean>('vibeCoding', true);
 	if (!enabled) {
-		vscode.window.showWarningMessage('Vibe Coding 已关闭。可在设置中启用 kodrix.features.vibeCoding');
+		vscode.window.showWarningMessage(l10n.t('Vibe Coding 已关闭。可在设置中启用 kodrix.features.vibeCoding'));
 		return;
 	}
 
 	const input = prompt || await vscode.window.showInputBox({
-		prompt: '描述你想要的应用，AI 全自动构建 — 复杂想法走 Idea Flow，简单需求走快捷路径',
-		placeHolder: '一个带暗色模式的个人博客，支持 Markdown / 一个 AI 知识管理工具 / 一个 Trello 看板',
+		prompt: l10n.t('描述你想要的应用，AI 全自动构建 — 复杂想法走 Idea Flow，简单需求走快捷路径'),
+		placeHolder: l10n.t('一个带暗色模式的个人博客，支持 Markdown / 一个 AI 知识管理工具 / 一个 Trello 看板'),
 		ignoreFocusOut: true,
 	});
 
@@ -38,7 +39,7 @@ export async function vibeCode(prompt?: string): Promise<void> {
 	if (shouldUseIdeaFlow && vscode.workspace.getConfiguration('kodrix.features').get<boolean>('ideaFlow', true)) {
 		// Route to full Idea Flow pipeline — pass prompt directly to avoid double-input
 		await vscode.commands.executeCommand('kodrix.idea.start', input);
-		vscode.window.showInformationMessage('Vibe Coding 检测到复杂项目需求，已切换到 Idea Flow 全自动流水线');
+		vscode.window.showInformationMessage(l10n.t('Vibe Coding 检测到复杂项目需求，已切换到 Idea Flow 全自动流水线'));
 		return;
 	}
 
@@ -60,14 +61,14 @@ export async function vibeCode(prompt?: string): Promise<void> {
 
 	if (route.target === 'spec') {
 		await vscode.commands.executeCommand('kodrix.spec.create');
-		vscode.window.showInformationMessage('Vibe Coding → 请在 Spec 中定义需求，完成后实施');
+		vscode.window.showInformationMessage(l10n.t('Vibe Coding → 请在 Spec 中定义需求，完成后实施'));
 	} else {
 		await vscode.commands.executeCommand('workbench.action.chat.open', {
 			mode: 'agent',
 			query: vibeContext,
 			isPartialQuery: false,
 		});
-		vscode.window.showInformationMessage('Vibe Coding → Agent 模式已就绪');
+		vscode.window.showInformationMessage(l10n.t('Vibe Coding → Agent 模式已就绪'));
 	}
 }
 
@@ -115,7 +116,7 @@ export async function quickVibe(): Promise<void> {
 			{ label: '数据仪表盘', description: 'React + Recharts', prompt: '一个数据分析仪表盘，包含折线图、饼图和统计卡片' },
 			{ label: '$(edit) 自定义...', description: '输入你自己的描述', prompt: '' },
 		],
-		{ placeHolder: '选择一个 Vibe 模板，或自定义描述…' },
+		{ placeHolder: l10n.t('选择一个 Vibe 模板，或自定义描述…') },
 	);
 
 	if (!lastPrompt) return;

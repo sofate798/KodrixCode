@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { ensureDir, getWorkspaceKodrixDir } from '../paths';
 import {
 	CONFIG_FEATURES,
@@ -50,13 +51,13 @@ export async function compareModels(prompt?: string): Promise<void> {
 	const enabled = vscode.workspace.getConfiguration(CONFIG_FEATURES)
 		.get<boolean>(FEATURE_FLAGS.arena, true);
 	if (!enabled) {
-		vscode.window.showWarningMessage(`Arena 已关闭。可在设置中启用 ${CONFIG_FEATURES}.${FEATURE_FLAGS.arena}`);
+		vscode.window.showWarningMessage(l10n.t('Arena 已关闭。可在设置中启用 {0}', `${CONFIG_FEATURES}.${FEATURE_FLAGS.arena}`));
 		return;
 	}
 
 	const userPrompt = prompt || await vscode.window.showInputBox({
-		prompt: 'Arena：输入同一 prompt，将并行对比两个模型',
-		placeHolder: '如何实现 JWT 刷新 token？',
+		prompt: l10n.t('Arena：输入同一 prompt，将并行对比两个模型'),
+		placeHolder: l10n.t('如何实现 JWT 刷新 token？'),
 	});
 	if (!userPrompt?.trim()) {
 		return;
@@ -64,7 +65,7 @@ export async function compareModels(prompt?: string): Promise<void> {
 
 	const models = await vscode.lm.selectChatModels({});
 	if (models.length < 1) {
-		vscode.window.showWarningMessage('无可用语言模型。请在 Manage Models 中配置。');
+		vscode.window.showWarningMessage(l10n.t('无可用语言模型。请在 Manage Models 中配置。'));
 		return;
 	}
 
@@ -82,25 +83,25 @@ export async function compareModels(prompt?: string): Promise<void> {
 	if (!modelA) {
 		const picked = await vscode.window.showQuickPick(
 			models.map(m => ({ label: m.name, model: m })),
-			{ placeHolder: '选择模型 A' },
+			{ placeHolder: l10n.t('选择模型 A') },
 		);
 		modelA = picked?.model;
 	}
 	if (!modelB) {
 		const picked = await vscode.window.showQuickPick(
 			models.filter(m => m !== modelA).map(m => ({ label: m.name, model: m })),
-			{ placeHolder: '选择模型 B' },
+			{ placeHolder: l10n.t('选择模型 B') },
 		);
 		modelB = picked?.model;
 	}
 
 	if (!modelA || !modelB) {
-		vscode.window.showWarningMessage('需要两个不同模型才能对比');
+		vscode.window.showWarningMessage(l10n.t('需要两个不同模型才能对比'));
 		return;
 	}
 
 	await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: 'Arena 对比中…' },
+		{ location: vscode.ProgressLocation.Notification, title: l10n.t('Arena 对比中…') },
 		async () => {
 			const [resultA, resultB] = await Promise.all([
 				runModelPrompt(modelA!, userPrompt, 'A'),
@@ -143,7 +144,7 @@ ${resultB}
 
 			const doc = await vscode.workspace.openTextDocument(outPath);
 			await vscode.window.showTextDocument(doc);
-			vscode.window.showInformationMessage(`Arena 对比完成：${path.basename(outPath)}`);
+			vscode.window.showInformationMessage(l10n.t('Arena 对比完成：{0}', path.basename(outPath)));
 		},
 	);
 }

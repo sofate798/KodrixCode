@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import { logger } from './logger';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { detectEnvironment, EnvInfo } from './envDetect';
 import { detectCursorImportables, importFromCursor } from './cursorImport';
 import { resolveConfigDir } from './migrateConfig';
@@ -47,9 +48,9 @@ async function scanImport(context: vscode.ExtensionContext): Promise<{ items: st
 				|| fs.existsSync(path.join(dir, 'plugins'));
 			const already = context.globalState.get<boolean>('kodrix.configMigrated', false);
 			if (already) {
-				notes.push('Cursormini / Kodrix 配置已在首次启动时自动迁移');
+				notes.push(l10n.t('Cursormini / Kodrix 配置已在首次启动时自动迁移'));
 			} else if (hasLegacy) {
-				notes.push(`检测到 ${dir} — 将在后台自动迁移（或运行「Kodrix: 迁移配置」）`);
+				notes.push(l10n.t('检测到 {0} — 将在后台自动迁移（或运行「Kodrix: 迁移配置」）', dir));
 			}
 			importScanCache = { items: cursor.items, notes };
 		} catch (err) {
@@ -80,7 +81,7 @@ function getHtml(webview: vscode.Webview, extensionPath: string): string {
 		return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`
 			+ `<body style="font-family:sans-serif;padding:24px">`
 			+ `<h2>Welcome to Kodrix</h2>`
-			+ `<p>欢迎向导资源加载失败。你仍可通过命令面板使用全部功能。</p></body></html>`;
+			+ `<p>${l10n.t('欢迎向导资源加载失败。你仍可通过命令面板使用全部功能。')}</p></body></html>`;
 	}
 }
 

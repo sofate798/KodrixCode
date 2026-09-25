@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { applyPreset, loadPresets } from './migrateConfig';
 import { testOpenAICompatibleConnection, testOllamaConnection } from './modelDiscovery';
 import { anthropicMessagesUrl, parseModelNames } from './endpointUrls';
@@ -51,7 +52,7 @@ function getHtml(webview: vscode.Webview, extensionPath: string): string {
 		logWarn('加载 Provider Workbench HTML 资源失败', err);
 		return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`
 			+ `<body style="font-family:sans-serif;padding:24px">`
-			+ `<h2>AI 供应商管理</h2><p>资源加载失败，请重新编译扩展。</p></body></html>`;
+			+ `<h2>${l10n.t('AI 供应商管理')}</h2><p>${l10n.t('资源加载失败，请重新编译扩展。')}</p></body></html>`;
 	}
 }
 
@@ -168,7 +169,7 @@ function setupMessageHandler(
 						await syncFromStoredProvider(provider);
 						notifyKodrixModelsChanged();
 						vscode.window.showInformationMessage(
-							`已将「${provider.name}」设为当前供应商。在 Chat 模型列表中选择 Kodrix。`,
+							l10n.t('已将「{0}」设为当前供应商。在 Chat 模型列表中选择 Kodrix。', provider.name),
 						);
 					}
 					pushState(webview, context, presets);
@@ -177,11 +178,11 @@ function setupMessageHandler(
 				case 'remove': {
 					const provider = loadStoredProviders(context).find(p => p.id === msg.id);
 					const choice = await vscode.window.showWarningMessage(
-						`移除「${provider?.name || '供应商'}」？`,
+						l10n.t('移除「{0}」？', provider?.name || l10n.t('供应商')),
 						{ modal: true },
-						'移除',
+						l10n.t('移除'),
 					);
-					if (choice === '移除') {
+					if (choice === l10n.t('移除')) {
 						await removeStoredProvider(context, msg.id);
 						await deleteProviderApiKey(context, msg.id);
 						notifyKodrixModelsChanged();
@@ -203,7 +204,7 @@ function setupMessageHandler(
 					const apiType = msg.apiType === 'anthropic' ? 'anthropic' : 'openai';
 					const category = msg.category === 'local' ? 'local' : 'cloud';
 					if (!name || !baseUrl || !models.length) {
-						vscode.window.showWarningMessage('请填写名称、base_url，以及至少一个模型名。');
+						vscode.window.showWarningMessage(l10n.t('请填写名称、base_url，以及至少一个模型名。'));
 						break;
 					}
 					const presetId = typeof msg.presetId === 'string' && msg.presetId ? msg.presetId : undefined;
@@ -217,7 +218,7 @@ function setupMessageHandler(
 					}
 					const savedKey = await readProviderApiKey(context, id);
 					if (needsKey && !savedKey) {
-						vscode.window.showWarningMessage('云端供应商需要填写 API Key。');
+						vscode.window.showWarningMessage(l10n.t('云端供应商需要填写 API Key。'));
 						break;
 					}
 					const existing = loadStoredProviders(context).find(p => p.id === id);
@@ -239,7 +240,7 @@ function setupMessageHandler(
 					notifyKodrixModelsChanged();
 					await syncFromStoredProvider(stored);
 					vscode.window.showInformationMessage(
-						`已保存「${name}」（${models.length} 个模型）。Chat 中选择 Kodrix / ${models[0]}，无需登录 GitHub。`,
+						l10n.t('已保存「{0}」（{1} 个模型）。Chat 中选择 Kodrix / {2}，无需登录 GitHub。', name, String(models.length), models[0]),
 					);
 					pushState(webview, context, presets);
 					break;
@@ -252,7 +253,7 @@ function setupMessageHandler(
 						await vscode.env.openExternal(vscode.Uri.parse(msg.url));
 					} else if (msg.url) {
 						logWarn(`拒绝打开不安全的 URL: ${String(msg.url)}`);
-						vscode.window.showWarningMessage('已阻止打开不受信任的链接（仅允许 http/https）。');
+						vscode.window.showWarningMessage(l10n.t('已阻止打开不受信任的链接（仅允许 http/https）。'));
 					}
 					break;
 				case 'fillRoutesFromActive': {
@@ -260,14 +261,14 @@ function setupMessageHandler(
 					const provider = loadStoredProviders(context).find(p => p.id === activeId);
 					const primary = provider ? primaryModelFromProvider(provider) : undefined;
 					if (!primary) {
-						vscode.window.showWarningMessage('请先配置并设为当前供应商。');
+						vscode.window.showWarningMessage(l10n.t('请先配置并设为当前供应商。'));
 						break;
 					}
 					await syncFromStoredProvider(provider!);
 					await applyModelRoutes();
 					webview.postMessage({
 						type: 'routesSaved',
-						message: `已用当前供应商主模型「${primary}」填充全部路由`,
+						message: l10n.t('已用当前供应商主模型「{0}」填充全部路由', primary),
 					});
 					pushState(webview, context, presets);
 					break;
@@ -278,7 +279,7 @@ function setupMessageHandler(
 						let apiKey: string | undefined;
 						if (preset.needs_api_key) {
 							apiKey = await vscode.window.showInputBox({
-								prompt: `${preset.name} API Key（可稍后在 Manage Models 中配置）`,
+								prompt: l10n.t('{0} API Key（可稍后在 Manage Models 中配置）', preset.name),
 								password: true,
 								ignoreFocusOut: true,
 							}) || undefined;
@@ -291,7 +292,7 @@ function setupMessageHandler(
 			case 'saveRoutes': {
 				await saveModelRoutes(msg.routes || {});
 				await applyModelRoutes();
-				webview.postMessage({ type: 'routesSaved', message: '多模型路由已保存并应用' });
+				webview.postMessage({ type: 'routesSaved', message: l10n.t('多模型路由已保存并应用') });
 				break;
 			}
 			default:
@@ -332,7 +333,7 @@ export function openProviderWorkbench(context: vscode.ExtensionContext): void {
 
 	const panel = vscode.window.createWebviewPanel(
 		'kodrixProviderWorkbench',
-		'AI 供应商管理',
+		l10n.t('AI 供应商管理'),
 		column,
 		webviewOptions(context.extensionPath),
 	);

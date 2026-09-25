@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { getAssembledContext } from '../context/contextIntelligence';
 import { onContextChanged } from '../context/contextEvents';
 import { getLearningStats, getRecentLearning } from '../learning/learningEngine';
@@ -155,7 +156,7 @@ async function handleAction(id: string): Promise<void> {
 	if (cmd) {
 		await vscode.commands.executeCommand(cmd);
 		if (id === 'rebuildWiki') {
-			vscode.window.showInformationMessage('Repo Wiki 已重新生成');
+			vscode.window.showInformationMessage(l10n.t('Repo Wiki 已重新生成'));
 		}
 	}
 }
@@ -168,7 +169,7 @@ async function handleToggleFeature(featureKey: string): Promise<void> {
 
 	if (activePanel) pushDashboard(activePanel);
 	vscode.window.showInformationMessage(
-		`${newValue ? '已启用' : '已关闭'}：${featureKey}`
+		l10n.t('{0}：{1}', newValue ? '已启用' : '已关闭', featureKey)
 	);
 }
 

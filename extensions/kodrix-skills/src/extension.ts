@@ -64,7 +64,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		await activateInternal(context);
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
-		vscode.window.showErrorMessage(`Kodrix Skills 激活失败: ${msg}`);
+		vscode.window.showErrorMessage(vscode.l10n.t('Kodrix Skills 激活失败: {0}', msg));
 	}
 }
 
@@ -93,15 +93,15 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 				catalog = item as CatalogItem | undefined;
 			}
 			if (!catalog) {
-				vscode.window.showWarningMessage('请从 Skill 市场选择要安装的项');
+				vscode.window.showWarningMessage(vscode.l10n.t('请从 Skill 市场选择要安装的项'));
 				return;
 			}
 			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: `安装 ${catalog.displayName}…` },
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('安装 {0}…', catalog.displayName) },
 				async () => {
 					const name = await installFromCatalogItem(context.extensionPath, catalog!);
 					provider.refresh();
-					vscode.window.showInformationMessage(`Skill 已安装：${name}（${SKILLS_DIR}/${name}）`);
+					vscode.window.showInformationMessage(vscode.l10n.t('Skill 已安装：{0}（{1}/{0}）', name, SKILLS_DIR));
 				},
 			);
 		}),
@@ -112,23 +112,23 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 			}
 			uninstallSkill(name);
 			provider.refresh();
-			vscode.window.showInformationMessage(`已卸载 Skill：${name}`);
+			vscode.window.showInformationMessage(vscode.l10n.t('已卸载 Skill：{0}', name));
 		}),
 
 		vscode.commands.registerCommand(CMD.installFromUrl, async () => {
 			const url = await vscode.window.showInputBox({
-				prompt: 'GitHub 仓库 URL 或 raw SKILL.md 链接',
+				prompt: vscode.l10n.t('GitHub 仓库 URL 或 raw SKILL.md 链接'),
 				placeHolder: 'https://github.com/owner/repo',
 			});
 			if (!url) {
 				return;
 			}
 			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: '从 URL 安装 Skill…' },
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('从 URL 安装 Skill…') },
 				async () => {
 					const name = await installFromUrl(url);
 					provider.refresh();
-					vscode.window.showInformationMessage(`Skill 已安装：${name}`);
+					vscode.window.showInformationMessage(vscode.l10n.t('Skill 已安装：{0}', name));
 				},
 			);
 		}),
@@ -138,8 +138,8 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 			provider.refresh();
 			vscode.window.showInformationMessage(
 				count > 0
-					? `已从 ${CURSOR_SKILLS_DIR} 导入 ${count} 个 Skill`
-					: `未找到 ${CURSOR_SKILLS_DIR} 目录`,
+					? vscode.l10n.t('已从 {0} 导入 {1} 个 Skill', CURSOR_SKILLS_DIR, count)
+					: vscode.l10n.t('未找到 {0} 目录', CURSOR_SKILLS_DIR),
 			);
 		}),
 

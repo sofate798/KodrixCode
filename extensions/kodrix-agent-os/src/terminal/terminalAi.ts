@@ -10,6 +10,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { logger } from '../logger';
 import {
 	COMMANDS,
@@ -29,9 +30,9 @@ let pendingQuickPick: vscode.QuickPick<vscode.QuickPickItem> | undefined;
 /** 平台对应的 Shell 提示（生成命令时注入） */
 function shellHint(): string {
 	switch (process.platform) {
-		case 'win32': return 'Windows PowerShell';
-		case 'darwin': return 'macOS zsh（bash 兼容）';
-		default: return 'Linux bash';
+		case 'win32': return l10n.t('Windows PowerShell');
+		case 'darwin': return l10n.t('macOS zsh（bash 兼容）');
+		default: return l10n.t('Linux bash');
 	}
 }
 
@@ -146,22 +147,22 @@ async function runPendingCommand(): Promise<void> {
 	}
 	const terminal = ensureTerminal();
 	sendToTerminal(terminal, command);
-	vscode.window.showInformationMessage(`终端已运行：${command.length > 60 ? command.slice(0, 60) + '…' : command}`);
+	vscode.window.showInformationMessage(l10n.t('终端已运行：{0}', command.length > 60 ? command.slice(0, 60) + '…' : command));
 }
 
 /** 阶段 3：确认 / 编辑命令（Enter / Cmd+Enter 运行 · 复制按钮 · Esc 取消） */
 async function confirmCommand(initial: string, terminal: vscode.Terminal): Promise<void> {
 	const qp = vscode.window.createQuickPick<vscode.QuickPickItem>();
-	qp.title = '终端 AI — 确认命令';
-	qp.placeholder = 'Enter / Cmd+Enter 运行 · 复制按钮复制 · Esc 取消';
+	qp.title = l10n.t('终端 AI — 确认命令');
+	qp.placeholder = l10n.t('Enter / Cmd+Enter 运行 · 复制按钮复制 · Esc 取消');
 	qp.value = initial;
 	qp.items = [
-		{ label: '$(play) 运行到终端', description: 'Enter 或 Cmd+Enter', alwaysShow: true },
-		{ label: '$(copy) 复制命令', description: '点击右上角复制按钮', alwaysShow: true },
+		{ label: l10n.t('$(play) 运行到终端'), description: l10n.t('Enter 或 Cmd+Enter'), alwaysShow: true },
+		{ label: l10n.t('$(copy) 复制命令'), description: l10n.t('点击右上角复制按钮'), alwaysShow: true },
 	];
 	qp.activeItems = [qp.items[0]];
 	qp.buttons = [
-		{ iconPath: new vscode.ThemeIcon('copy'), tooltip: '复制命令到剪贴板' },
+		{ iconPath: new vscode.ThemeIcon('copy'), tooltip: l10n.t('复制命令到剪贴板') },
 	];
 
 	await setPending(initial, qp);
@@ -172,7 +173,7 @@ async function confirmCommand(initial: string, terminal: vscode.Terminal): Promi
 
 	qp.onDidTriggerButton(async () => {
 		await vscode.env.clipboard.writeText(qp.value);
-		vscode.window.showInformationMessage('命令已复制到剪贴板');
+		vscode.window.showInformationMessage(l10n.t('命令已复制到剪贴板'));
 	});
 
 	qp.onDidAccept(async () => {
@@ -183,7 +184,7 @@ async function confirmCommand(initial: string, terminal: vscode.Terminal): Promi
 			return;
 		}
 		sendToTerminal(terminal, command);
-		vscode.window.showInformationMessage(`终端已运行：${command.length > 60 ? command.slice(0, 60) + '…' : command}`);
+		vscode.window.showInformationMessage(l10n.t('终端已运行：{0}', command.length > 60 ? command.slice(0, 60) + '…' : command));
 	});
 
 	qp.onDidHide(() => {
@@ -198,9 +199,9 @@ async function confirmCommand(initial: string, terminal: vscode.Terminal): Promi
 async function terminalAiPrompt(): Promise<void> {
 	// 阶段 1：输入意图
 	const intent = await vscode.window.showInputBox({
-		title: '终端 AI — 描述要执行的命令',
-		prompt: '用自然语言描述操作；也可以直接输入命令',
-		placeHolder: '例如：启动开发服务器并打开浏览器',
+		title: l10n.t('终端 AI — 描述要执行的命令'),
+		prompt: l10n.t('用自然语言描述操作；也可以直接输入命令'),
+		placeHolder: l10n.t('例如：启动开发服务器并打开浏览器'),
 		ignoreFocusOut: true,
 	});
 	if (intent === undefined) {
@@ -216,7 +217,7 @@ async function terminalAiPrompt(): Promise<void> {
 
 	// 阶段 2：生成命令（busy 态）
 	const gen = vscode.window.createQuickPick<vscode.QuickPickItem>();
-	gen.title = '终端 AI — 正在生成命令…';
+	gen.title = l10n.t('终端 AI — 正在生成命令…');
 	gen.busy = true;
 	gen.enabled = false;
 	gen.show();

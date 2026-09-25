@@ -1,7 +1,7 @@
 {
   "name": "kodrix-local",
   "displayName": "Kodrix Local Models",
-  "description": "本地大模型与云端 API 供应商配置，Cursor 风格快捷键与一键导入",
+  "description": "%description%",
   "version": "1.0.0",
   "publisher": "kodrix",
   "license": "MIT",
@@ -48,97 +48,97 @@
     "commands": [
       {
         "command": "kodrix.migrateConfig",
-        "title": "迁移配置（Cursormini / Kodrix）",
+        "title": "%command.migrateConfig.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.openProviderPresets",
-        "title": "浏览模型供应商预设",
+        "title": "%command.openProviderPresets.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.openProviderWorkbench",
-        "title": "AI 供应商管理",
+        "title": "%command.openProviderWorkbench.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.applyPreset",
-        "title": "应用模型预设",
+        "title": "%command.applyPreset.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.welcome",
-        "title": "欢迎使用 Kodrix",
+        "title": "%command.welcome.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.importCursor",
-        "title": "从 Cursor 导入（Rules / MCP / Skills）",
+        "title": "%command.importCursor.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.addSelectionToChat",
-        "title": "将选区添加到聊天",
+        "title": "%command.addSelectionToChat.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.openInlineEdit",
-        "title": "行内编辑（Cursor Ctrl+K）",
+        "title": "%command.openInlineEdit.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.openPlanMode",
-        "title": "打开 Plan 模式",
+        "title": "%command.openPlanMode.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.openComposer",
-        "title": "打开 Composer（多文件 Agent）",
+        "title": "%command.openComposer.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.attachCodebase",
-        "title": "添加 @Codebase 上下文",
+        "title": "%command.attachCodebase.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.buildCodebaseIndex",
-        "title": "构建代码库语义索引",
+        "title": "%command.buildCodebaseIndex.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.continueInBackground",
-        "title": "在 Background Agent 中继续",
+        "title": "%command.continueInBackground.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.continueInCloud",
-        "title": "在 Cloud Agent 中继续",
+        "title": "%command.continueInCloud.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.applyCursorFeatures",
-        "title": "应用 Cursor 对标功能默认配置",
+        "title": "%command.applyCursorFeatures.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.applyCursor3Experience",
-        "title": "应用 Cursor 3.0 Agent 中心体验",
+        "title": "%command.applyCursor3Experience.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.openAgentsWindow",
-        "title": "打开 Agents 窗口",
+        "title": "%command.openAgentsWindow.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.openWorkspaceInAgentsWindow",
-        "title": "在 Agents 窗口中打开当前工作区",
+        "title": "%command.openWorkspaceInAgentsWindow.title%",
         "category": "Kodrix"
       },
       {
         "command": "kodrix.onboarding.open",
-        "title": "打开欢迎向导",
+        "title": "%command.onboardingOpen.title%",
         "category": "Kodrix"
       }
     ],
@@ -148,23 +148,23 @@
         "kodrix.migrateOnFirstRun": {
           "type": "boolean",
           "default": true,
-          "description": "首次启动时自动迁移 ~/.cursormini 或 ~/.kodrix 中的模型与 Agent 配置"
+          "description": "%config.migrateOnFirstRun.description%"
         },
         "kodrix.importCursorOnFirstRun": {
           "type": "boolean",
           "default": true,
-          "description": "首次启动时自动从 Cursor 导入 Rules、MCP 与 Skills（若存在 ~/.cursor）"
+          "description": "%config.importCursorOnFirstRun.description%"
         },
 		"kodrix.modelRoutes": {
           "type": "object",
           "default": {},
-          "description": "多模型路由（plan / agent / code / fast），每项仅使用 model 字段",
+          "description": "%config.modelRoutes.description%",
           "additionalProperties": {
             "type": "object",
             "properties": {
               "model": {
                 "type": "string",
-                "description": "模型 ID（须已在 Manage Models 中可用）"
+                "description": "%config.modelRoutes.model.description%"
               }
             }
           }
@@ -172,63 +172,63 @@
         "github.copilot.chat.implementAgent.model": {
           "type": "string",
           "default": "",
-          "description": "Plan 交接后的 Implement Agent 所用模型（Copilot 未贡献该键时由 Kodrix 兜底注册，便于写入用户设置）"
+          "description": "%config.implementAgentModel.description%"
         },
         "kodrix.features.tabCompletion": {
           "type": "boolean",
           "default": true,
-          "description": "启用 Cursor Tab 级体验：Copilot 补全 + Next Edit Suggestions (NES)"
+          "description": "%config.tabCompletion.description%"
         },
         "kodrix.features.backgroundAgents": {
           "type": "boolean",
           "default": true,
-          "description": "启用 Background Agent（Copilot CLI 后台任务）"
+          "description": "%config.backgroundAgents.description%"
         },
         "kodrix.features.cloudAgents": {
           "type": "boolean",
           "default": true,
-          "description": "启用 Cloud Agent（Copilot Coding Agent）"
+          "description": "%config.cloudAgents.description%"
         },
         "kodrix.features.composerUI": {
           "type": "boolean",
           "default": true,
-          "description": "启用 Composer 风格多文件 UI：会话侧栏、检查点、Diff 审阅"
+          "description": "%config.composerUI.description%"
         },
         "kodrix.features.codebaseIndex": {
           "type": "boolean",
           "default": true,
-          "description": "启用 @Codebase 语义索引（Copilot workspace index）"
+          "description": "%config.codebaseIndex.description%"
         },
         "kodrix.features.codebaseIndexAutoBuild": {
           "type": "boolean",
           "default": true,
-          "description": "打开工作区后自动构建代码库语义索引"
+          "description": "%config.codebaseIndexAutoBuild.description%"
         },
         "kodrix.features.agentsWindow": {
           "type": "boolean",
           "default": true,
-          "description": "启用 Agents 窗口：多 Agent 并行、Local / CLI / Cloud 会话"
+          "description": "%config.agentsWindow.description%"
         },
         "kodrix.features.agentFirstLayout": {
           "type": "boolean",
           "default": true,
-          "description": "Cursor 3.0：首次打开工作区时最大化 Chat 侧栏并显示 Agent 会话列表"
+          "description": "%config.agentFirstLayout.description%"
         },
         "kodrix.features.agentHostPriority": {
           "type": "boolean",
           "default": true,
-          "description": "Cursor 3.0：Agents 窗口优先使用 Agent Host（Copilot CLI）"
+          "description": "%config.agentHostPriority.description%"
         },
         "kodrix.features.handoffTip": {
           "type": "boolean",
           "default": true,
-          "description": "Cursor 3.0：在 Chat 输入框上方显示「在 Agents 窗口中继续」提示"
+          "description": "%config.handoffTip.description%"
         },
         "kodrix.providerWorkbench.panel": {
           "type": "null",
           "default": null,
           "renderer": "kodrix.providerSettings",
-          "markdownDescription": "在设置页内嵌 AI 供应商管理界面。也可使用命令 **Kodrix: AI 供应商管理** 打开独立面板。"
+          "markdownDescription": "%config.providerWorkbenchPanel.markdownDescription%"
         }
       }
     },
@@ -274,7 +274,9 @@
   },
   "scripts": {
     "compile": "gulp compile-extension:kodrix-local",
-    "watch": "gulp watch-extension:kodrix-local"
+    "watch": "gulp watch-extension:kodrix-local",
+    "compile:test": "tsc -p tsconfig.test.json",
+    "test": "npm run compile:test && node ./out-test/test/runTests.js"
   },
   "devDependencies": {
     "@types/node": "24.x"

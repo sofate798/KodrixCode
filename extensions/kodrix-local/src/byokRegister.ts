@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { discoverOpenAIModels } from './modelDiscovery';
 import { getPresetModelCandidates } from './modelResolve';
 import { waitForCopilotReady } from './copilotReady';
@@ -111,7 +112,7 @@ export async function resolveModelsForPreset(
 		const presetOptions = (preset.models || []).filter(m => discovered.includes(m));
 		const options = (presetOptions.length ? presetOptions : discovered).map(id => ({ label: id, id }));
 		const picked = await vscode.window.showQuickPick(options, {
-			placeHolder: `「${preset.name}」检测到 ${discovered.length} 个模型，请选择`,
+			placeHolder: l10n.t('「{0}」检测到 {1} 个模型，请选择', preset.name, String(discovered.length)),
 			canPickMany: true,
 		});
 		if (!picked?.length) {
@@ -121,8 +122,8 @@ export async function resolveModelsForPreset(
 	}
 
 	const manual = await vscode.window.showInputBox({
-		prompt: `「${preset.name}」未能自动发现模型，请输入模型 ID`,
-		placeHolder: preset.models?.[0] || '例如 qwen2.5-coder:7b',
+		prompt: l10n.t('「{0}」未能自动发现模型，请输入模型 ID', preset.name),
+		placeHolder: preset.models?.[0] || l10n.t('例如 qwen2.5-coder:7b'),
 		ignoreFocusOut: true,
 	});
 	if (!manual?.trim()) {
@@ -260,10 +261,10 @@ export async function applyPresetWithByok(
 	if (resolved.api_type === 'ollama') {
 		const ok = await registerOllamaEndpoint(resolved.base_url, resolved, context);
 		if (ok) {
-			vscode.window.showInformationMessage(`Kodrix：已应用 Ollama 预设「${resolved.name}」`);
+			vscode.window.showInformationMessage(l10n.t('Kodrix：已应用 Ollama 预设「{0}」', resolved.name));
 		} else {
 			vscode.window.showWarningMessage(
-				`Kodrix：已设置 Ollama 端点，但 BYOK 注册未完成。请确认 Copilot 已加载后在 Manage Models 中检查。`,
+				l10n.t('Kodrix：已设置 Ollama 端点，但 BYOK 注册未完成。请确认 Copilot 已加载后在 Manage Models 中检查。'),
 			);
 		}
 		return;
@@ -277,10 +278,10 @@ export async function applyPresetWithByok(
 				await registerPendingNativeVendor(resolved.api_type, groupName, storageKey, resolved, context);
 			}
 			const choice = await vscode.window.showInformationMessage(
-				`「${resolved.name}」已记录。在 Chat 中选择 Kodrix 下的模型即可，无需登录 GitHub。`,
-				'打开供应商管理',
+				l10n.t('「{0}」已记录。在 Chat 中选择 Kodrix 下的模型即可，无需登录 GitHub。', resolved.name),
+				l10n.t('打开供应商管理'),
 			);
-			if (choice === '打开供应商管理') {
+			if (choice === l10n.t('打开供应商管理')) {
 				await vscode.commands.executeCommand('kodrix.openProviderWorkbench');
 			}
 			return;
@@ -294,21 +295,21 @@ export async function applyPresetWithByok(
 			context,
 		);
 		if (ok) {
-			vscode.window.showInformationMessage(`Kodrix：已应用「${resolved.name}」并配置 API Key`);
+			vscode.window.showInformationMessage(l10n.t('Kodrix：已应用「{0}」并配置 API Key', resolved.name));
 		} else {
-			vscode.window.showErrorMessage(`注册「${resolved.name}」失败。请在 AI 供应商管理中检查 base_url 与 API Key。`);
+			vscode.window.showErrorMessage(l10n.t('注册「{0}」失败。请在 AI 供应商管理中检查 base_url 与 API Key。', resolved.name));
 		}
 		return;
 	}
 
 	if (!resolved.base_url?.trim()) {
 		const baseUrl = await vscode.window.showInputBox({
-			prompt: '请输入 OpenAI 兼容 API 地址',
+			prompt: l10n.t('请输入 OpenAI 兼容 API 地址'),
 			placeHolder: 'https://api.example.com/v1',
 			ignoreFocusOut: true,
 		});
 		if (!baseUrl?.trim()) {
-			vscode.window.showWarningMessage('Kodrix：已取消，未填写 API 地址');
+			vscode.window.showWarningMessage(l10n.t('Kodrix：已取消，未填写 API 地址'));
 			return;
 		}
 		resolved = { ...resolved, base_url: baseUrl.trim() };
@@ -316,7 +317,7 @@ export async function applyPresetWithByok(
 
 	const modelIds = await resolveModelsForPreset(resolved, resolved.base_url, apiKey);
 	if (!modelIds?.length) {
-		vscode.window.showWarningMessage('Kodrix：已取消，未选择模型');
+		vscode.window.showWarningMessage(l10n.t('Kodrix：已取消，未选择模型'));
 		return;
 	}
 
@@ -341,22 +342,22 @@ export async function applyPresetWithByok(
 
 	if (ok && apiKey) {
 		vscode.window.showInformationMessage(
-			`Kodrix：已应用「${resolved.name}」并配置 API Key（${modelIds.length} 个模型）`,
+			l10n.t('Kodrix：已应用「{0}」并配置 API Key（{1} 个模型）', resolved.name, String(modelIds.length)),
 		);
 	} else if (ok) {
 		vscode.window.showInformationMessage(
-			`Kodrix：已应用「${resolved.name}」（${modelIds.length} 个模型）`,
+			l10n.t('Kodrix：已应用「{0}」（{1} 个模型）', resolved.name, String(modelIds.length)),
 		);
 	} else if (resolved.needs_api_key && !apiKey) {
 		const choice = await vscode.window.showInformationMessage(
-			`已记录「${resolved.name}」。请在 AI 供应商管理中填写 API Key。`,
-			'打开供应商管理',
+			l10n.t('已记录「{0}」。请在 AI 供应商管理中填写 API Key。', resolved.name),
+			l10n.t('打开供应商管理'),
 		);
-		if (choice === '打开供应商管理') {
+		if (choice === l10n.t('打开供应商管理')) {
 			await vscode.commands.executeCommand('kodrix.openProviderWorkbench');
 		}
 	} else {
-		vscode.window.showErrorMessage(`注册「${resolved.name}」失败，请检查 base_url 是否可达。`);
+		vscode.window.showErrorMessage(l10n.t('注册「{0}」失败，请检查 base_url 是否可达。', resolved.name));
 	}
 }
 

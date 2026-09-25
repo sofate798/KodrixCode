@@ -15,6 +15,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { ensureDir, getWorkspaceKodrixDir } from '../paths';
 import { logger } from '../logger';
 import { COMMANDS } from '../shared/constants';
@@ -221,13 +222,13 @@ alwaysApply: <true 表示对所有文件生效；false 或省略表示仅按 glo
 export async function createRule(): Promise<void> {
 	const rulesDir = getRulesDir();
 	if (!rulesDir) {
-		vscode.window.showWarningMessage('请先打开工作区');
+		vscode.window.showWarningMessage(l10n.t('请先打开工作区'));
 		return;
 	}
 
 	const description = await vscode.window.showInputBox({
-		prompt: '规则描述（AI 将据此生成规则文件）',
-		placeHolder: '例如：React 组件文件必须使用函数组件并导出默认组件',
+		prompt: l10n.t('规则描述（AI 将据此生成规则文件）'),
+		placeHolder: l10n.t('例如：React 组件文件必须使用函数组件并导出默认组件'),
 	});
 	if (!description?.trim()) return;
 
@@ -237,7 +238,7 @@ export async function createRule(): Promise<void> {
 	if (!model) {
 		// 降级：手动创建模板
 		const name = await vscode.window.showInputBox({
-			prompt: '规则文件名（不含扩展名）',
+			prompt: l10n.t('规则文件名（不含扩展名）'),
 			placeHolder: 'react-component-conventions',
 			value: slugify(description),
 		});
@@ -254,12 +255,12 @@ globs: '**/*'
 `;
 		atomicWriteFileSync(path.join(rulesDir, fileName), content);
 		const count = syncRulesToInstructions();
-		vscode.window.showInformationMessage(`规则已创建（手动模板）：${fileName}，同步 ${count} 个指令文件`);
+		vscode.window.showInformationMessage(l10n.t('规则已创建（手动模板）：{0}，同步 {1} 个指令文件', fileName, count));
 		return;
 	}
 
 	await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: 'AI 生成规则中…', cancellable: false },
+		{ location: vscode.ProgressLocation.Notification, title: l10n.t('AI 生成规则中…'), cancellable: false },
 		async () => {
 			const cts = new vscode.CancellationTokenSource();
 			try {
@@ -273,7 +274,7 @@ globs: '**/*'
 				}
 				content = content.trim();
 				if (!content) {
-					vscode.window.showErrorMessage('AI 未生成有效规则内容');
+					vscode.window.showErrorMessage(l10n.t('AI 未生成有效规则内容'));
 					return;
 				}
 
@@ -282,10 +283,10 @@ globs: '**/*'
 				const fileName = `${slugify(nameMatch?.[1]?.trim() || description)}.mdc`;
 				atomicWriteFileSync(path.join(rulesDir, fileName), content);
 				const count = syncRulesToInstructions();
-				vscode.window.showInformationMessage(`规则已生成：${fileName}，同步 ${count} 个指令文件`);
+				vscode.window.showInformationMessage(l10n.t('规则已生成：{0}，同步 {1} 个指令文件', fileName, count));
 			} catch (err) {
 				logger.error('[Rules] createRule failed', err);
-				vscode.window.showErrorMessage(`规则生成失败：${err instanceof Error ? err.message : String(err)}`);
+				vscode.window.showErrorMessage(l10n.t('规则生成失败：{0}', err instanceof Error ? err.message : String(err)));
 			} finally {
 				cts.dispose();
 			}
@@ -340,7 +341,7 @@ export function registerRules(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.rulesList, () => {
 			const rules = listActiveRules();
 			if (!rules.length) {
-				void vscode.window.showInformationMessage('暂无生效规则。在 .kodrix/rules/ 下添加 .mdc 文件，或使用「Kodrix: 创建 Agent 规则」');
+				void vscode.window.showInformationMessage(l10n.t('暂无生效规则。在 .kodrix/rules/ 下添加 .mdc 文件，或使用「Kodrix: 创建 Agent 规则」'));
 				return;
 			}
 			const lines = [

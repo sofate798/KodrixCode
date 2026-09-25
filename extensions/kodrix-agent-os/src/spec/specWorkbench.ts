@@ -4,6 +4,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import {
 	createSpecFiles,
 	getSpecDir,
@@ -67,14 +68,14 @@ function setupSpecWatcher(panel: vscode.WebviewPanel, _context: vscode.Extension
 
 async function createSpecFromWorkbench(): Promise<string | undefined> {
 	const feature = await vscode.window.showInputBox({
-		prompt: '功能名称',
+		prompt: l10n.t('功能名称'),
 		placeHolder: 'user-authentication',
 	});
 	if (!feature) {
 		return undefined;
 	}
 	const description = await vscode.window.showInputBox({
-		prompt: '简要描述',
+		prompt: l10n.t('简要描述'),
 	}) || '（待补充）';
 	const specDir = await createSpecFiles(feature, description);
 	if (specDir) {
@@ -122,7 +123,7 @@ async function handleMessage(
 		}
 		case 'implement': {
 			if (!currentSlug) {
-				vscode.window.showWarningMessage('请先选择 Spec');
+				vscode.window.showWarningMessage(l10n.t('请先选择 Spec'));
 				break;
 			}
 			const dir = getSpecDir(currentSlug);
@@ -171,7 +172,7 @@ export async function openSpecWorkbench(context: vscode.ExtensionContext, slug?:
 	panel.webview.html = getHtml(panel.webview, context.extensionPath);
 
 	panel.webview.onDidReceiveMessage((m: { command: string; slug?: string; file?: string }) => {
-		handleMessage(m, panel, context).catch(err => vscode.window.showErrorMessage(`Spec Workbench error: ${err instanceof Error ? err.message : String(err)}`));
+		handleMessage(m, panel, context).catch(err => vscode.window.showErrorMessage(l10n.t('Spec Workbench error: {0}', err instanceof Error ? err.message : String(err))));
 	});
 
 	panel.onDidDispose(() => {

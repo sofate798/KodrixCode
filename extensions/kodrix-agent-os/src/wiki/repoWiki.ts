@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { registerInstructionFolders, writeWikiInstructionsFile } from '../context/instructionRegistry';
 import { notifyContextChanged } from '../context/contextEvents';
 import { recordLearning } from '../learning/learningEngine';
@@ -257,7 +258,7 @@ export async function generateRepoWiki(options?: { recordLearning?: boolean }): 
 
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		vscode.window.showWarningMessage('请先打开工作区文件夹');
+		vscode.window.showWarningMessage(l10n.t('请先打开工作区文件夹'));
 		return undefined;
 	}
 
@@ -276,7 +277,7 @@ export async function generateRepoWiki(options?: { recordLearning?: boolean }): 
 		fs.writeFileSync(path.join(wikiDir, 'INDEX.md'), buildIndexMd(root, manifest), 'utf-8');
 	} catch (err) {
 		logger.error('生成 Repo Wiki 写入失败', err);
-		vscode.window.showErrorMessage(`生成 Repo Wiki 失败：${err instanceof Error ? err.message : String(err)}`);
+		vscode.window.showErrorMessage(l10n.t('生成 Repo Wiki 失败：{0}', err instanceof Error ? err.message : String(err)));
 		return undefined;
 	}
 
@@ -300,12 +301,12 @@ export async function openRepoWiki(): Promise<void> {
 		wikiDir = getWikiDir();
 	}
 	if (!wikiDir) {
-		vscode.window.showWarningMessage('无法定位 Wiki 目录，请先打开工作区');
+		vscode.window.showWarningMessage(l10n.t('无法定位 Wiki 目录，请先打开工作区'));
 		return;
 	}
 	const indexPath = path.join(wikiDir, 'INDEX.md');
 	if (!fs.existsSync(indexPath)) {
-		vscode.window.showWarningMessage('Wiki 尚未生成，请运行「Kodrix: 生成 Repo Wiki」');
+		vscode.window.showWarningMessage(l10n.t('Wiki 尚未生成，请运行「Kodrix: 生成 Repo Wiki」'));
 		return;
 	}
 	const doc = await vscode.workspace.openTextDocument(indexPath);
@@ -322,7 +323,7 @@ export function registerWiki(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand('kodrix.wiki.generate', async () => {
 			const dir = await generateRepoWiki();
 			if (dir) {
-				vscode.window.showInformationMessage(`Repo Wiki 已生成：${dir}`);
+				vscode.window.showInformationMessage(l10n.t('Repo Wiki 已生成：{0}', dir));
 			}
 		}),
 		vscode.commands.registerCommand('kodrix.wiki.open', () => openRepoWiki()),

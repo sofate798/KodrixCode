@@ -1,0 +1,15 @@
+{
+	"displayName": "Kodrix Skill Market",
+	"description": "Skill plugin marketplace — card install, search, GitHub / URL install, import Cursor Skills",
+	"command.refresh.title": "Refresh",
+	"command.install.title": "Install Skill",
+	"command.uninstall.title": "Uninstall Skill",
+	"command.installFromUrl.title": "Install Skill from URL / GitHub",
+	"command.importCursor.title": "Import ~/.cursor/skills",
+	"command.searchGithub.title": "Open Skill Market (GitHub)",
+	"command.openMarketplace.title": "Open Skill Market",
+	"viewContainer.skillMarket.title": "Skill Market",
+	"view.skillMarket.name": "Skill Market",
+	"config.installDir.description": "Skill installation directory (each skill is a subfolder containing SKILL.md)",
+	"config.registryUrls.description": "Additional remote skill directory URLs"
+}

@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { installSessionLearningHook } from '../learning/sessionLearning';
 import { ensureDir, getHooksDir, getWorkspaceKodrixDir } from '../paths';
 
@@ -56,15 +57,15 @@ function getCursorHooksPath(): string | undefined {
 export async function installHooksPresets(context: vscode.ExtensionContext): Promise<void> {
 	const target = await vscode.window.showQuickPick(
 		[
-			{ label: 'Session Learning（推荐）', description: 'Agent Stop 时自动蒸馏项目知识', action: 'session' as const },
-			{ label: '工作区 .kodrix/hooks/', path: getProjectHooksPath(), scope: 'project' as const },
-			{ label: '工作区 .cursor/hooks.json（Cursor 兼容）', path: getCursorHooksPath(), scope: 'cursor' as const },
-			{ label: '用户 ~/.kodrix/hooks/', path: path.join(getHooksDir(), 'hooks.json'), scope: 'user' as const },
+			{ label: l10n.t('Session Learning（推荐）'), description: l10n.t('Agent Stop 时自动蒸馏项目知识'), action: 'session' as const },
+			{ label: l10n.t('工作区 .kodrix/hooks/'), path: getProjectHooksPath(), scope: 'project' as const },
+			{ label: l10n.t('工作区 .cursor/hooks.json（Cursor 兼容）'), path: getCursorHooksPath(), scope: 'cursor' as const },
+			{ label: l10n.t('用户 ~/.kodrix/hooks/'), path: path.join(getHooksDir(), 'hooks.json'), scope: 'user' as const },
 		].filter(o => o.action === 'session' || o.path),
-		{ placeHolder: '选择 Hooks 安装类型' },
+		{ placeHolder: l10n.t('选择 Hooks 安装类型') },
 	);
 	if (!target) {
-		vscode.window.showWarningMessage('请先打开工作区');
+		vscode.window.showWarningMessage(l10n.t('请先打开工作区'));
 		return;
 	}
 
@@ -97,7 +98,7 @@ export async function installHooksPresets(context: vscode.ExtensionContext): Pro
 `, 'utf-8');
 	}
 
-	vscode.window.showInformationMessage(`Hooks 预置包已安装：${target.path}`);
+	vscode.window.showInformationMessage(l10n.t('Hooks 预置包已安装：{0}', target.path));
 }
 
 export function registerHooks(context: vscode.ExtensionContext): void {

@@ -12,6 +12,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
@@ -365,9 +366,9 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.checkpointCreate, async () => {
 			const label = await vscode.window.showInputBox({
-				title: '创建检查点',
-				prompt: '为当前代码状态打一个可回滚的标记（可留空）',
-				placeHolder: '例如：Idea Flow 构建前',
+				title: l10n.t('创建检查点'),
+				prompt: l10n.t('为当前代码状态打一个可回滚的标记（可留空）'),
+				placeHolder: l10n.t('例如：Idea Flow 构建前'),
 				ignoreFocusOut: true,
 			});
 			if (label === undefined) {
@@ -375,9 +376,9 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 			}
 			const id = await createCheckpoint(label);
 			if (id) {
-				vscode.window.showInformationMessage(`已创建检查点：${label?.trim() || '手动检查点'}`);
+				vscode.window.showInformationMessage(l10n.t('已创建检查点：{0}', label?.trim() || l10n.t('手动检查点')));
 			} else {
-				vscode.window.showWarningMessage('创建检查点失败：请先打开工作区');
+				vscode.window.showWarningMessage(l10n.t('创建检查点失败：请先打开工作区'));
 			}
 		}),
 	);
@@ -387,16 +388,16 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.checkpointList, async () => {
 			const list = listCheckpoints();
 			if (!list.length) {
-				vscode.window.showInformationMessage('暂无检查点。使用「Kodrix: 创建检查点」，或保存文件自动捕获');
+				vscode.window.showInformationMessage(l10n.t('暂无检查点。使用「Kodrix: 创建检查点」，或保存文件自动捕获'));
 				return;
 			}
 			const qp = vscode.window.createQuickPick<vscode.QuickPickItem & { cid: string }>();
-			qp.title = '检查点列表';
-			qp.placeholder = '选择检查点';
+			qp.title = l10n.t('检查点列表');
+			qp.placeholder = l10n.t('选择检查点');
 			qp.items = list.map(c => ({
 				cid: c.id,
 				label: `${formatTime(c.createdAt)} — ${c.label}`,
-				description: `${c.fileCount} 个文件`,
+				description: l10n.t('{0} 个文件', c.fileCount),
 			}));
 			qp.onDidAccept(async () => {
 				const pick = qp.activeItems[0] as (vscode.QuickPickItem & { cid: string }) | undefined;
@@ -405,25 +406,25 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 				}
 				qp.hide();
 				const choice = await vscode.window.showQuickPick(
-					['$(debug-restart) 回滚到该检查点', '$(files) 查看文件清单'],
-					{ title: `检查点：${pick.label}`, placeHolder: '选择操作' },
+					[l10n.t('$(debug-restart) 回滚到该检查点'), l10n.t('$(files) 查看文件清单')],
+					{ title: l10n.t('检查点：{0}', pick.label), placeHolder: l10n.t('选择操作') },
 				);
-				if (choice?.includes('回滚')) {
+				if (choice?.includes(l10n.t('回滚'))) {
 					const ok = await vscode.window.showWarningMessage(
-						`确定回滚到「${pick.label}」？将覆盖 ${pick.description}`,
+						l10n.t('确定回滚到「{0}」？将覆盖 {1}', pick.label, pick.description ?? ''),
 						{ modal: true },
-						'回滚',
+						l10n.t('回滚'),
 					);
-					if (ok !== '回滚') {
+					if (ok !== l10n.t('回滚')) {
 						return;
 					}
 					try {
 						const r = await restoreCheckpoint(pick.cid);
-						vscode.window.showInformationMessage(`回滚完成：恢复 ${r.restored} 个文件${r.skipped ? `，跳过 ${r.skipped}` : ''}`);
+						vscode.window.showInformationMessage(l10n.t('回滚完成：恢复 {0} 个文件{1}', r.restored, r.skipped ? l10n.t('，跳过 {0}', r.skipped) : ''));
 					} catch (err) {
-						vscode.window.showErrorMessage(`回滚失败：${err instanceof Error ? err.message : String(err)}`);
+						vscode.window.showErrorMessage(l10n.t('回滚失败：{0}', err instanceof Error ? err.message : String(err)));
 					}
-				} else if (choice?.includes('查看')) {
+				} else if (choice?.includes(l10n.t('查看'))) {
 					await showCheckpointFilesPreview(pick.cid);
 				}
 			});
@@ -437,7 +438,7 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.checkpointRestore, async () => {
 			const list = listCheckpoints();
 			if (!list.length) {
-				vscode.window.showInformationMessage('暂无检查点可回滚');
+				vscode.window.showInformationMessage(l10n.t('暂无检查点可回滚'));
 				return;
 			}
 			const pick = await vscode.window.showQuickPick(
@@ -446,24 +447,24 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 					description: `${c.fileCount} 个文件`,
 					cid: c.id,
 				})),
-				{ title: '回滚到检查点' },
+				{ title: l10n.t('回滚到检查点') },
 			);
 			if (!pick) {
 				return;
 			}
 			const ok = await vscode.window.showWarningMessage(
-				`确定回滚到「${pick.label}」？将覆盖 ${pick.description}`,
+				l10n.t('确定回滚到「{0}」？将覆盖 {1}', pick.label, pick.description ?? ''),
 				{ modal: true },
-				'回滚',
+				l10n.t('回滚'),
 			);
-			if (ok !== '回滚') {
+			if (ok !== l10n.t('回滚')) {
 				return;
 			}
 			try {
 				const r = await restoreCheckpoint((pick as { cid: string }).cid);
-				vscode.window.showInformationMessage(`回滚完成：恢复 ${r.restored} 个文件${r.skipped ? `，跳过 ${r.skipped}` : ''}`);
+				vscode.window.showInformationMessage(l10n.t('回滚完成：恢复 {0} 个文件{1}', r.restored, r.skipped ? l10n.t('，跳过 {0}', r.skipped) : ''));
 			} catch (err) {
-				vscode.window.showErrorMessage(`回滚失败：${err instanceof Error ? err.message : String(err)}`);
+				vscode.window.showErrorMessage(l10n.t('回滚失败：{0}', err instanceof Error ? err.message : String(err)));
 			}
 		}),
 	);
