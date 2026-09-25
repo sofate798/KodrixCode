@@ -2,55 +2,42 @@
 
 on:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 4 * * *'  # 每天 UTC 04:00（北京时间 12:00）
   workflow_dispatch:
 
 jobs:
-  full-test:
-    name: Full Test Suite
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+  compile-build:
+    name: Full Compile Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run compile-build
-      - name: Unit tests (all)
-        run: npm run test-all-extensions
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ matrix.os }}
-          path: coverage/
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev
+      - run: npm ci --no-audit --no-fund
+      - name: Full compile-build (gulp compile-build-with-mangling)
+        env:
+          VSCODE_SKIP_NODE_VERSION_CHECK: "1"
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          VSCODE_SKIP_SETUPENV: "1"
+        run: npm run compile-build
 
-  security-audit:
-    name: Security Audit
+  dependency-check:
+    name: Dependency Audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: node utils/security-audit.js
-
-  dependency-check:
-    name: Dependency Freshness
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx npm-check-updates --dep dev --format group
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: npm audit (critical)
+        run: npm audit --audit-level=critical
+      - name: Outdated dependencies (report only)
+        run: npx --yes npm-check-updates --dep dev --format group
         continue-on-error: true

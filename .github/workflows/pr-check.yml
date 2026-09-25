@@ -1,39 +1,40 @@
-﻿﻿name: PR Check
+﻿name: PR Check
 
 on:
   pull_request:
-    branches: [main]
+    branches: [master]
+    paths-ignore:
+      - "**/*.md"
   push:
-    branches: [main]
+    branches: [master]
+    paths-ignore:
+      - "**/*.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint and Type Check
+  lint-typecheck:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
       - name: ESLint
-        run: node build/eslint.ts
-      - name: TypeScript compile check
-        run: npm run compile-build
-      - name: Dependency audit
-        run: npm audit --audit-level=high
-        continue-on-error: true
+        run: npm run eslint
+      - name: TypeScript type check
+        run: npm run typecheck-client
 
-  test-extensions:
-    name: Test Kodrix Extensions
+  extensions-test:
+    name: Test ${{ matrix.extension }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -45,20 +46,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Compile extensions
-        run: npm run compile-extensions
-      - name: Unit tests
-        run: npm run test --workspace=extensions/${{ matrix.extension }}
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Compile & test ${{ matrix.extension }}
+        working-directory: extensions/${{ matrix.extension }}
+        run: |
+          npm run compile:test
+          npm test
         continue-on-error: true
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.extension }}
-          path: extensions/${{ matrix.extension }}/test-results/
 
   security:
     name: Security Scan
@@ -70,15 +66,14 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
       - name: npm audit (critical)
         run: npm audit --audit-level=critical
-      - name: npm audit (high)
-        run: npm audit --audit-level=high
-        continue-on-error: true
-      - name: Secret scanning
+      - name: Gitleaks
         uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           config-path: .gitleaks.toml
