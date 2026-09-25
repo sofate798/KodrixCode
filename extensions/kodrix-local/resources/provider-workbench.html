@@ -148,6 +148,8 @@
 			border-radius: 6px;
 			padding: 12px;
 			cursor: pointer;
+			min-width: 0;
+			overflow: hidden;
 			transition: border-color 0.12s ease, background 0.12s ease;
 		}
 		.preset-btn:hover {
@@ -167,7 +169,7 @@
 			color: var(--accent);
 			flex-shrink: 0;
 		}
-		.preset-btn .desc { font-size: 11px; color: var(--muted); display: block; line-height: 1.4; }
+		.preset-btn .desc { font-size: 11px; color: var(--muted); display: block; line-height: 1.4; word-break: break-all; }
 		.preset-btn a { color: var(--accent); text-decoration: none; }
 		.preset-btn a:hover { text-decoration: underline; }
 	</style>
