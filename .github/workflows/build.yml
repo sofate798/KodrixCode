@@ -1,4 +1,4 @@
-name: Build Release
+﻿name: Build Release
 
 # 三平台真实产出：Windows / Linux / macOS
 # 触发方式：
@@ -6,15 +6,26 @@ name: Build Release
 #   2. 推送 v* tag（如 git tag v1.128.0 && git push origin v1.128.0）
 #
 # 产物：每个平台一个 artifact（tar.gz，Windows 11 / macOS / Linux 均可直接解压）
-#   - Kodrix-<ver>-win32-x64.tar.gz
-#   - Kodrix-<ver>-linux-x64.tar.gz
-#   - Kodrix-<ver>-darwin-arm64.tar.gz
+#   - Kodrix-win32-x64.tar.gz
+#   - Kodrix-linux-x64.tar.gz
+#   - Kodrix-darwin-arm64.tar.gz
+#
+# cache-info:
+#   npm 缓存策略：
+#   - 使用 actions/setup-node@v4 的内置缓存（cache: 'npm'）
+#   - 缓存键：基于 package-lock.json 的 hash，自动失效
+#   - 缓存范围：每个 runner OS 独立缓存（Windows/Linux/macOS）
+#   - 缓存大小：GitHub 限制 10GB/仓库，LRU 自动清理旧缓存
+#   - 手动清理：Actions > Caches > 删除特定缓存条目
 
 on:
   workflow_dispatch:
   push:
     tags:
       - 'v*'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
 
 permissions:
   contents: write
@@ -24,8 +35,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-workflow:
+    name: Validate Workflow
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install actionlint
+        run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+      - name: Validate workflow syntax
+        run: ./actionlint -color .github/workflows/build.yml
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --ignore-scripts
+
+      - name: Run npm audit
+        run: |
+          npm audit --audit-level=high || {
+            echo "::warning::npm audit found vulnerabilities"
+            npm audit --audit-level=high --json > npm-audit-report.json || true
+          }
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
-    name: ${{ matrix.name }}
+    name: Build (${{ matrix.platform }}-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     strategy:
@@ -38,18 +92,24 @@ jobs:
             arch: x64
             gulp-task: vscode-win32-x64-min
             src-dir: VSCode-win32-x64
+            build-group: windows
+            artifact-name: Kodrix-win32-x64
           - name: Linux x64
             runner: ubuntu-22.04
             platform: linux
             arch: x64
             gulp-task: vscode-linux-x64-min
             src-dir: VSCode-linux-x64
+            build-group: linux
+            artifact-name: Kodrix-linux-x64
           - name: macOS arm64
             runner: macos-14
             platform: darwin
             arch: arm64
             gulp-task: vscode-darwin-arm64-min
             src-dir: VSCode-darwin-arm64
+            build-group: macos
+            artifact-name: Kodrix-darwin-arm64
 
     env:
       VSCODE_ARCH: ${{ matrix.arch }}
@@ -60,7 +120,6 @@ jobs:
       VSCODE_SKIP_SETUPENV: ${{ matrix.platform == 'linux' && '1' || '' }}
       # macOS: 跳过代码签名（CI 没有证书）
       CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.platform == 'darwin' && 'false' || '' }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     defaults:
       run:
@@ -119,24 +178,152 @@ jobs:
       - name: Pack artifact
         id: pack
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          ARCHIVE="Kodrix-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"
+          ARCHIVE="${{ matrix.artifact-name }}.tar.gz"
           echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
           # -C .. 切到父目录再打包产物目录，避免 cd 和跨平台路径拼接问题
           tar -czf "$ARCHIVE" -C .. "${{ matrix.src-dir }}"
           ls -lh "$ARCHIVE"
 
+      - name: Generate build report
+        run: |
+          ARCHIVE_SIZE=$(ls -lh "${{ steps.pack.outputs.archive }}" | awk '{print $5}')
+          VERSION=$(node -p "require('./package.json').version")
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > BUILD_INFO.json <<ENDJSON
+          {
+            "platform": "${{ matrix.platform }}",
+            "arch": "${{ matrix.arch }}",
+            "version": "$VERSION",
+            "build_time": "$BUILD_TIME",
+            "archive": "${{ steps.pack.outputs.archive }}",
+            "archive_size": "$ARCHIVE_SIZE",
+            "runner": "${{ runner.os }}",
+            "commit": "${{ github.sha }}"
+          }
+          ENDJSON
+          cat BUILD_INFO.json
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.pack.outputs.archive }}
-          path: ${{ steps.pack.outputs.archive }}
+          name: ${{ matrix.artifact-name }}
+          path: |
+            ${{ steps.pack.outputs.archive }}
+            BUILD_INFO.json
           retention-days: 14
           if-no-files-found: error
 
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect build reports
+        run: |
+          echo "=== Merging BUILD_INFO.json from all platforms ==="
+          echo "[" > artifacts/BUILD_REPORT.json
+          first=true
+          for f in $(find artifacts/ -name 'BUILD_INFO.json' | sort); do
+            if [ "$first" = true ]; then
+              first=false
+            else
+              echo "," >> artifacts/BUILD_REPORT.json
+            fi
+              cat "$f" >> artifacts/BUILD_REPORT.json
+          done
+          echo "]" >> artifacts/BUILD_REPORT.json
+          echo "=== BUILD_REPORT.json ==="
+          cat artifacts/BUILD_REPORT.json
+
+      - name: Sanitize artifacts
+        run: |
+          echo "=== All downloaded files ==="
+          find artifacts/ -type f
+          echo "=== Removing all non-tar.gz files (except BUILD_REPORT.json) ==="
+          find artifacts/ -type f ! -name '*.tar.gz' ! -name 'BUILD_REPORT.json' -print -delete || true
+          echo "=== Final artifact list ==="
+          find artifacts/ -type f
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd artifacts
+          find . \( -name '*.tar.gz' -o -name 'BUILD_REPORT.json' \) -exec sha256sum {} + > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+
+      - name: Generate SBOM
+        run: |
+          echo "=== Generating Software Bill of Materials ==="
+          mkdir -p /tmp/sbom-extract
+          for tarball in artifacts/*.tar.gz; do
+            echo "Processing $tarball"
+            rm -rf /tmp/sbom-extract/*
+            tar -xzf "$tarball" -C /tmp/sbom-extract
+            sbom-tools generate --source /tmp/sbom-extract --output "artifacts/$(basename "$tarball" .tar.gz).sbom.json"
+          done
+          rm -rf /tmp/sbom-extract
+          echo "=== Generated SBOM files ==="
+          ls -lh artifacts/*.sbom.json
+
+      - name: Validate release assets
+        run: |
+          echo "=== Checking required files ==="
+          for f in artifacts/SHA256SUMS.txt artifacts/BUILD_REPORT.json; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing required file: $f"
+              exit 1
+            fi
+          done
+          tar_count=$(find artifacts/ -name '*.tar.gz' | wc -l)
+          sbom_count=$(find artifacts/ -name '*.sbom.json' | wc -l)
+          echo "tar.gz files: $tar_count"
+          echo "SBOM files: $sbom_count"
+          if [ "$tar_count" -ne 3 ]; then
+            echo "::error::Expected 3 tar.gz files, found $tar_count"
+            exit 1
+          fi
+          if [ "$sbom_count" -ne 3 ]; then
+            echo "::error::Expected 3 SBOM files, found $sbom_count"
+            exit 1
+          fi
+          echo "=== All validation passed ==="
+
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.pack.outputs.archive }}
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/SHA256SUMS.txt
+            artifacts/BUILD_REPORT.json
+            artifacts/**/*.sbom.json
           generate_release_notes: true
+
+      - name: Notify success
+        if: success()
+        run: |
+          echo "::notice::Release ${{ github.ref_name }} created successfully"
+          echo "Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+
+  notify-failure:
+    name: Notify Failure
+    needs: [build, release]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify failure
+        run: |
+          echo "::error::Build or release failed for ${{ github.ref_name }}"
+          echo "Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

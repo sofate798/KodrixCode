@@ -2,11 +2,11 @@
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, insider]
     paths-ignore:
       - "**/*.md"
   push:
-    branches: [master]
+    branches: [master, insider]
     paths-ignore:
       - "**/*.md"
 

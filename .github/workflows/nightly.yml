@@ -16,7 +16,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-      - run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev
+      - run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev build-essential
       - run: npm install --no-audit --no-fund
       - name: Full compile-build (gulp compile-build-with-mangling)
         env:
