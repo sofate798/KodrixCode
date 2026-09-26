@@ -25,7 +25,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - name: ESLint
         run: npm run eslint
       - name: TypeScript type check
@@ -48,7 +48,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - name: Compile & test ${{ matrix.extension }}
         working-directory: extensions/${{ matrix.extension }}
         run: |
@@ -67,7 +67,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - name: npm audit (critical)
         run: npm audit --audit-level=critical
       - name: Gitleaks
