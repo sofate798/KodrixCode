@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: github_config
-title: GitHub 仓库配置与 CI/CD 流水线
-scope:
-    - .github/
-source_files: []
-depends_on: []
-related_to:
-    - path: build_scripts

@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: extensions
-title: VS Code 内置扩展集合
-scope:
-    - extensions/
-source_files: []
-depends_on: []
-related_to:
-    - path: marketplace_catalog

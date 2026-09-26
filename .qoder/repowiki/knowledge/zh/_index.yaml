@@ -3,52 +3,56 @@ schema_version: 1
 locale: zh-CN
 branch: master
 nodes_managed: true
-exported_at: "2026-09-26T09:29:35Z"
+exported_at: "2026-09-26T11:16:25Z"
 modules:
     "":
-        dir_name: Kodrix VSCode 发行版根工程
-        title: Kodrix VSCode 发行版根工程
+        dir_name: Kodrix Code 编辑器根工程
+        title: Kodrix Code 编辑器根工程
         scope:
             - README.md
             - LICENSE.txt
+            - AGENTS.md
+            - SECURITY.md
+            - ThirdPartyNotices.txt
+            - REPAIR-NOTES.md
+            - .editorconfig
+            - .eslint-ignore
+            - .gitleaks.toml
+            - .npmrc
+            - .vscode-test.js
             - package.json
             - package-lock.json
             - product.json
+            - tsfmt.json
+            - Directory.Build.props
+            - cglicenses.json
+            - cgmanifest.json
             - gulpfile.mjs
             - eslint.config.js
-            - .npmrc
-            - .editorconfig
-            - .gitignore
-            - .gitattributes
-            - .gitleaks.toml
-            - SECURITY.md
-            - ThirdPartyNotices.txt
-            - AGENTS.md
-            - REPAIR-NOTES.md
-            - Directory.Build.props
             - debug.bat
             - debug-rebuild.bat
             - build.bat
             - .eslint-allowed-javascript-files
-            - .eslint-ignore
+            - .gitattributes
+            - .gitignore
             - .nvmrc
-            - .vscode-test.js
             - CODEOWNERS
             - LICENSE
-            - cglicenses.json
-            - cgmanifest.json
+            - __diff_stat.txt
+            - __review_diff1.txt
+            - __review_diff2.txt
+            - __review_diff3.txt
+            - __review_diff4.txt
+            - __review_diff5.txt
         source_files: []
         children:
             - build_scripts
             - cli_tool
             - core_runtime
-            - eslint_plugin
             - extensions
-            - github_config
-            - marketplace_catalog
             - patches
-            - remote_runtime
-            - resources_platform
+            - remote_server
+            - resources
             - tests
         depends_on: []
         related_to: []
@@ -62,54 +66,41 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: github_config
+            - path: core_runtime
     cli_tool:
-        dir_name: VS Code CLI 与 Dev Tunnels 客户端
-        title: VS Code CLI 与 Dev Tunnels 客户端
+        dir_name: VS Code CLI (code) 命令行工具
+        title: VS Code CLI (code) 命令行工具
         scope:
             - cli/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: core_runtime/bootstrap_and_entrypoints
+            - path: core_runtime
     core_runtime:
-        dir_name: VSCode 核心运行时（src）
-        title: VSCode 核心运行时（src）
+        dir_name: VSCode 核心运行时 (src_)
+        title: VSCode 核心运行时 (src/)
         scope:
             - src/
         source_files: []
         children:
             - core_runtime/bootstrap_and_entrypoints
         depends_on: []
-        related_to: []
+        related_to:
+            - path: build_scripts
+            - path: cli_tool
+            - path: extensions
+            - path: resources
+            - path: tests
     core_runtime/bootstrap_and_entrypoints:
         dir_name: VSCode 运行时引导与进程入口
         title: VSCode 运行时引导与进程入口
         scope:
-            - src/bootstrap-cli.ts
-            - src/bootstrap-esm.ts
-            - src/bootstrap-fork.ts
-            - src/bootstrap-import.ts
-            - src/bootstrap-meta.ts
-            - src/bootstrap-node.ts
-            - src/bootstrap-server.ts
+            - src/bootstrap-*.ts
             - src/cli.ts
             - src/main.ts
             - src/server-cli.ts
             - src/server-main.ts
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: cli_tool
-            - path: patches
-            - path: remote_runtime
-    eslint_plugin:
-        dir_name: VS Code 自定义 ESLint 规则插件
-        title: VS Code 自定义 ESLint 规则插件
-        scope:
-            - .eslint-plugin-local/
         source_files: []
         children: []
         depends_on: []
@@ -123,62 +114,42 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: marketplace_catalog
-    github_config:
-        dir_name: GitHub 仓库配置与 CI_CD 流水线
-        title: GitHub 仓库配置与 CI/CD 流水线
-        scope:
-            - .github/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: build_scripts
-    marketplace_catalog:
-        dir_name: Kodrix 官方 Skill 市场目录
-        title: Kodrix 官方 Skill 市场目录
-        scope:
-            - marketplace/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: extensions
+            - path: core_runtime
     patches:
-        dir_name: VS Code 发行版补丁集
-        title: VS Code 发行版补丁集
+        dir_name: VS Code 源码补丁集
+        title: VS Code 源码补丁集
         scope:
             - patches/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: core_runtime/bootstrap_and_entrypoints
-    remote_runtime:
-        dir_name: VS Code Remote & Web 运行时依赖
-        title: VS Code Remote & Web 运行时依赖
+        related_to: []
+    remote_server:
+        dir_name: VS Code Remote 运行时依赖声明
+        title: VS Code Remote 运行时依赖声明
         scope:
             - remote/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: core_runtime/bootstrap_and_entrypoints
-    resources_platform:
-        dir_name: 跨平台资源与打包模板
-        title: 跨平台资源与打包模板
+        related_to: []
+    resources:
+        dir_name: 跨平台资源与启动脚本
+        title: 跨平台资源与启动脚本
         scope:
             - resources/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: core_runtime
     tests:
-        dir_name: VS Code 测试套件与自动化基础设施
-        title: VS Code 测试套件与自动化基础设施
+        dir_name: VS Code 测试套件与自动化驱动
+        title: VS Code 测试套件与自动化驱动
         scope:
             - test/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: core_runtime
