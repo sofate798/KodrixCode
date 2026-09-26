@@ -87,11 +87,21 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y libkrb5-dev build-essential
 
-      # npm ci 会触发 postinstall，postinstall 自动对 build/、extensions/ 各子目录跑 npm install
+      # npm install 会触发 postinstall，postinstall 自动对 build/、extensions/ 各子目录跑 npm install
       # （见 build/npm/dirs.ts），不需要手动逐个 npm install
       # 注意：用 npm install 而非 npm ci，因为 package-lock.json 和 package.json overrides 不完全同步
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: |
+          echo "=== env check ==="
+          which npm && which node && ls -la /bin/sh 2>/dev/null
+          echo "=== npm install ==="
+          npm install --no-audit --no-fund || {
+            echo "=== FAILED: last 300 lines of newest npm debug log ==="
+            LOGFILE=$(ls -t ~/.npm/_logs/*debug*.log 2>/dev/null | head -1)
+            echo "log: $LOGFILE"
+            tail -300 "$LOGFILE"
+            exit 1
+          }
 
       - name: Disk space before build
         run: df -h . || true
