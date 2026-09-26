@@ -17,8 +17,7 @@
 	],
 	"main": "./out/extension",
 	"enabledApiProposals": [
-		"chatContextProvider",
-		"settingsEditorRenderer"
+		"chatContextProvider"
 	],
 	"contributes": {
 		"settingsEditorRenderers": [
@@ -71,6 +70,7 @@
 				{
 					"id": "kodrix.agentKanban",
 					"name": "%view.agentKanban.name%",
+					"icon": "$(organization)",
 					"when": "config.kodrix.features.kanban"
 				}
 			],
@@ -78,6 +78,7 @@
 				{
 					"id": "kodrix.checkpoints",
 					"name": "%view.checkpoints.name%",
+					"icon": "$(history)",
 					"when": "kodrix.hasWorkspace"
 				}
 			]
@@ -907,7 +908,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "24.x",
-		"@types/mocha": "^36.2.0",
+		"@types/mocha": "^10.0.10",
 		"mocha": "^10.0.0"
 	}
 }

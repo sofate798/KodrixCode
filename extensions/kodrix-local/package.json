@@ -16,9 +16,7 @@
     "onStartupFinished",
     "onSettingsEditorRenderer:kodrix.providerSettings"
   ],
-  "enabledApiProposals": [
-    "settingsEditorRenderer"
-  ],
+  "enabledApiProposals": [],
   "main": "./out/extension",
   "contributes": {
     "settingsEditorRenderers": [
@@ -276,7 +274,7 @@
   },
   "devDependencies": {
     "@types/node": "24.x",
-    "@types/mocha": "^36.2.0",
+    "@types/mocha": "^10.0.10",
     "mocha": "^10.0.0"
   }
 }
