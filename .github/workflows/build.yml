@@ -12,7 +12,7 @@
 #
 # cache-info:
 #   npm 缓存策略：
-#   - 使用 actions/setup-node@v4 的内置缓存（cache: 'npm'）
+#   - 使用 actions/setup-node@v5 的内置缓存（cache: 'npm'）
 #   - 缓存键：基于 package-lock.json 的 hash，自动失效
 #   - 缓存范围：每个 runner OS 独立缓存（Windows/Linux/macOS）
 #   - 缓存大小：GitHub 限制 10GB/仓库，LRU 自动清理旧缓存
@@ -41,7 +41,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install actionlint
         run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
       - name: Validate workflow syntax
@@ -53,12 +53,12 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
@@ -127,16 +127,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Setup Python (node-gyp)
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -210,7 +210,7 @@ jobs:
           cat BUILD_INFO.json
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact-name }}
           path: |
@@ -230,10 +230,10 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
 
