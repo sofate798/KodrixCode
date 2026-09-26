@@ -115,12 +115,6 @@
     "@microsoft/dev-tunnels-ssh-tcp": "^3.12.22",
     "@microsoft/mxc-sdk": "0.6.1",
     "@parcel/watcher": "^2.5.6",
-    "_outdatedDependencies": {
-      "husky@^0.13.1": "TODO: outdated (current ^9.x), upgrade requires migrating hook config from package.json scripts to .husky/ directory",
-      "rimraf@^2.2.8": "TODO: outdated (current ^5.x), upgrade requires switching to async API or using rimraf@5 sync wrapper",
-      "glob@^5.0.13": "TODO: outdated (current ^10.x), upgrade requires switching to glob@10 API (no sync, promise-based)",
-      "event-stream@3.3.4": "pinned: supply chain attack history (CVE-2018-16487), intentional freeze at 3.3.4"
-    },
     "@vscode/codicons": "^0.0.46-21",
     "@vscode/copilot-api": "^0.4.2",
     "@vscode/deviceid": "^0.1.1",
@@ -291,14 +285,13 @@
     },
     "yauzl": "^3.3.1"
   },
-  "repository": {
-    "type": "git",
-    "url": ""
-  },
-  "bugs": {
-    "url": ""
-  },
   "optionalDependencies": {
     "windows-foreground-love": "0.6.1"
+  },
+  "_outdatedDependencies": {
+    "husky@^0.13.1": "TODO: outdated (current ^9.x), upgrade requires migrating hook config from package.json scripts to .husky/ directory",
+    "rimraf@^2.2.8": "TODO: outdated (current ^5.x), upgrade requires switching to async API or using rimraf@5 sync wrapper",
+    "glob@^5.0.13": "TODO: outdated (current ^10.x), upgrade requires switching to glob@10 API (no sync, promise-based)",
+    "event-stream@3.3.4": "pinned: supply chain attack history (CVE-2018-16487), intentional freeze at 3.3.4"
   }
 }
