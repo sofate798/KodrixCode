@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "merge-conflict",
   "publisher": "vscode",
   "displayName": "%displayName%",
@@ -172,7 +172,6 @@
     }
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6",
     "@vscode/extension-telemetry": "^0.9.8"
   },
   "devDependencies": {

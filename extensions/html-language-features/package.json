@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "html-language-features",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -264,7 +264,6 @@
     ]
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6",
     "@vscode/extension-telemetry": "^0.9.8",
     "vscode-languageclient": "^10.0.0-next.10",
     "vscode-uri": "^3.1.0"

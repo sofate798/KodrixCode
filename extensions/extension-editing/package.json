@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "extension-editing",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -26,7 +26,6 @@
     "watch": "gulp watch-extension:extension-editing"
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6",
     "jsonc-parser": "^3.2.0",
     "markdown-it": "^14.2.0",
     "parse5": "^3.0.2"

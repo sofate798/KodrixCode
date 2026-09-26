@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "diff",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -37,8 +37,6 @@
         "path": "./syntaxes/diff.tmLanguage.json"
       }
     ]
-  },
-  "dependencies": {
-    "@parcel/watcher": "^2.5.6"
   }
+
 }

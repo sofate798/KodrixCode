@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "gulp",
   "publisher": "vscode",
   "description": "%description%",
@@ -17,7 +17,6 @@
     "watch": "gulp watch-extension:gulp"
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6"
   },
   "devDependencies": {
     "@types/node": "24.x"

@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "github-authentication",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -84,7 +84,6 @@
     "vscode:prepublish": "npm run compile"
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6",
     "@vscode/extension-telemetry": "^0.9.8",
     "node-fetch": "2.6.7",
     "vscode-tas-client": "^0.1.84"

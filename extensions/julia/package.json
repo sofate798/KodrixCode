@@ -1,4 +1,4 @@
-{
+﻿{
 	"name": "julia",
 	"displayName": "%displayName%",
 	"description": "%description%",
@@ -58,8 +58,6 @@
 				"editor.defaultColorDecorators": "never"
 			}
 		}
-	},
-	"dependencies": {
-		"@parcel/watcher": "^2.5.6"
 	}
+
 }

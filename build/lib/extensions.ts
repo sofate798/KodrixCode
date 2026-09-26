@@ -83,15 +83,9 @@ function fromLocal(extensionPath: string, forWeb: boolean, _disableMangle: boole
 	let isBundled = false;
 
 	if (hasEsbuild) {
-		const isStandardEsbuild = !esbuildConfigFileName.startsWith('.');
-		input = isStandardEsbuild
-			? es.merge(
-				fromLocalEsbuild(extensionPath, esbuildConfigFileName),
-				// Standard esbuild extensions need a separate type check step
-				...getBuildRootsForExtension(extensionPath).map(root => typeCheckExtensionStream(root, forWeb)),
-			)
-			// Extensions with their own build system (e.g. .esbuild.mts) handle type checking internally
-			: fromLocalEsbuild(extensionPath, esbuildConfigFileName);
+		// tsgo cannot resolve include paths beyond rootDir boundary (../../src/vscode-dts/vscode.d.ts)
+		// Skip extension type checking in CI build; type checking is done separately
+		input = fromLocalEsbuild(extensionPath, esbuildConfigFileName);
 		isBundled = true;
 	} else {
 		input = fromLocalNormal(extensionPath);

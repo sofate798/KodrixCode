@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "references-view",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -406,8 +406,6 @@
   },
   "devDependencies": {
     "@types/node": "24.x"
-  },
-  "dependencies": {
-    "@parcel/watcher": "^2.5.6"
   }
+
 }

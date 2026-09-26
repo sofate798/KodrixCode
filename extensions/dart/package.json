@@ -1,4 +1,4 @@
-{
+﻿{
 	"name": "dart",
 	"displayName": "%displayName%",
 	"description": "%description%",
@@ -34,8 +34,6 @@
 				"path": "./syntaxes/dart.tmLanguage.json"
 			}
 		]
-	},
-	"dependencies": {
-		"@parcel/watcher": "^2.5.6"
 	}
+
 }

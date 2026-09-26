@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "configuration-editing",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -32,7 +32,6 @@
   },
   "dependencies": {
     "@octokit/rest": "^21.1.1",
-    "@parcel/watcher": "^2.5.6",
     "jsonc-parser": "^3.2.0",
     "tunnel": "^0.0.6"
   },

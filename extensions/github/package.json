@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "github",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -244,7 +244,6 @@
     "@octokit/graphql": "8.2.0",
     "@octokit/graphql-schema": "14.4.0",
     "@octokit/rest": "21.1.0",
-    "@parcel/watcher": "^2.5.6",
     "@vscode/extension-telemetry": "^1.0.0",
     "tunnel": "^0.0.6"
   },

@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "media-preview",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -164,7 +164,6 @@
     "watch-typecheck-web": "tsgo --project ./tsconfig.browser.json --noEmit --watch"
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6",
     "@vscode/extension-telemetry": "^0.9.8",
     "vscode-uri": "^3.0.6"
   },

@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "json-language-features",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -188,7 +188,6 @@
     ]
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6",
     "@vscode/extension-telemetry": "^0.9.8",
     "request-light": "^0.8.0",
     "vscode-languageclient": "^10.0.0-next.20"

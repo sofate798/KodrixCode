@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "debug-auto-launch",
   "displayName": "%displayName%",
   "description": "%description%",
@@ -44,8 +44,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/microsoft/vscode.git"
-  },
-  "dependencies": {
-    "@parcel/watcher": "^2.5.6"
   }
+
 }
