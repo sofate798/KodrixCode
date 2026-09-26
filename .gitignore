@@ -26,11 +26,11 @@ font-size/generate-css.js
 *.env
 Thumbs.db
 
-# --- VSCodium fork ignores ---
-vscode*
-VS*/*
-VSCode*
-VSCodium*
+# --- VSCodium fork ignores (anchored to repo root to avoid matching nested dirs) ---
+/vscode*
+/VS*/*
+/VSCode*
+/VSCodium*
 assets/
 build/linux/appimage/out
 build/linux/appimage/pkg2appimage.AppDir
