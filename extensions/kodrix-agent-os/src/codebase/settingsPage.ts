@@ -127,6 +127,9 @@ async function handleMessage(webview: vscode.Webview, msg: any): Promise<void> {
 					await setFimApiKey(sctx, secretValue);
 				} else if (secretKey === EMBEDDING_API_KEY_SECRET) {
 					await setEmbeddingApiKey(sctx, secretValue);
+				} else {
+					console.warn(`[Settings] Unknown secret key: ${secretKey}`);
+					break;
 				}
 				await webview.postMessage({
 					type: 'secretStatus',

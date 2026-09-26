@@ -105,7 +105,7 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 			}
 			return 'file';
 		} catch {
-			return 'file';
+			return 'file-diff';
 		}
 	}
 }

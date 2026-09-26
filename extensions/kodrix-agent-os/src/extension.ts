@@ -200,11 +200,11 @@ function activateInternal(context: vscode.ExtensionContext): void {
 	registerNaturalCommandPalette(context);
 	registerArena(context);
 	registerHooks(context);
-	void syncEmbeddingProvider();
+	syncEmbeddingProvider().catch(err => console.warn('[Kodrix] syncEmbeddingProvider failed:', err));
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('kodrix.semanticEmbedding')) {
-				void syncEmbeddingProvider();
+				syncEmbeddingProvider().catch(err => console.warn('[Kodrix] syncEmbeddingProvider failed:', err));
 			}
 		}),
 	);

@@ -329,12 +329,13 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 				this.metadata.set(categoryID, { firstSeen: +new Date(), stepIDs: walkthrough.steps?.map(s => s.id) ?? [], manaullyOpened: false });
 			}
 
+			const treatmentPromise = this.tasExperimentService?.getTreatment<string>(`gettingStarted.overrideCategory.${extension.identifier.value + '.' + walkthrough.id}.when`);
 			const override = await Promise.race([
-				this.tasExperimentService?.getTreatment<string>(`gettingStarted.overrideCategory.${extension.identifier.value + '.' + walkthrough.id}.when`),
+				treatmentPromise,
 				new Promise<string | undefined>(resolve => {
 					const timeoutId = setTimeout(() => resolve(walkthrough.when), 5000);
 					// Ensure timer is cleaned up if the other promise resolves first
-					Promise.resolve(this.tasExperimentService?.getTreatment<string>(`gettingStarted.overrideCategory.${extension.identifier.value + '.' + walkthrough.id}.when`)).finally(() => clearTimeout(timeoutId));
+					treatmentPromise?.finally(() => clearTimeout(timeoutId));
 				})
 			]);
 

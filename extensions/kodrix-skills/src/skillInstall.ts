@@ -357,11 +357,24 @@ async function fetchText(url: string, _depth = 0, extraHeaders?: Record<string, 
 		if (response.status >= 400) {
 			throw new Error(`HTTP ${response.status}: ${url}`);
 		}
-		const buffer = Buffer.from(await response.arrayBuffer());
-		if (buffer.length > MAX_TEXT_FETCH_BYTES) {
-			throw new Error(`SKILL.md content exceeds ${MAX_TEXT_FETCH_BYTES / (1024 * 1024)}MB limit`);
+		if (!response.body) {
+			throw new Error('Response body is null');
 		}
-		return buffer.toString('utf-8');
+		const reader = response.body.getReader();
+		const chunks: Uint8Array[] = [];
+		let size = 0;
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			size += value.length;
+			if (size > MAX_TEXT_FETCH_BYTES) {
+				await reader.cancel();
+				throw new Error(`SKILL.md content exceeds ${MAX_TEXT_FETCH_BYTES / (1024 * 1024)}MB limit`);
+			}
+			chunks.push(value);
+		}
+		const decoder = new TextDecoder();
+		return chunks.map(c => decoder.decode(c, { stream: true })).join('') + decoder.decode();
 	} finally {
 		clearTimeout(timer);
 	}
