@@ -216,7 +216,7 @@ const { nodeVersion, internalNodeVersion } = getNodeVersion();
 // is configured). Each universal package contains exactly one file, named after
 // the asset minus its last extension, lowercased and sanitized (e.g.
 // `node-v24.15.0-linux-x64.tar`, `win-x64-node`).
-const nodejsArtifactFeed = product.nodejsArtifactFeed;
+const nodejsArtifactFeed = (product as { nodejsArtifactFeed?: string }).nodejsArtifactFeed;
 
 function internalNodeFeedPackageName(assetName: string): string {
 	return assetName
@@ -337,7 +337,7 @@ function nodejs(platform: string, arch: string): NodeJS.ReadWriteStream | undefi
 // `product.nodejsArtifactFeed`. Only called when that feed is configured.
 function fetchNodejs(assetName: string, checksumSha256: string | undefined): NodeJS.ReadWriteStream {
 	const version = `${nodeVersion}-${internalNodeVersion}`;
-	return fetchNodejsFromInternalFeed(nodejsArtifactFeed, assetName, version, checksumSha256);
+	return fetchNodejsFromInternalFeed(nodejsArtifactFeed!, assetName, version, checksumSha256);
 }
 
 function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
@@ -544,9 +544,13 @@ async function isWindowsPE(filePath: string): Promise<boolean> {
 }
 
 function hasAuthenticodeSignature(filePath: string): Promise<boolean> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const proc = cp.spawn('signtool.exe', ['verify', '/pa', filePath]);
-		proc.on('error', reject);
+		proc.on('error', () => {
+			// signtool.exe not found (e.g. on GitHub Actions runners without Windows SDK).
+			// Treat as unsigned — no signature to strip.
+			resolve(false);
+		});
 		proc.on('exit', code => resolve(code === 0));
 	});
 }

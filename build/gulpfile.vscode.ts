@@ -265,12 +265,12 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			.pipe(rename(function (path) { path.dirname = path.dirname!.replace(new RegExp('^' + out), 'out'); }))
 			.pipe(util.setExecutableBit(['**/*.sh']));
 
-		const platformSpecificBuiltInExtensionsExclusions = (product.builtInExtensions || []).filter(ext => {
-			if (!(ext as { platforms?: string[] }).platforms) {
+		const platformSpecificBuiltInExtensionsExclusions = ((product.builtInExtensions || []) as Array<{ name: string; platforms?: string[] }>).filter(ext => {
+			if (!ext.platforms) {
 				return false;
 			}
 
-			const set = new Set((ext as { platforms?: string[] }).platforms);
+			const set = new Set(ext.platforms);
 			return !set.has(platform);
 		}).map(ext => `!.build/extensions/${ext.name}/**`);
 
@@ -553,9 +553,13 @@ async function isWindowsPE(filePath: string): Promise<boolean> {
 }
 
 function hasAuthenticodeSignature(filePath: string): Promise<boolean> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const proc = cp.spawn('signtool.exe', ['verify', '/pa', filePath]);
-		proc.on('error', reject);
+		proc.on('error', () => {
+			// signtool.exe not found (e.g. on GitHub Actions runners without Windows SDK).
+			// Treat as unsigned — no signature to strip.
+			resolve(false);
+		});
 		proc.on('exit', code => resolve(code === 0));
 	});
 }

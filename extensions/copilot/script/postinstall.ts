@@ -277,9 +277,18 @@ async function createClaudeSymlinks() {
 	];
 
 	for (const { link, target } of symlinks) {
-		if (!fs.existsSync(link)) {
-			await fs.promises.symlink(target, link);
+		// Remove any existing file or broken symlink at the link path before creating a new symlink.
+		// fs.existsSync returns true for broken symlinks on some platforms, and a regular file
+		// may also exist at the path (e.g. from a previous git checkout), both causing EEXIST.
+		try {
+			const lstat = await fs.promises.lstat(link);
+			if (lstat.isSymbolicLink() || lstat.isFile()) {
+				await fs.promises.rm(link, { force: true });
+			}
+		} catch {
+			// Path does not exist — safe to create symlink
 		}
+		await fs.promises.symlink(target, link);
 	}
 }
 
