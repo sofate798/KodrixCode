@@ -51,8 +51,8 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 		return this.getCheckpoints();
 	}
 
-	private getCheckpoints(): CheckpointTreeItem[] {
-		const checkpoints = listCheckpoints();
+	private async getCheckpoints(): Promise<CheckpointTreeItem[]> {
+		const checkpoints = await listCheckpoints();
 		return checkpoints.map(cp => ({
 			label: cp.label || cp.id,
 			description: `${cp.fileCount} ${l10n.t('个文件')} · ${formatTime(cp.createdAt)}`,
@@ -69,10 +69,10 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 		}));
 	}
 
-	private getCheckpointFiles(checkpointId: string): CheckpointTreeItem[] {
-		const files = getCheckpointFiles(checkpointId);
-		return files.map(f => {
-			const statusIcon = this.getFileDiffIcon(checkpointId, f);
+	private async getCheckpointFiles(checkpointId: string): Promise<CheckpointTreeItem[]> {
+		const files = await getCheckpointFiles(checkpointId);
+		return Promise.all(files.map(async f => {
+			const statusIcon = await this.getFileDiffIcon(checkpointId, f);
 			return {
 				label: path.basename(f.relPath),
 				description: f.relPath,
@@ -88,10 +88,10 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 					arguments: [checkpointId, f.relPath],
 				},
 			};
-		});
+		}));
 	}
 
-	private getFileDiffIcon(_checkpointId: string, file: CheckpointFile): string {
+	private async getFileDiffIcon(_checkpointId: string, file: CheckpointFile): Promise<string> {
 		// 简单判断：检查工作区当前文件是否存在且内容不同
 		const folder = vscode.workspace.workspaceFolders?.[0];
 		if (!folder) {
@@ -99,10 +99,7 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 		}
 		const abs = path.join(folder.uri.fsPath, file.relPath);
 		try {
-			if (!fs.existsSync(abs)) {
-				return 'file-diff';
-			}
-			const current = fs.readFileSync(abs, 'utf-8');
+			const current = await fs.promises.readFile(abs, 'utf-8');
 			if (current !== file.content) {
 				return 'file-diff';
 			}
@@ -151,7 +148,7 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 				vscode.window.showWarningMessage(l10n.t('请先打开工作区'));
 				return;
 			}
-			const manifest = readCheckpointManifest(checkpointId);
+			const manifest = await readCheckpointManifest(checkpointId);
 			if (!manifest) {
 				vscode.window.showErrorMessage(l10n.t('检查点不存在'));
 				return;
@@ -164,9 +161,9 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 			const abs = path.join(folder.uri.fsPath, relPath);
 			// 创建临时文件存放检查点内容
 			const tempDir = path.join(folder.uri.fsPath, '.kodrix', 'checkpoint-temp');
-			fs.mkdirSync(tempDir, { recursive: true });
+			await fs.promises.mkdir(tempDir, { recursive: true });
 			const tempPath = path.join(tempDir, `${checkpointId}-${relPath.replace(/[\\/]/g, '_')}`);
-			fs.writeFileSync(tempPath, file.content, 'utf-8');
+			await fs.promises.writeFile(tempPath, file.content, 'utf-8');
 
 			const title = `${relPath} — ${l10n.t('检查点')} vs ${l10n.t('当前')}`;
 			await vscode.commands.executeCommand(
@@ -184,7 +181,7 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 			if (!item.checkpointId) {
 				return;
 			}
-			const manifest = readCheckpointManifest(item.checkpointId);
+			const manifest = await readCheckpointManifest(item.checkpointId);
 			const label = manifest?.label ?? item.checkpointId;
 			const ok = await vscode.window.showWarningMessage(
 				l10n.t('确定回滚到「{0}」？将覆盖 {1}', label, `${manifest?.files.length ?? 0} ${l10n.t('个文件')}`),
@@ -212,7 +209,7 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 			if (!item.checkpointId) {
 				return;
 			}
-			const manifest = readCheckpointManifest(item.checkpointId);
+			const manifest = await readCheckpointManifest(item.checkpointId);
 			const label = manifest?.label ?? item.checkpointId;
 			const ok = await vscode.window.showWarningMessage(
 				l10n.t('确定删除检查点「{0}」？此操作不可恢复', label),
@@ -222,7 +219,7 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 			if (ok !== l10n.t('删除')) {
 				return;
 			}
-			if (deleteCheckpoint(item.checkpointId)) {
+			if (await deleteCheckpoint(item.checkpointId)) {
 				vscode.window.showInformationMessage(l10n.t('已删除检查点「{0}」', label));
 				provider.refresh();
 			} else {

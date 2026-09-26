@@ -38,28 +38,28 @@ suite('checkpointManager', () => {
 	// ── 操作日志 ──────────────────────────────────────────────────
 
 	suite('recordOperation / listOperations', () => {
-		test('记录并读取操作日志', () => {
+		test('记录并读取操作日志', async () => {
 			const op = { type: 'test', detail: 'hello', timestamp: new Date().toISOString() };
-			checkpointManager.recordOperation(op);
+			await checkpointManager.recordOperation(op);
 
-			const ops = checkpointManager.listOperations(10);
+			const ops = await checkpointManager.listOperations(10);
 			assert.ok(Array.isArray(ops));
 			assert.strictEqual(ops.length, 1);
 			assert.strictEqual(ops[0].type, 'test');
 			assert.strictEqual(ops[0].detail, 'hello');
 		});
 
-		test('多条记录按顺序读取', () => {
+		test('多条记录按顺序读取', async () => {
 			for (let i = 0; i < 5; i++) {
-				checkpointManager.recordOperation({ type: `op-${i}`, detail: '', timestamp: new Date().toISOString() });
+				await checkpointManager.recordOperation({ type: `op-${i}`, detail: '', timestamp: new Date().toISOString() });
 			}
-			const ops = checkpointManager.listOperations(100);
+			const ops = await checkpointManager.listOperations(100);
 			assert.strictEqual(ops.length, 5);
 			assert.strictEqual(ops[0].type, 'op-0');
 			assert.strictEqual(ops[4].type, 'op-4');
 		});
 
-		test('滚动上限：超过 2000 行后截断到 2000', () => {
+		test('滚动上限：超过 2000 行后截断到 2000', async () => {
 			// 写入 2100 条记录
 			const largeContent = Array.from({ length: 2100 }, (_, i) =>
 				JSON.stringify({ type: `op-${i}`, detail: 'x'.repeat(200), timestamp: new Date().toISOString() })
@@ -71,9 +71,9 @@ suite('checkpointManager', () => {
 			fs.writeFileSync(path.join(cpRoot, 'operations.jsonl'), largeContent, 'utf-8');
 
 			// 再追加一条触发滚动清理
-			checkpointManager.recordOperation({ type: 'trigger-roll', detail: '', timestamp: new Date().toISOString() });
+			await checkpointManager.recordOperation({ type: 'trigger-roll', detail: '', timestamp: new Date().toISOString() });
 
-			const ops = checkpointManager.listOperations(5000);
+			const ops = await checkpointManager.listOperations(5000);
 			// 滚动后应 ≤ 2000 行（加上新追加的 1 条 = 最多 2001）
 			assert.ok(ops.length <= 2001, `Expected ≤ 2001 ops, got ${ops.length}`);
 			// 最新一条应在列表中
@@ -85,13 +85,13 @@ suite('checkpointManager', () => {
 	// ── listCheckpoints ────────────────────────────────────────────
 
 	suite('listCheckpoints', () => {
-		test('空目录返回空数组', () => {
-			const list = checkpointManager.listCheckpoints();
+		test('空目录返回空数组', async () => {
+			const list = await checkpointManager.listCheckpoints();
 			assert.ok(Array.isArray(list));
 			assert.strictEqual(list.length, 0);
 		});
 
-		test('过滤 auto/ 和 operations.jsonl', () => {
+		test('过滤 auto/ 和 operations.jsonl', async () => {
 			const cpRoot = path.join(tmpDir, '.kodrix', 'checkpoints');
 			fs.mkdirSync(cpRoot, { recursive: true });
 
@@ -111,7 +111,7 @@ suite('checkpointManager', () => {
 			// 创建 operations.jsonl（应被过滤）
 			fs.writeFileSync(path.join(cpRoot, 'operations.jsonl'), '{}\n', 'utf-8');
 
-			const list = checkpointManager.listCheckpoints();
+			const list = await checkpointManager.listCheckpoints();
 			assert.strictEqual(list.length, 1);
 			assert.strictEqual(list[0].id, '2025-01-01T00-00-00-000Z');
 			assert.strictEqual(list[0].label, 'test');

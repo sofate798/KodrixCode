@@ -80,7 +80,7 @@ class DiffGalleryPanel {
 		);
 
 		DiffGalleryPanel.currentPanel = new DiffGalleryPanel(panel);
-		DiffGalleryPanel.currentPanel._update();
+		void DiffGalleryPanel.currentPanel._update();
 	}
 
 	dispose(): void {
@@ -131,7 +131,7 @@ class DiffGalleryPanel {
 				}
 				break;
 			case 'refreshGallery':
-				this._update();
+				await this._update();
 				break;
 		}
 	}
@@ -144,15 +144,17 @@ class DiffGalleryPanel {
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (folder && this._galleryData.checkpointB) {
 				const abs = path.join(folder.uri.fsPath, relPath);
-				try {
-					fs.mkdirSync(path.dirname(abs), { recursive: true });
-					fs.writeFileSync(abs, entry.contentB, 'utf-8');
-					logger.info(`[DiffGallery] 已接受文件：${relPath}`);
-				} catch (err) {
-					logger.error(`[DiffGallery] 接受文件失败：${relPath}`, err);
-				}
+				void (async () => {
+					try {
+						await fs.promises.mkdir(path.dirname(abs), { recursive: true });
+						await fs.promises.writeFile(abs, entry.contentB, 'utf-8');
+						logger.info(`[DiffGallery] 已接受文件：${relPath}`);
+					} catch (err) {
+						logger.error(`[DiffGallery] 接受文件失败：${relPath}`, err);
+					}
+					await this._update();
+				})();
 			}
-			this._update();
 		}
 	}
 
@@ -160,7 +162,7 @@ class DiffGalleryPanel {
 		const entry = this._galleryData.files.find(f => f.relPath === relPath);
 		if (entry) {
 			entry.accepted = false;
-			this._update();
+			void this._update();
 		}
 	}
 
@@ -169,27 +171,29 @@ class DiffGalleryPanel {
 		if (!folder || !this._galleryData.checkpointB) {
 			return;
 		}
-		for (const entry of this._galleryData.files) {
-			if (entry.status === 'unchanged') {
-				continue;
+		void (async () => {
+			for (const entry of this._galleryData.files) {
+				if (entry.status === 'unchanged') {
+					continue;
+				}
+				entry.accepted = true;
+				const abs = path.join(folder.uri.fsPath, entry.relPath);
+				try {
+					await fs.promises.mkdir(path.dirname(abs), { recursive: true });
+					await fs.promises.writeFile(abs, entry.contentB, 'utf-8');
+				} catch (err) {
+					logger.error(`[DiffGallery] 批量接受失败：${entry.relPath}`, err);
+				}
 			}
-			entry.accepted = true;
-			const abs = path.join(folder.uri.fsPath, entry.relPath);
-			try {
-				fs.mkdirSync(path.dirname(abs), { recursive: true });
-				fs.writeFileSync(abs, entry.contentB, 'utf-8');
-			} catch (err) {
-				logger.error(`[DiffGallery] 批量接受失败：${entry.relPath}`, err);
-			}
-		}
-		this._update();
+			await this._update();
+		})();
 	}
 
 	private _rejectAll(): void {
 		for (const entry of this._galleryData.files) {
 			entry.accepted = false;
 		}
-		this._update();
+		void this._update();
 	}
 
 	private async _showFileDiff(relPath: string): Promise<void> {
@@ -203,12 +207,12 @@ class DiffGalleryPanel {
 		}
 		// 创建临时文件用于 diff
 		const tempDir = path.join(folder.uri.fsPath, '.kodrix', 'gallery-temp');
-		fs.mkdirSync(tempDir, { recursive: true });
+		await fs.promises.mkdir(tempDir, { recursive: true });
 		const safeName = relPath.replace(/[\\/]/g, '_');
 		const tempA = path.join(tempDir, `a-${safeName}`);
 		const tempB = path.join(tempDir, `b-${safeName}`);
-		fs.writeFileSync(tempA, entry.contentA, 'utf-8');
-		fs.writeFileSync(tempB, entry.contentB, 'utf-8');
+		await fs.promises.writeFile(tempA, entry.contentA, 'utf-8');
+		await fs.promises.writeFile(tempB, entry.contentB, 'utf-8');
 
 		const labelA = this._galleryData.checkpointA?.label ?? l10n.t('检查点 A');
 		const labelB = this._galleryData.checkpointB?.label ?? l10n.t('检查点 B');
@@ -221,8 +225,8 @@ class DiffGalleryPanel {
 	}
 
 	private async _loadComparison(idA: string, idB: string): Promise<void> {
-		const manifestA = readCheckpointManifest(idA);
-		const manifestB = readCheckpointManifest(idB);
+		const manifestA = await readCheckpointManifest(idA);
+		const manifestB = await readCheckpointManifest(idB);
 		if (!manifestA || !manifestB) {
 			vscode.window.showErrorMessage(l10n.t('检查点不存在'));
 			return;
@@ -232,11 +236,11 @@ class DiffGalleryPanel {
 			checkpointA: { id: manifestA.id, label: manifestA.label },
 			checkpointB: { id: manifestB.id, label: manifestB.label },
 		};
-		this._update();
+		await this._update();
 	}
 
 	private async _loadComparisonWithWorkspace(idA: string): Promise<void> {
-		const manifestA = readCheckpointManifest(idA);
+		const manifestA = await readCheckpointManifest(idA);
 		if (!manifestA) {
 			vscode.window.showErrorMessage(l10n.t('检查点不存在'));
 			return;
@@ -251,7 +255,7 @@ class DiffGalleryPanel {
 		for (const f of manifestA.files) {
 			const abs = path.join(folder.uri.fsPath, f.relPath);
 			try {
-				const content = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf-8') : '';
+				const content = await fs.promises.readFile(abs, 'utf-8');
 				currentFiles.push({ relPath: f.relPath, content });
 			} catch {
 				currentFiles.push({ relPath: f.relPath, content: '' });
@@ -268,11 +272,11 @@ class DiffGalleryPanel {
 			checkpointA: { id: manifestA.id, label: manifestA.label },
 			checkpointB: { id: '__workspace__', label: l10n.t('当前工作区') },
 		};
-		this._update();
+		await this._update();
 	}
 
 	private async _rollbackTo(checkpointId: string): Promise<void> {
-		const manifest = readCheckpointManifest(checkpointId);
+		const manifest = await readCheckpointManifest(checkpointId);
 		const label = manifest?.label ?? checkpointId;
 		const ok = await vscode.window.showWarningMessage(
 			l10n.t('确定回滚到「{0}」？将覆盖 {1}', label, `${manifest?.files.length ?? 0} ${l10n.t('个文件')}`),
@@ -292,13 +296,13 @@ class DiffGalleryPanel {
 		}
 	}
 
-	private _update(): void {
-		this._panel.webview.html = this._getHtml();
+	private async _update(): Promise<void> {
+		this._panel.webview.html = await this._getHtml();
 	}
 
-	private _getHtml(): string {
+	private async _getHtml(): Promise<string> {
 		const data = this._galleryData;
-		const checkpoints = listCheckpoints();
+		const checkpoints = await listCheckpoints();
 
 		const filesJson = JSON.stringify(data.files.map(f => ({
 			relPath: f.relPath,

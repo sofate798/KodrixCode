@@ -103,14 +103,14 @@ function isKodrixInternal(relPath: string): boolean {
 	return relPath.split(/[\\/]/)[0] === WORKSPACE_KODRIX_DIR;
 }
 
-function readManifest(id: string): CheckpointManifest | undefined {
+async function readManifest(id: string): Promise<CheckpointManifest | undefined> {
 	const root = getCheckpointRoot();
 	if (!root) {
 		return undefined;
 	}
 	const p = path.join(root, id, 'manifest.json');
 	try {
-		return JSON.parse(fs.readFileSync(p, 'utf-8')) as CheckpointManifest;
+		return JSON.parse(await fs.promises.readFile(p, 'utf-8')) as CheckpointManifest;
 	} catch {
 		return undefined;
 	}
@@ -129,7 +129,7 @@ export async function createCheckpoint(label?: string): Promise<string | undefin
 
 	const id = new Date().toISOString().replace(/[:.]/g, '-');
 	const dir = path.join(root, id);
-	fs.mkdirSync(dir, { recursive: true });
+	await fs.promises.mkdir(dir, { recursive: true });
 
 	const files: CheckpointFile[] = [];
 	for (const doc of vscode.workspace.textDocuments) {
@@ -141,12 +141,12 @@ export async function createCheckpoint(label?: string): Promise<string | undefin
 			continue;
 		}
 		try {
-			const stat = fs.statSync(doc.uri.fsPath);
+			const stat = await fs.promises.stat(doc.uri.fsPath);
 			if (stat.size > CHECKPOINT_MAX_FILE_BYTES) {
 				continue;
 			}
 			// 快照取磁盘已保存内容，避免用 dirty 缓冲覆盖外部更新
-			const content = fs.readFileSync(doc.uri.fsPath, 'utf-8');
+			const content = await fs.promises.readFile(doc.uri.fsPath, 'utf-8');
 			files.push({ relPath: rel, content });
 		} catch {
 			continue;
@@ -163,44 +163,54 @@ export async function createCheckpoint(label?: string): Promise<string | undefin
 		createdAt: new Date().toISOString(),
 		files,
 	};
-	fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
+	await fs.promises.writeFile(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
 	logger.info(`[Checkpoint] 已创建「${manifest.label}」(${files.length} 个文件)`);
 	return id;
 }
 
 /** 列出检查点（新→旧） */
-export function listCheckpoints(): CheckpointSummary[] {
+export async function listCheckpoints(): Promise<CheckpointSummary[]> {
 	const root = getCheckpointRoot();
-	if (!root || !fs.existsSync(root)) {
+	if (!root) {
 		return [];
 	}
 	try {
-		return fs.readdirSync(root)
-			.filter(name => name !== 'auto' && name !== 'operations.jsonl')
-			.map(name => {
-				const m = readManifest(name);
-				return {
+		await fs.promises.stat(root);
+	} catch {
+		return [];
+	}
+	try {
+		const entries = await fs.promises.readdir(root);
+		const results: CheckpointSummary[] = [];
+		for (const name of entries) {
+			if (name === 'auto' || name === 'operations.jsonl') {
+				continue;
+			}
+			const m = await readManifest(name);
+			if (m && m.files.length > 0) {
+				results.push({
 					id: name,
-					label: m?.label ?? '（无标签）',
-					createdAt: m?.createdAt ?? name,
-					fileCount: m?.files.length ?? 0,
-				};
-			})
-			.filter(c => c.fileCount > 0)
-			.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+					label: m.label ?? '（无标签）',
+					createdAt: m.createdAt ?? name,
+					fileCount: m.files.length,
+				});
+			}
+		}
+		return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 	} catch {
 		return [];
 	}
 }
 
 /** 获取检查点文件清单 */
-export function getCheckpointFiles(id: string): CheckpointFile[] {
-	return readManifest(id)?.files ?? [];
+export async function getCheckpointFiles(id: string): Promise<CheckpointFile[]> {
+	const manifest = await readManifest(id);
+	return manifest?.files ?? [];
 }
 
 /** 回滚：将快照内容写回原文件 */
 export async function restoreCheckpoint(id: string): Promise<{ restored: number; skipped: number }> {
-	const manifest = readManifest(id);
+	const manifest = await readManifest(id);
 	if (!manifest) {
 		throw new Error(`检查点不存在：${id}`);
 	}
@@ -218,8 +228,8 @@ export async function restoreCheckpoint(id: string): Promise<{ restored: number;
 			continue;
 		}
 		try {
-			fs.mkdirSync(path.dirname(abs), { recursive: true });
-			fs.writeFileSync(abs, f.content, 'utf-8');
+			await fs.promises.mkdir(path.dirname(abs), { recursive: true });
+			await fs.promises.writeFile(abs, f.content, 'utf-8');
 			restored++;
 		} catch (err) {
 			skipped++;
@@ -234,22 +244,22 @@ export async function restoreCheckpoint(id: string): Promise<{ restored: number;
 const OPERATIONS_MAX_LINES = 2000;
 
 /** 记录操作日志（供检查点回顾 / 历史追踪） */
-export function recordOperation(op: CheckpointOperation): void {
+export async function recordOperation(op: CheckpointOperation): Promise<void> {
 	const root = getCheckpointRoot();
 	if (!root) {
 		return;
 	}
 	try {
-		fs.mkdirSync(root, { recursive: true });
+		await fs.promises.mkdir(root, { recursive: true });
 		const p = path.join(root, 'operations.jsonl');
-		fs.appendFileSync(p, JSON.stringify(op) + '\n', 'utf-8');
+		await fs.promises.appendFile(p, JSON.stringify(op) + '\n', 'utf-8');
 		// 滚动清理，避免无限增长
 		try {
-			const stat = fs.statSync(p);
+			const stat = await fs.promises.stat(p);
 			if (stat.size > 512 * 1024) {
-				const lines = fs.readFileSync(p, 'utf-8').split('\n').filter(Boolean);
+				const lines = (await fs.promises.readFile(p, 'utf-8')).split('\n').filter(Boolean);
 				if (lines.length > OPERATIONS_MAX_LINES) {
-					fs.writeFileSync(p, lines.slice(-OPERATIONS_MAX_LINES).join('\n') + '\n', 'utf-8');
+					await fs.promises.writeFile(p, lines.slice(-OPERATIONS_MAX_LINES).join('\n') + '\n', 'utf-8');
 				}
 			}
 		} catch { /* 滚动失败不影响主路径 */ }
@@ -259,17 +269,19 @@ export function recordOperation(op: CheckpointOperation): void {
 }
 
 /** 读取最近操作日志 */
-export function listOperations(limit = 50): CheckpointOperation[] {
+export async function listOperations(limit = 50): Promise<CheckpointOperation[]> {
 	const root = getCheckpointRoot();
 	if (!root) {
 		return [];
 	}
 	const p = path.join(root, 'operations.jsonl');
-	if (!fs.existsSync(p)) {
+	try {
+		await fs.promises.stat(p);
+	} catch {
 		return [];
 	}
 	try {
-		const lines = fs.readFileSync(p, 'utf-8').split('\n').filter(Boolean);
+		const lines = (await fs.promises.readFile(p, 'utf-8')).split('\n').filter(Boolean);
 		return lines.slice(-limit)
 			.map(l => {
 				try {
@@ -345,8 +357,8 @@ function formatTime(iso: string): string {
 
 /** 预览检查点文件清单 */
 async function showCheckpointFilesPreview(id: string): Promise<void> {
-	const files = getCheckpointFiles(id);
-	const manifest = readManifest(id);
+	const files = await getCheckpointFiles(id);
+	const manifest = await readManifest(id);
 	const doc = await vscode.workspace.openTextDocument({
 		content: [
 			`# 检查点：${manifest?.label ?? id}`,
@@ -364,19 +376,19 @@ async function showCheckpointFilesPreview(id: string): Promise<void> {
 }
 
 /** 读取检查点完整 manifest（含文件内容） */
-export function readCheckpointManifest(id: string): CheckpointManifest | undefined {
+export async function readCheckpointManifest(id: string): Promise<CheckpointManifest | undefined> {
 	return readManifest(id);
 }
 
 /** 删除检查点 */
-export function deleteCheckpoint(id: string): boolean {
+export async function deleteCheckpoint(id: string): Promise<boolean> {
 	const root = getCheckpointRoot();
 	if (!root) {
 		return false;
 	}
 	const dir = path.join(root, id);
 	try {
-		fs.rmSync(dir, { recursive: true, force: true });
+		await fs.promises.rm(dir, { recursive: true, force: true });
 		logger.info(`[Checkpoint] 已删除检查点 ${id}`);
 		return true;
 	} catch (err) {
@@ -418,7 +430,7 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 	// 查看检查点（选择后：回滚 / 查看文件清单）
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.checkpointList, async () => {
-			const list = listCheckpoints();
+			const list = await listCheckpoints();
 			if (!list.length) {
 				vscode.window.showInformationMessage(l10n.t('暂无检查点。使用「Kodrix: 创建检查点」，或保存文件自动捕获'));
 				return;
@@ -468,7 +480,7 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 	// 回滚（快捷命令）
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.checkpointRestore, async () => {
-			const list = listCheckpoints();
+			const list = await listCheckpoints();
 			if (!list.length) {
 				vscode.window.showInformationMessage(l10n.t('暂无检查点可回滚'));
 				return;

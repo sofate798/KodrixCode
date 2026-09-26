@@ -20,12 +20,10 @@ const skillInstall = require('../skillInstall');
 
 suite('skillInstall', () => {
 	let tmpDir: string;
-	let origSkillsDir: string;
 
 	setup(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kodrix-test-skill-'));
 		// 将 skills 安装目录指向临时目录
-		origSkillsDir = vscodeMock.workspace.getConfiguration('kodrix.skills')?.get?.('installDir') || '~/.agents/skills';
 		vscodeMock.workspace.getConfiguration = (section?: string) => {
 			if (section === 'kodrix.skills') {
 				return {
