@@ -1,0 +1,5 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Kodrix 活动栏图标：单色（currentColor），跟随主题前景色 -->
+  <path d="M4 3h3.2v7.1L13.4 3H17l-6.6 7.6L17.4 21h-3.7l-5.2-8.1L7.2 15v6H4V3z" fill="currentColor"/>
+  <circle cx="18.6" cy="6.2" r="2.4" fill="currentColor"/>
+</svg>
