@@ -2,16 +2,19 @@
  *  Kodrix Skills — Skill 市场扩展
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { SkillMarketplaceViewProvider } from './marketplaceWebview';
 import {
 	CatalogItem,
-	SkillExistsError,
 	importCursorSkills,
 	installFromCatalogItem,
 	installFromUrl,
+	installWithOverwritePrompt,
 	loadCatalog,
 	parseSha256Fragment,
+	resolveSkillsDir,
 	uninstallSkill,
 } from './skillInstall';
 
@@ -31,23 +34,41 @@ const CURSOR_SKILLS_DIR = '~/.cursor/skills';
 const CONFIG_CHAT = 'chat' as const;
 const SKILLS_LOCATIONS_KEY = 'agentSkillsLocations';
 
+/** 把绝对安装目录收成 chat.agentSkillsLocations 可用的键（优先 ~/…） */
+function skillsLocationKey(absDir: string): string {
+	const home = os.homedir();
+	const normHome = path.normalize(home);
+	const normDir = path.normalize(absDir);
+	if (normDir === normHome || normDir.startsWith(normHome + path.sep)) {
+		const rel = path.relative(normHome, normDir).replace(/\\/g, '/');
+		return rel ? `~/${rel}` : '~';
+	}
+	return normDir;
+}
+
 async function registerSkillsLocations(): Promise<void> {
 	try {
+		const dirs = new Set<string>([SKILLS_DIR, CURSOR_SKILLS_DIR]);
+		try {
+			dirs.add(skillsLocationKey(resolveSkillsDir()));
+		} catch {
+			// installDir 非法时仍注册默认目录，避免激活失败
+		}
 		const chatConfig = vscode.workspace.getConfiguration(CONFIG_CHAT);
 		const existing = chatConfig.get<Record<string, boolean>>(SKILLS_LOCATIONS_KEY);
 
 		if (!existing || typeof existing !== 'object') {
-			await chatConfig.update(
-				SKILLS_LOCATIONS_KEY,
-				{ [SKILLS_DIR]: true, [CURSOR_SKILLS_DIR]: true },
-				vscode.ConfigurationTarget.Global,
-			);
+			const initial: Record<string, boolean> = {};
+			for (const dir of dirs) {
+				initial[dir] = true;
+			}
+			await chatConfig.update(SKILLS_LOCATIONS_KEY, initial, vscode.ConfigurationTarget.Global);
 			return;
 		}
 
 		const merged: Record<string, boolean> = { ...existing };
 		let changed = false;
-		for (const dir of [SKILLS_DIR, CURSOR_SKILLS_DIR]) {
+		for (const dir of dirs) {
 			if (existing[dir] === undefined) {
 				merged[dir] = true;
 				changed = true;
@@ -57,33 +78,7 @@ async function registerSkillsLocations(): Promise<void> {
 			await chatConfig.update(SKILLS_LOCATIONS_KEY, merged, vscode.ConfigurationTarget.Global);
 		}
 	} catch {
-		// ignore
-	}
-}
-
-/**
- * 安装时若目标已存在，先弹确认再以覆盖方式重试。
- * 返回 undefined 表示用户取消覆盖（调用方不应再提示"已安装"）。
- */
-async function installWithOverwritePrompt(
-	action: (options: { overwrite?: boolean }) => Promise<string>,
-): Promise<string | undefined> {
-	try {
-		return await action({});
-	} catch (err) {
-		if (!(err instanceof SkillExistsError)) {
-			throw err;
-		}
-		const overwriteLabel = vscode.l10n.t('Overwrite');
-		const choice = await vscode.window.showWarningMessage(
-			vscode.l10n.t('{0}. Overwriting will delete the existing contents of this skill folder.', err.message),
-			{ modal: true },
-			overwriteLabel,
-		);
-		if (choice !== overwriteLabel) {
-			return undefined;
-		}
-		return await action({ overwrite: true });
+		// 配置服务未就绪时静默跳过；下次配置变更或重载会再试
 	}
 }
 
@@ -130,7 +125,8 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 					const name = await installWithOverwritePrompt(o => installFromCatalogItem(context.extensionPath, catalog!, o));
 					provider.refresh();
 					if (name) {
-						vscode.window.showInformationMessage(vscode.l10n.t('Skill installed: {0} ({1}/{0})', name, SKILLS_DIR));
+						const destHint = skillsLocationKey(resolveSkillsDir());
+						vscode.window.showInformationMessage(vscode.l10n.t('Skill installed: {0} ({1}/{0})', name, destHint));
 					}
 				},
 			);
@@ -193,6 +189,13 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 	);
 
 	await registerSkillsLocations();
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('kodrix.skills.installDir')) {
+				void registerSkillsLocations();
+			}
+		}),
+	);
 }
 
 export function deactivate(): void { }

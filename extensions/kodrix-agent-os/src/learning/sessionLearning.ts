@@ -21,6 +21,7 @@ import { appendSessionIndex, loadSessionIndex } from './sessionIndex';
 import { formatTranscriptForLearning, isSubstantiveSession, parseTranscriptJsonl } from './transcriptParser';
 import { logger } from '../logger';
 import { isRecord, isString } from '../utils/jsonValidator';
+import { isWorkspaceWriteBlocked } from '../utils/fsSafe';
 
 export { getSessionLearningStats } from './sessionIndex';
 
@@ -315,44 +316,58 @@ export async function installSessionLearningHook(
 	}
 
 	const scriptSrc = path.join(context.extensionPath, 'resources', 'hooks', 'session-learn.mjs');
-	const scriptDestDir = getWorkspaceHooksScriptDir();
-	const hooksDir = getGithubHooksDir();
-	if (!scriptDestDir || !hooksDir || !fs.existsSync(scriptSrc)) {
-		return false;
-	}
+		const scriptDestDir = getWorkspaceHooksScriptDir();
+		const hooksDir = getGithubHooksDir();
+		if (!scriptDestDir || !hooksDir || !fs.existsSync(scriptSrc)) {
+			return false;
+		}
+		// 不受信任工作区禁止写工作区（.github/hooks、.kodrix/hooks）
+		if (isWorkspaceWriteBlocked(hooksDir) || isWorkspaceWriteBlocked(scriptDestDir)) {
+			if (!options?.silent) {
+				vscode.window.showWarningMessage(
+					l10n.t('Untrusted workspace: writing to workspace file {0} was rejected (trust the workspace first)', hooksDir),
+				);
+			}
+			return false;
+		}
 
-	ensureDir(scriptDestDir);
-	ensureDir(hooksDir);
-	const scriptDest = path.join(scriptDestDir, 'session-learn.mjs');
-	fs.copyFileSync(scriptSrc, scriptDest);
+		try {
+			ensureDir(scriptDestDir);
+			ensureDir(hooksDir);
+			const scriptDest = path.join(scriptDestDir, 'session-learn.mjs');
+			fs.copyFileSync(scriptSrc, scriptDest);
 
-	const hookRel = '.kodrix/hooks/scripts/session-learn.mjs';
-	const hookConfig = {
-		hooks: {
-			Stop: [
-				{
-					type: 'command',
-					command: `node ${hookRel}`,
-					timeout: 45,
-					windows: `node ${hookRel}`,
-					linux: `node ${hookRel}`,
-					osx: `node ${hookRel}`,
+			const hookRel = '.kodrix/hooks/scripts/session-learn.mjs';
+			const hookConfig = {
+				hooks: {
+					Stop: [
+						{
+							type: 'command',
+							command: `node ${hookRel}`,
+							timeout: 45,
+							windows: `node ${hookRel}`,
+							linux: `node ${hookRel}`,
+							osx: `node ${hookRel}`,
+						},
+					],
 				},
-			],
-		},
-	};
+			};
 
-	const hookPath = path.join(hooksDir, HOOK_FILE_NAME);
-	fs.writeFileSync(hookPath, JSON.stringify(hookConfig, null, 2), 'utf-8');
+			const hookPath = path.join(hooksDir, HOOK_FILE_NAME);
+			fs.writeFileSync(hookPath, JSON.stringify(hookConfig, null, 2), 'utf-8');
 
-	await context.workspaceState.update(HOOK_INSTALLED_KEY, true);
-	if (!options?.silent) {
-		vscode.window.showInformationMessage(
-			l10n.t('Session Learning Hook installed — project knowledge will be distilled automatically when an Agent session ends'),
-		);
+			await context.workspaceState.update(HOOK_INSTALLED_KEY, true);
+			if (!options?.silent) {
+				vscode.window.showInformationMessage(
+					l10n.t('Session Learning Hook installed — project knowledge will be distilled automatically when an Agent session ends'),
+				);
+			}
+			return true;
+		} catch (err) {
+			logger.warn('Session Learning Hook 安装失败', err);
+			return false;
+		}
 	}
-	return true;
-}
 
 export async function showSessionLearningStatus(): Promise<void> {
 	const cfg = getSessionLearningConfig();

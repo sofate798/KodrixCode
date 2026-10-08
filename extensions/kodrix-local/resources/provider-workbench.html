@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<title>{{l10n:AI Provider Management}}</title>
 	<style>
@@ -237,8 +237,8 @@
 		</section>
 	</main>
 	<!-- Host-injected localized strings (see providerWorkbench.ts buildWebviewL10nDict) -->
-	<script type="application/json" id="kodrix-l10n">{{l10nDict}}</script>
-	<script>
+	<script type="application/json" id="kodrix-l10n" nonce="{{nonce}}">{{l10nDict}}</script>
+	<script nonce="{{nonce}}">
 		const vscode = acquireVsCodeApi();
 		const L10N = JSON.parse(document.getElementById('kodrix-l10n').textContent);
 		const fmt = (text, ...args) => String(text || '').replace(/\{(\d+)\}/g, (_, i) => (args[Number(i)] ?? `{${i}}`));
@@ -351,7 +351,8 @@
 				const active = p.id === state.activeId;
 				const models = (p.models && p.models.length) ? p.models.join(', ') : (p.model || '—');
 				const pending = p.pendingApiKey ? '<span class="badge" style="color:var(--danger)">' + L10N.apiKeyPending + '</span>' : '';
-				return `<div class="card${active ? ' active' : ''}" data-id="${p.id}">
+				const safeId = escapeHtml(p.id);
+				return `<div class="card${active ? ' active' : ''}" data-id="${safeId}">
 					<div class="card-head">
 						<div>
 							<div class="card-title">${escapeHtml(p.name)} ${active ? '<span class="badge">' + L10N.current + '</span>' : ''} ${pending}</div>
@@ -360,12 +361,12 @@
 					</div>
 					<div class="meta">${L10N.models}: ${escapeHtml(models)}</div>
 					<div class="actions">
-						<button class="btn secondary" data-action="activate" data-id="${p.id}">${L10N.setActive}</button>
-						<button class="btn secondary" data-action="edit" data-id="${p.id}">${L10N.edit}</button>
-						<button class="btn secondary" data-action="test" data-id="${p.id}">${L10N.testConnection}</button>
-						<button class="btn danger" data-action="remove" data-id="${p.id}">${L10N.remove}</button>
+						<button class="btn secondary" data-action="activate" data-id="${safeId}">${L10N.setActive}</button>
+						<button class="btn secondary" data-action="edit" data-id="${safeId}">${L10N.edit}</button>
+						<button class="btn secondary" data-action="test" data-id="${safeId}">${L10N.testConnection}</button>
+						<button class="btn danger" data-action="remove" data-id="${safeId}">${L10N.remove}</button>
 					</div>
-					<div class="status" id="status-${p.id}"></div>
+					<div class="status" id="status-${safeId}"></div>
 				</div>`;
 			}).join('');
 
@@ -399,7 +400,7 @@
 			el.innerHTML = sections.map(section => `
 				<div class="preset-section">${section.title}</div>
 				${section.items.map(p => `
-					<button class="preset-btn" data-preset-id="${p.id}">
+					<button class="preset-btn" data-preset-id="${escapeHtml(p.id)}">
 						<span class="name">${ki(p.icon || 'plug')} ${escapeHtml(p.name)}</span>
 						<span class="desc">${escapeHtml(p.hint || p.base_url || '')}</span>
 						${p.website ? `<span class="desc"><a href="#" data-website="${escapeHtml(p.website)}">${L10N.website}</a></span>` : ''}
@@ -432,7 +433,7 @@
 		}
 
 		function escapeHtml(s) {
-			return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+			return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 		}
 
 		window.addEventListener('message', event => {

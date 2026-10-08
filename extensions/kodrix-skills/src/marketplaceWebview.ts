@@ -11,6 +11,7 @@ import {
 	importCursorSkills,
 	installFromCatalogItem,
 	installFromUrl,
+	installWithOverwritePrompt,
 	listInstalledSkills,
 	loadCatalog,
 	parseSha256Fragment,
@@ -82,7 +83,11 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 						throw new Error(vscode.l10n.t('Marketplace item not found: {0}', msg.id));
 					}
 					this.busy(msg.id);
-					const name = await installFromCatalogItem(this.extensionPath, item);
+					const name = await installWithOverwritePrompt(o => installFromCatalogItem(this.extensionPath, item, o));
+					if (!name) {
+						this.pushState();
+						return;
+					}
 					this.pushState(vscode.l10n.t('Installed {0}', name));
 					vscode.window.showInformationMessage(vscode.l10n.t('Skill installed: {0}', name));
 					return;
@@ -106,7 +111,11 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 						return;
 					}
 					this.busy(msg.id);
-					const name = await installFromUrl(msg.id);
+					const name = await installWithOverwritePrompt(o => installFromUrl(msg.id, o));
+					if (!name) {
+						this.pushState();
+						return;
+					}
 					this.pushState(vscode.l10n.t('Installed {0} from GitHub', name));
 					vscode.window.showInformationMessage(vscode.l10n.t('Skill installed: {0}', name));
 					return;
@@ -134,7 +143,11 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 						}
 					}
 					this.busy(url);
-					const name = await installFromUrl(url);
+					const name = await installWithOverwritePrompt(o => installFromUrl(url, o));
+					if (!name) {
+						this.pushState();
+						return;
+					}
 					this.pushState(vscode.l10n.t('Installed {0}', name));
 					vscode.window.showInformationMessage(vscode.l10n.t('Skill installed: {0}', name));
 					return;

@@ -53,9 +53,14 @@ export async function bootstrapWorkspace(context: vscode.ExtensionContext): Prom
 	const bootstrapped = new Set(bootstrappedRaw);
 	const already = bootstrapped.has(folderKey);
 
-	// Session Learning Hook（首次）
-	if (vscode.workspace.getConfiguration('kodrix.features').get<boolean>('sessionLearning', true)) {
-		void installSessionLearningHook(context, { silent: true });
+	// Session Learning Hook（仅未装过时；装过则跳过，避免反复覆盖 .github/hooks）
+	if (
+		vscode.workspace.getConfiguration('kodrix.features').get<boolean>('sessionLearning', true)
+		&& !context.workspaceState.get<boolean>('kodrix.sessionLearningHookInstalled')
+	) {
+		void installSessionLearningHook(context, { silent: true }).catch(err => {
+			logger.warn('Session Learning Hook 静默安装失败', err);
+		});
 	}
 
 	// Instructions 注册（每次）

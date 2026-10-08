@@ -251,6 +251,32 @@ export class SkillExistsError extends Error {
 	}
 }
 
+/**
+ * 安装时若目标已存在，先弹确认再以覆盖方式重试。
+ * 返回 undefined 表示用户取消覆盖（调用方不应再提示"已安装"）。
+ */
+export async function installWithOverwritePrompt(
+	action: (options: { overwrite?: boolean }) => Promise<string>,
+): Promise<string | undefined> {
+	try {
+		return await action({});
+	} catch (err) {
+		if (!(err instanceof SkillExistsError)) {
+			throw err;
+		}
+		const overwriteLabel = vscode.l10n.t('Overwrite');
+		const choice = await vscode.window.showWarningMessage(
+			vscode.l10n.t('{0}. Overwriting will delete the existing contents of this skill folder.', err.message),
+			{ modal: true },
+			overwriteLabel,
+		);
+		if (choice !== overwriteLabel) {
+			return undefined;
+		}
+		return await action({ overwrite: true });
+	}
+}
+
 export async function installSkillFromDir(
 	sourceDir: string,
 	installName: string,

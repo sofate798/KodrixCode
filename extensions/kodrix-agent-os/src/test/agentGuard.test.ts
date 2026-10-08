@@ -70,6 +70,25 @@ suite('agentGuard — Agent 安全边界与协议解析', () => {
 			assert.throws(() => assertAgentCanWrite(path.join(workspace, '.git'), workspace), /\.git/);
 		});
 
+		test('.git 拒绝大小写变体与嵌套子模块路径', () => {
+			assert.throws(
+				() => assertAgentCanWrite(path.join(workspace, '.GIT', 'hooks', 'pre-commit'), workspace),
+				/\.git/,
+			);
+			assert.throws(
+				() => assertAgentCanWrite(path.join(workspace, 'vendor', 'lib', '.git', 'config'), workspace),
+				/\.git/,
+			);
+		});
+
+		test('字面量替换时 newText 中的 $ 不被 String.replace 特殊解释', () => {
+			// 锁定 edit_file / apply 使用的 () => newText 形态；裸字符串 replacement 会把 $$ 收成 $
+			const content = 'const x = PRICE;';
+			const fixed = content.replace('PRICE', () => '$$price');
+			assert.strictEqual(fixed, 'const x = $$price;');
+			assert.notStrictEqual(content.replace('PRICE', '$$price'), 'const x = $$price;');
+		});
+
 		test('不受信任工作区拒绝写工作区文件', () => {
 			vscodeMock.workspace.isTrusted = false;
 			assert.throws(

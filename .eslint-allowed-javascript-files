@@ -173,3 +173,4 @@ test/unit/fullJsonStreamReporter.js
 test/unit/node/index.js
 test/unit/reporter.js
 scripts/kodrix-l10n.mjs
+scripts/kodrix-l10n-migrate.mjs

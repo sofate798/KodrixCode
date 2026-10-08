@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<title>{{l10n:Welcome to Kodrix}}</title>
 	<style>
@@ -479,8 +479,8 @@
 <div class="footer">{{l10n:Kodrix · Open + Local models + Agent OS}}</div>
 
 <!-- Host-injected localized strings (see onboarding.ts buildWebviewL10nDict) -->
-<script type="application/json" id="kodrix-l10n">{{l10nDict}}</script>
-<script>
+<script type="application/json" id="kodrix-l10n" nonce="{{nonce}}">{{l10nDict}}</script>
+<script nonce="{{nonce}}">
 	const vscode = acquireVsCodeApi();
 	const L10N = JSON.parse(document.getElementById('kodrix-l10n').textContent);
 	const fmt = (text, ...args) => String(text || '').replace(/\{(\d+)\}/g, (_, i) => (args[Number(i)] ?? `{${i}}`));
@@ -552,7 +552,7 @@
 		items.forEach(it => {
 			const el = document.createElement('div');
 			el.className = 'env-item' + (it.ok ? ' ok' : it.warn ? ' warn' : ' missing');
-			el.innerHTML = '<span class="ei-icon">' + ki(it.icon) + '</span><div style="flex:1;min-width:0;"><div class="ei-label">' + it.label + '</div><div class="ei-value">' + it.value + '</div></div>';
+			el.innerHTML = '<span class="ei-icon">' + ki(it.icon) + '</span><div style="flex:1;min-width:0;"><div class="ei-label">' + escapeHtml(it.label) + '</div><div class="ei-value">' + escapeHtml(it.value) + '</div></div>';
 			grid.appendChild(el);
 		});
 

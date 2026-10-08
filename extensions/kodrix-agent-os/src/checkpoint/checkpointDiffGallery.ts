@@ -17,11 +17,13 @@ import * as path from 'path';
 import {
 	listCheckpoints,
 	readCheckpointManifest,
+	resolveSafeRestorePath,
 	restoreCheckpoint,
 	type CheckpointFile,
 	type CheckpointManifest,
 } from './checkpointManager';
 import { logger } from '../logger';
+import { assertWorkspaceWriteAllowed } from '../utils/fsSafe';
 
 // ── 类型 ────────────────────────────────────────────────────────
 
@@ -144,9 +146,15 @@ class DiffGalleryPanel {
 			// 将检查点 B 的内容写回工作区
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (folder && this._galleryData.checkpointB) {
-				const abs = path.join(folder.uri.fsPath, relPath);
+				const abs = resolveSafeRestorePath(folder.uri.fsPath, relPath);
+				if (!abs) {
+					logger.warn(`[DiffGallery] 拒绝不安全路径：${relPath}`);
+					void this._update();
+					return;
+				}
 				void (async () => {
 					try {
+						assertWorkspaceWriteAllowed(abs);
 						await fs.promises.mkdir(path.dirname(abs), { recursive: true });
 						await fs.promises.writeFile(abs, entry.contentB, 'utf-8');
 						logger.info(`[DiffGallery] 已接受文件：${relPath}`);
@@ -178,8 +186,13 @@ class DiffGalleryPanel {
 					continue;
 				}
 				entry.accepted = true;
-				const abs = path.join(folder.uri.fsPath, entry.relPath);
+				const abs = resolveSafeRestorePath(folder.uri.fsPath, entry.relPath);
+				if (!abs) {
+					logger.warn(`[DiffGallery] 拒绝不安全路径：${entry.relPath}`);
+					continue;
+				}
 				try {
+					assertWorkspaceWriteAllowed(abs);
 					await fs.promises.mkdir(path.dirname(abs), { recursive: true });
 					await fs.promises.writeFile(abs, entry.contentB, 'utf-8');
 				} catch (err) {

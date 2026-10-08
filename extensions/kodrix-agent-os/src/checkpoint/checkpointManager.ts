@@ -25,6 +25,7 @@ import {
 	CHECKPOINT_MAX_FILE_BYTES,
 	WORKSPACE_KODRIX_DIR,
 } from '../shared/constants';
+import { assertWorkspaceWriteAllowed } from '../utils/fsSafe';
 
 /** 检查点快照中的单个文件 */
 export interface CheckpointFile {
@@ -87,7 +88,7 @@ function workspaceRelative(fsPath: string): string | undefined {
  * 校验 manifest 中的 relPath 不会逃出工作区（防路径穿越）。
  * 创建时已过滤；恢复时必须再校验（manifest 可能被篡改/损坏）。
  */
-function resolveSafeRestorePath(workspace: string, relPath: string): string | undefined {
+export function resolveSafeRestorePath(workspace: string, relPath: string): string | undefined {
 	if (!relPath || typeof relPath !== 'string') {
 		return undefined;
 	}
@@ -289,6 +290,7 @@ export async function restoreCheckpoint(id: string): Promise<{ restored: number;
 			continue;
 		}
 		try {
+			assertWorkspaceWriteAllowed(abs);
 			// 快照时该文件还不存在 → 它是 Agent 新建的，回滚应删除
 			if (f.existed === false) {
 				if (fs.existsSync(abs)) {

@@ -3,6 +3,7 @@
  *  大厂参考：Apple Setup Assistant · Linear Onboarding · Vercel Getting Started
  *--------------------------------------------------------------------------------------------*/
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { logger } from './logger';
 import * as path from 'path';
@@ -106,8 +107,10 @@ function getHtml(webview: vscode.Webview, extensionPath: string): string {
 			vscode.Uri.file(path.join(resourcesDir, 'kodrix-logo.png')),
 		);
 		const l10nDictJson = JSON.stringify(buildWebviewL10nDict()).replace(/</g, '\\u003c');
+		const nonce = crypto.randomBytes(16).toString('base64');
 		return html
 			.replace(/\{\{cspSource\}\}/g, webview.cspSource)
+			.replace(/\{\{nonce\}\}/g, nonce)
 			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString())
 			.replace(/\{\{logoUri\}\}/g, logoUri.toString())
 			.replace(/\{\{htmlLang\}\}/g, vscode.env.language)

@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 /*
  * kodrix-l10n-migrate.mjs — 一次性迁移工具：把扩展源码里的 `l10n.t('中文源'…)` 键
  * 与 webview HTML 里的 `{{l10n:中文源}}` 占位按 zh→en 映射表批量改写为英文源。

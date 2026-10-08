@@ -2,6 +2,7 @@
  *  Kodrix — AI 供应商管理 Webview
  *--------------------------------------------------------------------------------------------*/
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -89,8 +90,10 @@ function getHtml(webview: vscode.Webview, extensionPath: string): string {
 			vscode.Uri.file(path.join(resourcesDir, 'codicons', 'codicon.css')),
 		);
 		const l10nDictJson = JSON.stringify(buildWebviewL10nDict()).replace(/</g, '\\u003c');
+		const nonce = crypto.randomBytes(16).toString('base64');
 		return html
 			.replace(/\{\{cspSource\}\}/g, webview.cspSource)
+			.replace(/\{\{nonce\}\}/g, nonce)
 			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString())
 			.replace(/\{\{htmlLang\}\}/g, vscode.env.language)
 			.replace(/\{\{l10nDict\}\}/g, l10nDictJson)

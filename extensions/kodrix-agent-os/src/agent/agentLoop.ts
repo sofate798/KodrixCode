@@ -19,7 +19,8 @@ import * as path from 'path';
 import { getModelCandidates, routeModel, recordModelCall } from '../model/modelRouter';
 import { runCommandInTerminal } from '../terminal/terminalAi';
 import { logger } from '../logger';
-import { assertWorkspaceWriteAllowed } from '../utils/fsSafe';
+import { assertAgentCanWrite, assertWorkspaceWriteAllowed } from '../utils/fsSafe';
+export { assertAgentCanWrite } from '../utils/fsSafe';
 import { getGrepIndexFiles, ensureGrepIndex } from '../codebase/projectIndexer';
 import { loadRuns, pickRun } from './threads';
 import type { ApplyProposal, FileChange } from '../apply/applyManager';
@@ -159,20 +160,6 @@ export function resolveInWorkspace(relPath: string, workspace: string): string |
 		return resolved;
 	}
 	return undefined;
-}
-
-/**
- * Agent 写入前的统一闸门：
- *  1) `.git/**` 一律拒绝——改写 git hook/config 等于向用户仓库注入任意代码执行；
- *  2) 不受信任工作区拒绝写工作区文件（复用 fsSafe 的统一闸门，与 wiki/索引/记忆链路一致）。
- * 通过 `resolveInWorkspace` 的路径检查之后调用。
- */
-export function assertAgentCanWrite(target: string, workspace: string): void {
-	const rel = path.relative(workspace, target).replace(/\\/g, '/');
-	if (rel === '.git' || rel.startsWith('.git/')) {
-		throw new Error('拒绝写入 .git 目录（改写 git hook/config 会导致任意代码执行）');
-	}
-	assertWorkspaceWriteAllowed(target);
 }
 
 // ── 工具调用解析 ─────────────────────────────────────────────────
@@ -366,7 +353,8 @@ const editFileTool: AgentTool = {
 				if (count > 1) {return { ok: false, output: `匹配 ${count} 处，old 必须唯一。请扩大上下文。` };}
 				assertAgentCanWrite(p, session.workspace);
 				await snapshotBeforeAgentWrite(session, p);
-				fs.writeFileSync(p, content.replace(oldText, newText), 'utf-8');
+				// 函数式 replacement：避免 newText 里的 $& / $$ / $` / $' 被 String.replace 特殊解释
+				fs.writeFileSync(p, content.replace(oldText, () => newText), 'utf-8');
 				return { ok: true, output: `已编辑 ${args.path}：替换 1 处（${oldText.length} → ${newText.length} 字符）` };
 			});
 		} catch (err) {

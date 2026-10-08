@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
 import { COMMANDS, APPLY_DIR, APPLY_BACKUP_DIR, WORKSPACE_KODRIX_DIR } from '../shared/constants';
+import { assertAgentCanWrite } from '../utils/fsSafe';
 
 // ── 类型定义 ────────────────────────────────────────────────────
 
@@ -180,6 +181,11 @@ export function validateChange(change: FileChange, workspace: string): { ok: boo
 	const abs = resolveInWs(change.filePath, workspace);
 	if (!abs) {return { ok: false, error: l10n.t('Path escapes the workspace: {0}', change.filePath) };}
 	if (!change.filePath.trim()) {return { ok: false, error: l10n.t('filePath is empty') };}
+	try {
+		assertAgentCanWrite(abs, workspace);
+	} catch (err) {
+		return { ok: false, error: err instanceof Error ? err.message : String(err) };
+	}
 	if (change.type === 'edit') {
 		if (!change.oldContent) {return { ok: false, error: l10n.t('edit change is missing oldContent: {0}', change.filePath) };}
 		if (!fs.existsSync(abs)) {return { ok: false, error: l10n.t('File does not exist, cannot edit: {0}', change.filePath) };}
@@ -282,7 +288,7 @@ export async function applyProposal(proposal: ApplyProposal, workspace: string, 
 				fs.mkdirSync(path.dirname(abs), { recursive: true });
 				if (c.type === 'edit') {
 					const cur = fs.readFileSync(abs, 'utf-8');
-					fs.writeFileSync(abs, cur.replace(c.oldContent!, c.newContent), 'utf-8');
+					fs.writeFileSync(abs, cur.replace(c.oldContent!, () => c.newContent), 'utf-8');
 				} else {
 					fs.writeFileSync(abs, c.newContent, 'utf-8');
 				}
@@ -324,7 +330,7 @@ export async function stageProposal(proposal: ApplyProposal, workspace: string):
 		let content = '';
 		if (c.type !== 'delete') {
 			const cur = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf-8') : '';
-			content = c.type === 'edit' ? cur.replace(c.oldContent!, c.newContent) : c.newContent;
+			content = c.type === 'edit' ? cur.replace(c.oldContent!, () => c.newContent) : c.newContent;
 		}
 		fs.writeFileSync(stagedPath, content, 'utf-8');
 		out.push({ filePath: c.filePath, type: c.type, originalPath: abs, stagedPath });

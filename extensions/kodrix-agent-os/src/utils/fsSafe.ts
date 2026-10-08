@@ -35,6 +35,19 @@ export function assertWorkspaceWriteAllowed(filePath: string): void {
 	}
 }
 
+/**
+ * Agent / Apply 写入前的统一闸门：
+ *  1) 任一层名为 `.git` 一律拒绝（含大小写变体、子模块 nested `.git`）；
+ *  2) 不受信任工作区拒绝写工作区文件。
+ */
+export function assertAgentCanWrite(target: string, workspace: string): void {
+	const rel = path.relative(workspace, target).replace(/\\/g, '/');
+	if (rel.toLowerCase().split('/').includes('.git')) {
+		throw new Error('拒绝写入 .git 目录（改写 git hook/config 会导致任意代码执行）');
+	}
+	assertWorkspaceWriteAllowed(target);
+}
+
 /** 临时文件名：`<file>.tmp.<pid>.<rand>`（同目录，保证 rename 在同文件系统内原子） */
 function tempPathFor(filePath: string): string {
 	return `${filePath}.tmp.${process.pid}.${Math.random().toString(36).slice(2, 8)}`;
