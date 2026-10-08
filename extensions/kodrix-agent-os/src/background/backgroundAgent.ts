@@ -23,6 +23,7 @@ import {
 	WORKSPACE_KODRIX_DIR,
 } from '../shared/constants';
 import { createTrackedPanel } from '../utils/panelTracker';
+import { createNonce, escapeHtml, webviewCsp } from '../shared/webviewHtml';
 
 /** 后台任务 */
 export interface BackgroundTask {
@@ -35,6 +36,9 @@ export interface BackgroundTask {
 	finishedAt?: string;
 }
 
+/** 任务 id 白名单（防路径穿越 / 任意文件读） */
+const SAFE_TASK_ID_RE = /^bg-[\w.-]+$/;
+
 /** 后台任务目录（工作区 .kodrix/background） */
 function getTasksDir(): string | undefined {
 	const folder = vscode.workspace.workspaceFolders?.[0];
@@ -44,8 +48,11 @@ function getTasksDir(): string | undefined {
 	return path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, BACKGROUND_TASKS_DIR);
 }
 
-/** 单任务文件路径 */
+/** 单任务文件路径（id 必须通过 SAFE_TASK_ID_RE） */
 function getTaskFilePath(dir: string, id: string): string {
+	if (!SAFE_TASK_ID_RE.test(id)) {
+		throw new Error(`Invalid background task id: ${id}`);
+	}
 	return path.join(dir, `${id}.json`);
 }
 
@@ -173,24 +180,35 @@ export async function createBackgroundTask(title: string): Promise<BackgroundTas
 /** 注册后台 Agent 命令 */
 let _backgroundPanel: vscode.WebviewPanel | undefined;
 
-/** 后台 Agent 会话面板 HTML（任务队列 + 状态 + 结果摘要 + 点击打开详情 + 刷新） */
-function renderBackgroundPanelHtml(tasks: BackgroundTask[]): string {
+/**
+ * 后台 Agent 会话面板 HTML（导出供 CSP/转义回归测试）。
+ * 任务标题/摘要/错误均 escape；行点击用 data-id + 事件委托，不用 onclick 拼 id。
+ */
+export function renderBackgroundPanelHtml(
+	tasks: BackgroundTask[],
+	webview: Pick<vscode.Webview, 'cspSource'>,
+): string {
+	const nonce = createNonce();
+	const csp = webviewCsp(webview as vscode.Webview, nonce);
 	const rows = tasks.length
 		? tasks.map(t => {
 			const st = t.status;
 			const color = st === 'completed' ? '#3fb950' : st === 'running' ? '#d29922' : '#f85149';
 			const summary = (t.result ?? t.error ?? '').slice(0, 80);
-			return `<tr onclick="openTask(\'${t.id}\')" style="cursor:pointer">
-	<td>${t.title}</td>
-	<td><span style="color:${color};font-weight:600">${st}</span></td>
-	<td>${(t.createdAt ?? '').slice(11, 19)}</td>
-	<td title="${t.error ?? ''}">${summary || '—'}</td>
+			return `<tr class="task-row" data-id="${escapeHtml(t.id)}" style="cursor:pointer">
+	<td>${escapeHtml(t.title)}</td>
+	<td><span style="color:${color};font-weight:600">${escapeHtml(st)}</span></td>
+	<td>${escapeHtml((t.createdAt ?? '').slice(11, 19))}</td>
+	<td title="${escapeHtml(t.error ?? '')}">${escapeHtml(summary || '—')}</td>
 </tr>`.trim();
 		}).join('')
-		: l10n.t('<tr><td colspan="4" style="text-align:center;color:#8b949e">(no background tasks yet — run "Kodrix: Dispatch Background Task")</td></tr>');
+		: `<tr><td colspan="4" style="text-align:center;color:#8b949e">${escapeHtml(l10n.t('(no background tasks yet — run "Kodrix: Dispatch Background Task")'))}</td></tr>`;
 	return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head><meta charset="utf-8"><style>
+<html lang="${escapeHtml(vscode.env.language)}">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<style>
 body{background:var(--vscode-editor-background);color:var(--vscode-foreground);font-family:var(--vscode-font-family);padding:16px;font-size:13px}
 h1{font-size:16px;margin:0 0 4px}
 .sub{color:var(--vscode-descriptionForeground);margin:0 0 14px;font-size:12px}
@@ -203,15 +221,24 @@ tr:hover{background:var(--vscode-list-hoverBackground)}
 .legend{margin-top:10px;font-size:12px;color:var(--vscode-descriptionForeground)}
 </style></head>
 <body>
-<h1>${l10n.t('Background Agent Sessions')}</h1>
-<p class="sub">${l10n.t('Click a task row to view the full result · {0} tasks in total', tasks.length)}</p>
+<h1>${escapeHtml(l10n.t('Background Agent Sessions'))}</h1>
+<p class="sub">${escapeHtml(l10n.t('Click a task row to view the full result · {0} tasks in total', tasks.length))}</p>
 <table>
-<tr><th>${l10n.t('Task')}</th><th>${l10n.t('Status')}</th><th>${l10n.t('Created')}</th><th>${l10n.t('Result Summary')}</th></tr>
+<tr><th>${escapeHtml(l10n.t('Task'))}</th><th>${escapeHtml(l10n.t('Status'))}</th><th>${escapeHtml(l10n.t('Created'))}</th><th>${escapeHtml(l10n.t('Result Summary'))}</th></tr>
 ${rows}
 </table>
-<button class="btn" onclick="refresh()">${l10n.t('Refresh')}</button>
-<div class="legend">${l10n.t('Status')}:<span style="color:#3fb950">completed</span> · <span style="color:#d29922">running</span> · <span style="color:#f85149">failed</span></div>
-<script>const vscode=acquireVsCodeApi();function refresh(){vscode.postMessage({command:'refresh'})}function openTask(id){vscode.postMessage({command:'open',id})}</script>
+<button class="btn" id="refreshBtn">${escapeHtml(l10n.t('Refresh'))}</button>
+<div class="legend">${escapeHtml(l10n.t('Status'))}:<span style="color:#3fb950">completed</span> · <span style="color:#d29922">running</span> · <span style="color:#f85149">failed</span></div>
+<script nonce="${nonce}">
+const vscode=acquireVsCodeApi();
+document.getElementById('refreshBtn').addEventListener('click',()=>vscode.postMessage({command:'refresh'}));
+document.querySelectorAll('.task-row').forEach(row=>{
+	row.addEventListener('click',()=>{
+		const id=row.getAttribute('data-id');
+		if(id) vscode.postMessage({command:'open',id});
+	});
+});
+</script>
 </body></html>`;
 }
 
@@ -254,28 +281,32 @@ export function registerBackgroundAgent(context: vscode.ExtensionContext): void 
 	}
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.backgroundPanel, async () => {
+			const paint = (panel: vscode.WebviewPanel) => {
+				panel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks(), panel.webview);
+			};
 			if (_backgroundPanel) {
 				_backgroundPanel.reveal(vscode.ViewColumn.Active);
-				_backgroundPanel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());
+				paint(_backgroundPanel);
 				return;
 			}
 			const panel = createTrackedPanel(context, 'kodrix.background', l10n.t('Background Agent Sessions'), vscode.ViewColumn.Active, { enableScripts: true });
 			_backgroundPanel = panel;
-			panel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());
+			paint(panel);
 			panel.onDidDispose(() => { _backgroundPanel = undefined; });
 			panel.webview.onDidReceiveMessage(async msg => {
 				if (msg?.command === 'refresh') {
-					panel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());
+					paint(panel);
 					return;
 				}
 				if (msg?.command === 'open') {
 					const dir = getTasksDir();
-					if (!dir) {return;}
+					const id = typeof msg.id === 'string' ? msg.id : '';
+					if (!dir || !SAFE_TASK_ID_RE.test(id)) {return;}
 					try {
-						const task = JSON.parse(fs.readFileSync(getTaskFilePath(dir, msg.id), 'utf-8')) as BackgroundTask;
+						const task = JSON.parse(fs.readFileSync(getTaskFilePath(dir, id), 'utf-8')) as BackgroundTask;
 						const doc = await vscode.workspace.openTextDocument({ content: `# ${task.title}\n\n${l10n.t('Status')}: ${task.status} · ${l10n.t('Created')}: ${task.createdAt}\n\n${task.result ?? task.error ?? l10n.t('(no output)')}`, language: 'markdown' });
 						await vscode.window.showTextDocument(doc, { preview: false });
-					} catch (err) {
+					} catch {
 						await vscode.window.showErrorMessage(l10n.t('Task file is invalid or does not exist'));
 					}
 				}

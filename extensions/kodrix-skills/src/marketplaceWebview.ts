@@ -11,6 +11,7 @@ import {
 	importCursorSkills,
 	installFromCatalogItem,
 	installFromUrl,
+	confirmUninstallSkill,
 	installWithOverwritePrompt,
 	listInstalledSkills,
 	loadCatalog,
@@ -93,6 +94,10 @@ export class SkillMarketplaceViewProvider implements vscode.WebviewViewProvider 
 					return;
 				}
 				case 'uninstall': {
+					if (!(await confirmUninstallSkill(msg.id))) {
+						this.pushState();
+						return;
+					}
 					this.busy(msg.id);
 					uninstallSkill(msg.id);
 					this.pushState(vscode.l10n.t('Uninstalled {0}', msg.id));

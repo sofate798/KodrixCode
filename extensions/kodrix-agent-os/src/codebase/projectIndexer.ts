@@ -12,7 +12,7 @@ import * as ts from 'typescript';
 import { ensureDir, getWorkspaceKodrixDir } from '../paths';
 import { logger } from '../logger';
 import { isRecord, isString, isNumber } from '../utils/jsonValidator';
-import { atomicWriteFileSync, atomicWriteStreamAsync } from '../utils/fsSafe';
+import { atomicWriteStreamAsync } from '../utils/fsSafe';
 import { decodeTextBuffer, stripBom } from '../utils/textFile';
 import { MAX_AUTO_INDEX_FILES, clampMaxAutoIndexFiles, INDEX_TOO_MANY_FILES_PREFIX } from '../shared/constants';
 import {
@@ -1036,11 +1036,26 @@ async function yieldLoop(iteration: number): Promise<void> {
  * 20k 文件的索引约 50MB，一次性 stringify 实测单次阻塞约 175ms（`npm run measure:index-perf`）。
  * 注意：必须先在内存里攒够 `FLUSH_THRESHOLD` 个字符再落 stream，
  * 否则会退化成数百万次小 write（实测总耗时从 10s 涨到 23s）。
+ *
+ * 另按条目让出：大 `symbols`/`files`/`imports` 表即便未满 512KB，也会在每 N 条后
+ * `setImmediate`，避免「按文件流式」之前偶发 >50ms 的同步缺口。
  */
 const INDEX_JSON_FLUSH_CHARS = 512 * 1024;
+/** 每处理多少条数组元素 / 对象属性就让出一次事件循环 */
+const INDEX_JSON_YIELD_EVERY = 32;
 
 async function writeIndexJson(stream: fs.WriteStream, index: ProjectIndex): Promise<void> {
 	let buffer = '';
+	let opsSinceYield = 0;
+	const yieldTick = async (): Promise<void> => {
+		await new Promise<void>(resolve => setImmediate(resolve));
+	};
+	const maybeYield = async (): Promise<void> => {
+		if (++opsSinceYield >= INDEX_JSON_YIELD_EVERY) {
+			opsSinceYield = 0;
+			await yieldTick();
+		}
+	};
 	const flush = async (): Promise<void> => {
 		if (!buffer) { return; }
 		const chunk = buffer;
@@ -1049,7 +1064,7 @@ async function writeIndexJson(stream: fs.WriteStream, index: ProjectIndex): Prom
 			await new Promise<void>(resolve => stream.once('drain', () => resolve()));
 		}
 		// 每个 flush 之间让出，避免连续编码/写盘长时间占用宿主
-		await new Promise<void>(resolve => setImmediate(resolve));
+		await yieldTick();
 	};
 	const write = async (chunk: string): Promise<void> => {
 		buffer += chunk;
@@ -1063,6 +1078,7 @@ async function writeIndexJson(stream: fs.WriteStream, index: ProjectIndex): Prom
 			for (let i = 0; i < value.length; i++) {
 				if (i > 0) { await write(','); }
 				await writeValue(value[i]);
+				await maybeYield();
 			}
 			await write(']');
 			return;
@@ -1070,11 +1086,13 @@ async function writeIndexJson(stream: fs.WriteStream, index: ProjectIndex): Prom
 		if (value !== null && typeof value === 'object') {
 			await write('{');
 			let first = true;
-			for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+			// 不一次 Object.entries 整表：大 Record 的 entries 分配本身可阻塞数十 ms
+			for (const key of Object.keys(value as Record<string, unknown>)) {
 				if (!first) { await write(','); }
 				first = false;
 				await write(`${JSON.stringify(key)}:`);
-				await writeValue(entry);
+				await writeValue((value as Record<string, unknown>)[key]);
+				await maybeYield();
 			}
 			await write('}');
 			return;
@@ -1082,6 +1100,38 @@ async function writeIndexJson(stream: fs.WriteStream, index: ProjectIndex): Prom
 		await write(JSON.stringify(value) ?? 'null');
 	};
 	await writeValue(index);
+	await flush();
+}
+
+/** 流式写字符串数组 JSON（grep-index 等），与 writeIndexJson 同款让出策略 */
+async function writeStringArrayJson(stream: fs.WriteStream, items: string[]): Promise<void> {
+	let buffer = '';
+	let ops = 0;
+	const flush = async (): Promise<void> => {
+		if (!buffer) { return; }
+		const chunk = buffer;
+		buffer = '';
+		if (!stream.write(chunk)) {
+			await new Promise<void>(resolve => stream.once('drain', () => resolve()));
+		}
+		await new Promise<void>(resolve => setImmediate(resolve));
+	};
+	const write = async (chunk: string): Promise<void> => {
+		buffer += chunk;
+		if (buffer.length >= INDEX_JSON_FLUSH_CHARS) {
+			await flush();
+		}
+	};
+	await write('[');
+	for (let i = 0; i < items.length; i++) {
+		if (i > 0) { await write(','); }
+		await write(JSON.stringify(items[i]));
+		if (++ops >= INDEX_JSON_YIELD_EVERY) {
+			ops = 0;
+			await new Promise<void>(resolve => setImmediate(resolve));
+		}
+	}
+	await write(']');
 	await flush();
 }
 
@@ -1470,7 +1520,7 @@ export async function ensureGrepIndex(): Promise<string[]> {
 	if (indexPath) {
 		try {
 			ensureDir(path.dirname(indexPath));
-			atomicWriteFileSync(indexPath, JSON.stringify(files, null, 2));
+			await atomicWriteStreamAsync(indexPath, stream => writeStringArrayJson(stream, files));
 		} catch (err) {
 			logger.warn(`[ProjectIndexer] Failed to write grep index: ${err instanceof Error ? err.message : String(err)}`);
 		}

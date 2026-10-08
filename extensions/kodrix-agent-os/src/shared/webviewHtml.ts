@@ -105,10 +105,20 @@ export function jsJson(value: unknown): string {
 	return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
-/** 同上，用于 HTML 属性值（防译文里的 `"` 逃出属性） */
-export function htmlAttr(text: string): string {
-	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+	/** 同上，用于 HTML 属性值（防译文里的 `"` 逃出属性） */
+	export function htmlAttr(text: string): string {
+		return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
+	/** HTML 文本/属性通用转义（含 `'`，可供 data-* / title 等属性上下文） */
+	export function escapeHtml(text: string): string {
+		return String(text ?? '')
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;');
+	}
 
 /** Resources that must be allow-listed for Codicons + page assets. */
 export function webviewResourceRoots(extensionPath: string): vscode.Uri[] {

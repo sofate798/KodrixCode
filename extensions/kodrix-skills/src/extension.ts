@@ -11,6 +11,7 @@ import {
 	importCursorSkills,
 	installFromCatalogItem,
 	installFromUrl,
+	confirmUninstallSkill,
 	installWithOverwritePrompt,
 	loadCatalog,
 	parseSha256Fragment,
@@ -134,6 +135,9 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 
 		vscode.commands.registerCommand(CMD.uninstall, async (name?: string) => {
 			if (!name) {
+				return;
+			}
+			if (!(await confirmUninstallSkill(name))) {
 				return;
 			}
 			uninstallSkill(name);

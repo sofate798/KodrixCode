@@ -11,6 +11,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
@@ -23,6 +24,7 @@ import {
 	WORKSPACE_KODRIX_DIR,
 } from '../shared/constants';
 import { createTrackedPanel } from '../utils/panelTracker';
+import { createNonce, escapeHtml, webviewCsp } from '../shared/webviewHtml';
 
 /** 模型档位 */
 export type ModelTier = 'smart' | 'balanced' | 'fast';
@@ -295,28 +297,37 @@ export function getRouterStatus(): { pools: Record<ModelTier, string[]>; usage: 
 	return { pools: { smart: [...TIER_FAMILIES.smart], balanced: [...TIER_FAMILIES.balanced], fast: [...TIER_FAMILIES.fast] }, usage, usageStats };
 }
 
-/** 注册模型路由命令 */
-
-/** 模型健康面板 HTML（静态表格 + 刷新按钮，深色主题贴合 VS Code） */
-function renderHealthHtml(status: ReturnType<typeof getRouterStatus>): string {
+/** 模型健康面板 HTML（导出供 CSP/转义回归测试） */
+export function renderHealthHtml(
+	status: ReturnType<typeof getRouterStatus>,
+	webview: Pick<vscode.Webview, 'cspSource'>,
+): string {
+	const nonce = createNonce();
+	const csp = webviewCsp(webview as vscode.Webview, nonce);
+	const empty = escapeHtml(l10n.t('(no call records yet — refresh after running any Agent task)'));
 	const rows = status.usageStats.length
 		? status.usageStats.map(s => {
 			const rate = s.successRate;
 			const rateColor = rate >= 90 ? '#3fb950' : rate >= 60 ? '#d29922' : '#f85149';
+			const err = s.lastError ? s.lastError.slice(0, 40) : '';
 			return `<tr>
-	<td>${s.modelName}</td>
+	<td>${escapeHtml(s.modelName)}</td>
 	<td>${s.count}</td>
 	<td style="color:${rateColor};font-weight:600">${s.successRate}%</td>
 	<td>${s.failCount}</td>
 	<td>${s.avgDurationMs}ms</td>
-	<td title="${(s.lastError ?? '').replace(/"/g, '&quot;')}">${s.lastError ? s.lastError.slice(0, 40).replace(/</g, '&lt;') : '—'}</td>
-	<td>${(s.lastAt ?? '').slice(11, 19) || '—'}</td>
+	<td title="${escapeHtml(s.lastError ?? '')}">${err ? escapeHtml(err) : '—'}</td>
+	<td>${escapeHtml((s.lastAt ?? '').slice(11, 19) || '—')}</td>
 </tr>`.trim();
 		}).join('')
-		: '<tr><td colspan="7" style="text-align:center;color:#8b949e">（暂无调用记录——运行任意 Agent 任务后刷新）</td></tr>';
+		: `<tr><td colspan="7" style="text-align:center;color:#8b949e">${empty}</td></tr>`;
+	const pool = (names: string[]) => escapeHtml(names.join(' · '));
 	return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head><meta charset="utf-8"><style>
+<html lang="${escapeHtml(vscode.env.language)}">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<style>
 body{background:var(--vscode-editor-background);color:var(--vscode-foreground);font-family:var(--vscode-font-family);padding:16px;font-size:13px}
 h1{font-size:16px;margin:0 0 4px}
 .sub{color:var(--vscode-descriptionForeground);margin:0 0 14px;font-size:12px}
@@ -332,21 +343,24 @@ td{padding:6px 8px;border-bottom:1px solid var(--vscode-panel-border)}
 .tier b{display:block;margin-bottom:2px}
 </style></head>
 <body>
-<h1>模型健康面板</h1>
-<p class="sub">调用成功率按 .kodrix/model-router.jsonl 聚合（ok=false 记失败）· 推理打点：Agent Loop / 路由选择</p>
+<h1>${escapeHtml(l10n.t('Model Health Panel'))}</h1>
+<p class="sub">${escapeHtml(l10n.t('Success rate aggregated from .kodrix/model-router.jsonl (ok=false counts as failure) · Instrumented by: Agent Loop / model routing'))}</p>
 <table>
-<tr><th>模型</th><th>调用</th><th>成功率</th><th>失败</th><th>平均耗时</th><th>最后错误</th><th>最后调用</th></tr>
+<tr><th>${escapeHtml(l10n.t('Model'))}</th><th>${escapeHtml(l10n.t('Calls'))}</th><th>${escapeHtml(l10n.t('Success Rate'))}</th><th>${escapeHtml(l10n.t('Failures'))}</th><th>${escapeHtml(l10n.t('Avg Duration'))}</th><th>${escapeHtml(l10n.t('Last Error'))}</th><th>${escapeHtml(l10n.t('Last Call'))}</th></tr>
 ${rows}
 </table>
-<div class="sec">模型池</div>
+<div class="sec">${escapeHtml(l10n.t('Model Pools'))}</div>
 <div class="tiers">
-	<div class="tier"><b>smart</b>${status.pools.smart.join(' · ')}</div>
-	<div class="tier"><b>balanced</b>${status.pools.balanced.join(' · ')}</div>
-	<div class="tier"><b>fast</b>${status.pools.fast.join(' · ')}</div>
+	<div class="tier"><b>smart</b>${pool(status.pools.smart)}</div>
+	<div class="tier"><b>balanced</b>${pool(status.pools.balanced)}</div>
+	<div class="tier"><b>fast</b>${pool(status.pools.fast)}</div>
 </div>
 <div class="bar"></div>
-<button class="btn" onclick="refresh()">刷新</button>
-<script>const vscode=acquireVsCodeApi();function refresh(){vscode.postMessage({command:'refresh'})}</script>
+<button class="btn" id="refreshBtn">${escapeHtml(l10n.t('Refresh'))}</button>
+<script nonce="${nonce}">
+const vscode=acquireVsCodeApi();
+document.getElementById('refreshBtn').addEventListener('click',()=>vscode.postMessage({command:'refresh'}));
+</script>
 </body></html>`;
 }
 
@@ -355,17 +369,20 @@ let _healthPanel: vscode.WebviewPanel | undefined;
 export function registerModelRouter(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.modelRouterStatus, async () => {
+			const paint = (panel: vscode.WebviewPanel) => {
+				panel.webview.html = renderHealthHtml(getRouterStatus(), panel.webview);
+			};
 			if (_healthPanel) {
 				_healthPanel.reveal(vscode.ViewColumn.Active);
-				_healthPanel.webview.html = renderHealthHtml(getRouterStatus());
+				paint(_healthPanel);
 				return;
 			}
-			const panel = createTrackedPanel(context, 'kodrix.modelHealth', '模型健康面板', vscode.ViewColumn.Active, { enableScripts: true });
+			const panel = createTrackedPanel(context, 'kodrix.modelHealth', l10n.t('Model Health Panel'), vscode.ViewColumn.Active, { enableScripts: true });
 			_healthPanel = panel;
-			panel.webview.html = renderHealthHtml(getRouterStatus());
+			paint(panel);
 			panel.onDidDispose(() => { _healthPanel = undefined; });
 			panel.webview.onDidReceiveMessage(msg => {
-				if (msg?.command === 'refresh') {panel.webview.html = renderHealthHtml(getRouterStatus());}
+				if (msg?.command === 'refresh') {paint(panel);}
 			});
 		}),
 	);

@@ -82,6 +82,7 @@
 	"Type keywords to search GitHub, or click \"Search\".": "输入关键词搜索 GitHub，或点「搜索」。",
 	"Unable to parse the GitHub repository URL": "无法解析 GitHub 仓库地址",
 	"Uninstall": "卸载",
+	"Uninstall skill \"{0}\"? This permanently deletes the skill folder and any local edits.": "确定卸载 Skill「{0}」？这将永久删除该技能目录及其中的本地修改。",
 	"Uninstalled {0}": "已卸载 {0}",
 	"Unsupported URL format. Use a GitHub repository or a raw SKILL.md link": "暂不支持该 URL 格式，请使用 GitHub 仓库或 raw SKILL.md 链接",
 	"unzip failed (code {0}): {1}": "unzip 失败 (code {0}): {1}",

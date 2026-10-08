@@ -10,6 +10,7 @@ import { installSessionLearningHook } from '../learning/sessionLearning';
 import { ensureDir, getHooksDir, getGithubHooksDir } from '../paths';
 import { FEATURE_FLAGS } from '../shared/constants';
 import { isKodrixFeatureEnabled, featureDisabledNotice } from '../utils/featureFlags';
+import { assertWorkspaceWriteAllowed } from '../utils/fsSafe';
 
 interface HooksConfig {
 	version: number;
@@ -82,6 +83,25 @@ export async function installHooksPresets(context: vscode.ExtensionContext): Pro
 
 	if (!target.path) {
 		return;
+	}
+
+	try {
+		assertWorkspaceWriteAllowed(target.path);
+	} catch (err) {
+		vscode.window.showWarningMessage(err instanceof Error ? err.message : String(err));
+		return;
+	}
+
+	if (fs.existsSync(target.path)) {
+		const overwriteLabel = l10n.t('Overwrite');
+		const choice = await vscode.window.showWarningMessage(
+			l10n.t('Hooks file already exists at {0}. Overwriting will replace its contents.', target.path),
+			{ modal: true },
+			overwriteLabel,
+		);
+		if (choice !== overwriteLabel) {
+			return;
+		}
 	}
 
 	ensureDir(path.dirname(target.path));

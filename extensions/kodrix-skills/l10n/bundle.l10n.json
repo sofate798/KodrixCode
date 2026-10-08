@@ -82,6 +82,7 @@
 	"Type keywords to search GitHub, or click \"Search\".": "Type keywords to search GitHub, or click \"Search\".",
 	"Unable to parse the GitHub repository URL": "Unable to parse the GitHub repository URL",
 	"Uninstall": "Uninstall",
+	"Uninstall skill \"{0}\"? This permanently deletes the skill folder and any local edits.": "Uninstall skill \"{0}\"? This permanently deletes the skill folder and any local edits.",
 	"Uninstalled {0}": "Uninstalled {0}",
 	"Unsupported URL format. Use a GitHub repository or a raw SKILL.md link": "Unsupported URL format. Use a GitHub repository or a raw SKILL.md link",
 	"unzip failed (code {0}): {1}": "unzip failed (code {0}): {1}",

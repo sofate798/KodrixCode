@@ -203,6 +203,20 @@ export function uninstallSkill(installName: string): void {
 	fs.rmSync(dest, { recursive: true, force: true });
 }
 
+/**
+ * 卸载前弹模态确认。返回 false 表示用户取消（调用方勿再提示「已卸载」）。
+ */
+export async function confirmUninstallSkill(installName: string): Promise<boolean> {
+	const name = sanitizeSkillName(installName);
+	const uninstallLabel = vscode.l10n.t('Uninstall');
+	const choice = await vscode.window.showWarningMessage(
+		vscode.l10n.t('Uninstall skill "{0}"? This permanently deletes the skill folder and any local edits.', name),
+		{ modal: true },
+		uninstallLabel,
+	);
+	return choice === uninstallLabel;
+}
+
 /** Search public GitHub repos likely containing agent skills. */
 export async function searchGithubSkillRepos(query: string): Promise<GithubSkillRepo[]> {
 	const q = (query || 'SKILL.md cursor skill').trim();
