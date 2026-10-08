@@ -12,11 +12,20 @@
     "Other",
     "Machine Learning"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "只进行用户级配置与 AI 供应商管理，不执行工作区内容。"
+    }
+  },
   "activationEvents": [
     "onStartupFinished",
     "onSettingsEditorRenderer:kodrix.providerSettings"
   ],
-  "enabledApiProposals": [],
+  "enabledApiProposals": [
+    "settingsEditorRenderer"
+  ],
+	"l10n": "./l10n",
   "main": "./out/extension",
   "contributes": {
     "settingsEditorRenderers": [
@@ -67,6 +76,11 @@
       {
         "command": "kodrix.welcome",
         "title": "%command.welcome.title%",
+        "category": "Kodrix"
+      },
+      {
+        "command": "kodrix.checkForUpdates",
+        "title": "%command.checkForUpdates.title%",
         "category": "Kodrix"
       },
       {
@@ -152,6 +166,28 @@
           "type": "boolean",
           "default": true,
           "description": "%config.importCursorOnFirstRun.description%"
+        },
+        "kodrix.updateCheck.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.updateCheck.enabled.description%"
+        },
+        "kodrix.updateCheck.intervalHours": {
+          "type": "number",
+          "default": 24,
+          "minimum": 1,
+          "maximum": 720,
+          "description": "%config.updateCheck.intervalHours.description%"
+        },
+        "kodrix.updateCheck.feedUrl": {
+          "type": "string",
+          "default": "https://api.github.com/repos/sofate798/KodrixCode/releases/latest",
+          "description": "%config.updateCheck.feedUrl.description%"
+        },
+        "kodrix.updateCheck.includePrerelease": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.updateCheck.includePrerelease.description%"
         },
 		"kodrix.modelRoutes": {
           "type": "object",

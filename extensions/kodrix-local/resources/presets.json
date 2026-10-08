@@ -1,7 +1,7 @@
 {
   "categories": [
-    { "id": "local", "name": "本地模型", "desc": "本机运行，无需 API Key" },
-    { "id": "cloud", "name": "云端 API", "desc": "填入 Key 即可使用" }
+    { "id": "local", "name": "Local Models", "desc": "Runs on your machine; no API Key needed" },
+    { "id": "cloud", "name": "Cloud APIs", "desc": "Fill in a Key to get started" }
   ],
   "presets": [
     {
@@ -11,12 +11,12 @@
       "icon": "terminal",
       "featured": true,
       "api_type": "openai",
-      "base_url": "http://127.0.0.1:8080",
+      "base_url": "http://127.0.0.1:8080/v1",
       "model": "",
       "models": [],
       "needs_api_key": false,
       "website": "https://github.com/ggml-org/llama.cpp",
-      "hint": "先启动 llama-server，将自动探测 /v1/models"
+      "hint": "Start llama-server first (default port 8080); requires an OpenAI-compatible /v1/chat/completions service"
     },
     {
       "id": "ollama",
@@ -43,7 +43,7 @@
       "models": [],
       "needs_api_key": false,
       "website": "https://lmstudio.ai",
-      "hint": "在 LM Studio 中启动本地服务器，将自动探测模型"
+      "hint": "Start the local server in LM Studio; models will be auto-detected"
     },
     {
       "id": "deepseek",
@@ -57,7 +57,7 @@
       "models": ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"],
       "needs_api_key": true,
       "website": "https://platform.deepseek.com",
-      "hint": "OpenAI: https://api.deepseek.com ；Anthropic: https://api.deepseek.com/anthropic。可添加多个模型名"
+      "hint": "OpenAI: https://api.deepseek.com ; Anthropic: https://api.deepseek.com/anthropic. Multiple model names can be added"
     },
     {
       "id": "openai",
@@ -119,7 +119,7 @@
     {
       "id": "siliconflow",
       "category": "cloud",
-      "name": "硅基流动",
+      "name": "SiliconFlow",
       "icon": "zap",
       "featured": true,
       "api_type": "openai",
@@ -136,7 +136,7 @@
     {
       "id": "zhipu",
       "category": "cloud",
-      "name": "智谱 AI",
+      "name": "Zhipu AI",
       "icon": "lightbulb",
       "featured": true,
       "api_type": "openai",
@@ -149,7 +149,7 @@
     {
       "id": "qwen",
       "category": "cloud",
-      "name": "通义千问",
+      "name": "Qwen (Alibaba)",
       "icon": "cloud",
       "featured": true,
       "api_type": "openai",
@@ -162,26 +162,26 @@
     {
       "id": "custom",
       "category": "cloud",
-      "name": "自定义",
+      "name": "Custom",
       "icon": "edit",
       "api_type": "openai",
       "base_url": "",
       "model": "",
       "models": [],
       "needs_api_key": true,
-      "hint": "自定义接口：选择 OpenAI 或 Anthropic base_url，可添加多个模型名"
+      "hint": "Custom endpoint: choose an OpenAI or Anthropic base_url; multiple model names can be added"
     },
     {
       "id": "custom-local",
       "category": "local",
-      "name": "自定义本地",
+      "name": "Custom Local",
       "icon": "tools",
       "api_type": "openai",
       "base_url": "http://127.0.0.1:8080",
       "model": "",
       "models": [],
       "needs_api_key": false,
-      "hint": "本地接口同样支持 OpenAI / Anthropic 两种 base_url"
+      "hint": "Local endpoints also support both OpenAI / Anthropic base_url styles"
     }
   ]
 }

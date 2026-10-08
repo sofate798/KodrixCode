@@ -405,6 +405,18 @@
           {
             "id": "GitHub.copilot-chat",
             "path": "./translations/extensions/github.copilot-chat.i18n.json"
+          },
+          {
+            "id": "kodrix.kodrix-local",
+            "path": "./translations/extensions/kodrix.kodrix-local.i18n.json"
+          },
+          {
+            "id": "kodrix.kodrix-agent-os",
+            "path": "./translations/extensions/kodrix.kodrix-agent-os.i18n.json"
+          },
+          {
+            "id": "kodrix.kodrix-skills",
+            "path": "./translations/extensions/kodrix.kodrix-skills.i18n.json"
           }
         ]
       }

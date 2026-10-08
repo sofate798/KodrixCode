@@ -7,15 +7,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
-import { getAssembledContext } from '../context/contextIntelligence';
+import { HUB_PREVIEW_MAX_CHARS, getAssembledContext } from '../context/contextIntelligence';
 import { onContextChanged } from '../context/contextEvents';
 import { getLearningStats, getRecentLearning } from '../learning/learningEngine';
 import { getSessionLearningStats } from '../learning/sessionIndex';
 import { classifyIntent, routeAndExecute, RouteTarget } from '../router/agentRouter';
 import { listSpecSlugs } from '../spec/specHelpers';
 import { getKanbanPath } from '../paths';
-import { loadWebviewHtml } from '../shared/webviewHtml';
+import { loadWebviewHtml, createNonce, webviewCsp } from '../shared/webviewHtml';
 import { createTrackedPanel } from '../utils/panelTracker';
+import { logger } from '../logger';
 
 let activePanel: vscode.WebviewPanel | undefined;
 
@@ -39,7 +40,7 @@ interface HubDashboard {
 
 function loadKanbanCount(): number {
 	const p = getKanbanPath();
-	if (!p || !fs.existsSync(p)) return 0;
+	if (!p || !fs.existsSync(p)) {return 0;}
 	try {
 		const data = JSON.parse(fs.readFileSync(p, 'utf-8')) as { tasks?: unknown[] };
 		return data.tasks?.length ?? 0;
@@ -48,7 +49,7 @@ function loadKanbanCount(): number {
 
 function hasWiki(): boolean {
 	const folder = vscode.workspace.workspaceFolders?.[0];
-	if (!folder) return false;
+	if (!folder) {return false;}
 	return fs.existsSync(path.join(folder.uri.fsPath, '.kodrix', 'wiki', 'INDEX.md'));
 }
 
@@ -62,18 +63,18 @@ function buildDashboard(): HubDashboard {
 
 	return {
 		features: [
-			{ key: 'ideaFlow', label: 'Idea Flow 想法→产品', on: !!cfg.get('ideaFlow') },
+			{ key: 'ideaFlow', label: l10n.t('Idea Flow: idea to product'), on: !!cfg.get('ideaFlow') },
 			{ key: 'wiki', label: 'Repo Wiki', on: !!cfg.get('wiki') },
 			{ key: 'memory', label: 'Memory', on: !!cfg.get('memory') },
 			{ key: 'learning', label: 'Learning', on: !!cfg.get('learning') },
 			{ key: 'sessionLearning', label: 'Session Learning', on: !!cfg.get('sessionLearning') },
-			{ key: 'agentRouter', label: '智能路由', on: !!cfg.get('agentRouter') },
-			{ key: 'kanban', label: 'Agent 看板', on: !!cfg.get('kanban') },
-			{ key: 'arena', label: 'Arena 对比', on: !!cfg.get('arena') },
-			{ key: 'spec', label: 'Spec 工作流', on: !!cfg.get('spec') },
-			{ key: 'contextInjection', label: '上下文注入', on: !!cfg.get('contextInjection') },
+			{ key: 'agentRouter', label: l10n.t('Smart Routing'), on: !!cfg.get('agentRouter') },
+			{ key: 'kanban', label: l10n.t('Agent Kanban'), on: !!cfg.get('kanban') },
+			{ key: 'arena', label: l10n.t('Arena Compare'), on: !!cfg.get('arena') },
+			{ key: 'spec', label: l10n.t('Spec Workflow'), on: !!cfg.get('spec') },
+			{ key: 'contextInjection', label: l10n.t('Context Injection'), on: !!cfg.get('contextInjection') },
 		],
-		contextPreview: getAssembledContext(600) || '（打开工作区后将自动生成 Wiki + Memory 上下文——运行「Kodrix: 刷新 Agent 上下文」手动触发）',
+		contextPreview: getAssembledContext(HUB_PREVIEW_MAX_CHARS) || l10n.t('(Wiki + Memory context will be generated automatically when a workspace is opened — run "Kodrix: Refresh Agent Context" to trigger it manually)'),
 		recentLearning: [] as Array<{ category: string; content: string; date: string }>,
 		workspaceName: folder?.name,
 		learningTotal: learning.total,
@@ -94,7 +95,7 @@ function buildDashboard(): HubDashboard {
 			}));
 			panel.webview.postMessage({ type: 'dashboard', data: dashboard });
 		} catch (err) {
-			console.warn('[Kodrix Hub] pushDashboard failed', err);
+			logger.warn('[Kodrix Hub] pushDashboard failed', err);
 		}
 	}
 
@@ -102,15 +103,17 @@ function buildDashboard(): HubDashboard {
 		try {
 			return loadWebviewHtml(webview, extensionPath, 'kodrix-hub.html');
 		} catch (err) {
-			console.warn('[Kodrix Hub] 加载 HTML 资源失败', err);
+			logger.warn('[Kodrix Hub] 加载 HTML 资源失败', err);
+			// 兜底页同样使用 nonce 策略（脚本维度不再放行 'unsafe-inline'）
+			const nonce = createNonce();
 			return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline';">
+<meta http-equiv="Content-Security-Policy" content="${webviewCsp(webview, nonce)}">
 <title>Kodrix Hub</title>
 <style>body{font-family:var(--vscode-font-family,sans-serif);background:var(--vscode-editor-background,#1e1e1e);color:var(--vscode-editor-foreground,#ccc);padding:24px}</style>
 </head><body>
 <h2>Kodrix Hub</h2>
-<p>资源文件加载失败。请确认扩展 resources/kodrix-hub.html 存在后重试。</p>
-<script>acquireVsCodeApi().postMessage({command:'ready'});</script>
+<p>${l10n.t('Failed to load the resource file. Make sure the extension resources/kodrix-hub.html exists, then try again.')}</p>
+<script nonce="${nonce}">acquireVsCodeApi().postMessage({command:'ready'});</script>
 </body></html>`;
 		}
 	}
@@ -133,7 +136,7 @@ async function handleScenario(id: string): Promise<void> {
 			await vscode.commands.executeCommand('kodrix.router.route');
 			break;
 		default:
-			console.warn(`[Kodrix Hub] Unknown scenario: ${id}`);
+			logger.warn(`[Kodrix Hub] Unknown scenario: ${id}`);
 	}
 }
 
@@ -157,20 +160,42 @@ async function handleAction(id: string): Promise<void> {
 	if (cmd) {
 		await vscode.commands.executeCommand(cmd);
 		if (id === 'rebuildWiki') {
-			vscode.window.showInformationMessage(l10n.t('Repo Wiki 已重新生成'));
+			vscode.window.showInformationMessage(l10n.t('Repo Wiki regenerated'));
 		}
 	}
 }
 
+/** Hub 面板允许切换的功能开关白名单（此前任意 key 都能从 webview 写进用户全局设置） */
+const TOGGLEABLE_FEATURES = new Set([
+	'wiki', 'spec', 'memory', 'kanban', 'agentRouter', 'arena', 'hooks', 'acp',
+	'propertyTests', 'learning', 'contextInjection', 'sessionLearning',
+	'codebaseIntelligence', 'codebaseQuery', 'predictiveCompletion', 'agentCrew',
+	'vibeCoding', 'ideaFlow', 'terminalAI', 'semanticMemory', 'proactiveContext',
+	'contextIntelligence',
+]);
+
 async function handleToggleFeature(featureKey: string): Promise<void> {
+	if (!TOGGLEABLE_FEATURES.has(featureKey)) {
+		logger.warn(`[Kodrix Hub] 拒绝切换未在白名单内的功能开关：${featureKey}`);
+		vscode.window.showWarningMessage(l10n.t('Unknown feature flag: {0}', featureKey));
+		return;
+	}
 	const config = vscode.workspace.getConfiguration('kodrix.features');
 	const current = config.get<boolean>(featureKey);
 	const newValue = !current;
-	await config.update(featureKey, newValue, vscode.ConfigurationTarget.Global);
+	try {
+		await config.update(featureKey, newValue, vscode.ConfigurationTarget.Global);
+	} catch (err) {
+		// 不能"写失败还报成功"：用户会以为开关生效了
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error(`[Kodrix Hub] 写入设置失败：kodrix.features.${featureKey}`, err);
+		vscode.window.showErrorMessage(l10n.t('Failed to switch {0}: {1}', featureKey, message));
+		return;
+	}
 
-	if (activePanel) pushDashboard(activePanel);
+	if (activePanel) {pushDashboard(activePanel);}
 	vscode.window.showInformationMessage(
-		l10n.t('{0}：{1}', newValue ? '已启用' : '已关闭', featureKey)
+		l10n.t('{0}: {1}', newValue ? l10n.t('Enabled') : l10n.t('Disabled'), featureKey)
 	);
 }
 
@@ -194,15 +219,15 @@ async function handleMessage(
 			if (msg.prompt?.trim()) {
 				const route = classifyIntent(msg.prompt.trim());
 				const labels: Record<RouteTarget, string> = {
-					spec: 'Spec 驱动开发',
-					plan: 'Plan 先规划',
-					agent: 'Agent 多文件编辑',
-					ask: 'Ask 问答探索',
-					terminal: '终端 AI',
+					spec: l10n.t('Spec-Driven Development'),
+					plan: l10n.t('Plan first'),
+					agent: l10n.t('Multi-file Agent editing'),
+					ask: l10n.t('Explore Q&A'),
+					terminal: l10n.t('Terminal AI'),
 					wiki: 'Repo Wiki',
-					checkpoint: '检查点管理',
-					models: '模型供应商',
-					settings: 'Kodrix 设置',
+					checkpoint: l10n.t('Checkpoint management'),
+					models: l10n.t('Model providers'),
+					settings: l10n.t('Kodrix Settings'),
 				};
 				panel.webview.postMessage({
 					type: 'intentResult',
@@ -214,7 +239,7 @@ async function handleMessage(
 			break;
 
 		case 'scenario':
-			if (msg.id) await handleScenario(msg.id);
+			if (msg.id) {await handleScenario(msg.id);}
 			break;
 
 		case 'action':
@@ -225,10 +250,10 @@ async function handleMessage(
 			break;
 
 		case 'toggleFeature':
-			if (msg.feature) await handleToggleFeature(msg.feature);
+			if (msg.feature) {await handleToggleFeature(msg.feature);}
 			break;
 		default:
-			console.warn(`[Kodrix Hub] Unknown message command: ${msg.command}`);
+			logger.warn(`[Kodrix Hub] Unknown message command: ${msg.command}`);
 	}
 }
 
@@ -276,5 +301,5 @@ export function registerKodrixHub(context: vscode.ExtensionContext): void {
 }
 
 export function refreshHubIfOpen(): void {
-	if (activePanel) pushDashboard(activePanel);
+	if (activePanel) {pushDashboard(activePanel);}
 }

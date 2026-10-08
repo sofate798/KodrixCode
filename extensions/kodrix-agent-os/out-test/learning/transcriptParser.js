@@ -27,7 +27,7 @@ function extractTextFromContent(content) {
             .filter(Boolean)
             .join('\n');
     }
-    if (content && typeof content === 'object' && 'content' in content) {
+    if (content && typeof content === 'object' && Object.hasOwn(content, 'content')) {
         return extractTextFromContent(content.content);
     }
     return '';

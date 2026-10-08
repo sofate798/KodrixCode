@@ -6,6 +6,7 @@
 
 # --- Build outputs ---
 out/
+out-test/
 out-build/
 out-vscode/
 out-vscode-min/
@@ -69,3 +70,11 @@ extensions/copilot/test/simulation/cache/
 .agents/
 .claude/
 
+# Review/diff scratch files (must never be committed; if old copies still show
+# up as tracked, clear them with `git rm --cached <file>` once)
+__review_diff*.txt
+__diff_stat.txt
+
+
+# 索引性能基准生成物（scripts/measure-index-perf.mjs）
+.bench/

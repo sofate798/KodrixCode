@@ -381,9 +381,9 @@ const sensitiveEnvVarNames = /^(?:.*_)?(?:API_?KEY|TOKEN|SECRET|PASSWORD|PASSWD|
 const secretValuePatterns = [
 	// JWT tokens
 	/^eyJ[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+$/,
-	// GitHub tokens
-	/^gh[psuro]_[a-zA-Z0-9]{36}$/,
-	/^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$/,
+	// GitHub tokens：真实 PAT 长度固定，但日志脱敏宁多勿漏（占位符/变体同样按密钥处理）
+	/^gh[psuro]_[a-zA-Z0-9_]{20,}$/,
+	/^github_pat_[a-zA-Z0-9_]{20,}$/,
 	// Google API keys
 	/^AIza[A-Za-z0-9_\-]{35}$/,
 	// Slack tokens

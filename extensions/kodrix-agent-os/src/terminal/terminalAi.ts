@@ -31,7 +31,7 @@ let pendingQuickPick: vscode.QuickPick<vscode.QuickPickItem> | undefined;
 function shellHint(): string {
 	switch (process.platform) {
 		case 'win32': return l10n.t('Windows PowerShell');
-		case 'darwin': return l10n.t('macOS zsh（bash 兼容）');
+		case 'darwin': return l10n.t('macOS zsh (bash compatible)');
 		default: return l10n.t('Linux bash');
 	}
 }
@@ -66,7 +66,7 @@ async function pickModel(): Promise<vscode.LanguageModelChat | undefined> {
 	for (const family of IDEA_FLOW_MODEL_FAMILIES) {
 		try {
 			const [found] = await vscode.lm.selectChatModels({ family });
-			if (found) return found;
+			if (found) {return found;}
 		} catch {
 			// 该模型族不可用，尝试下一个
 		}
@@ -104,16 +104,51 @@ async function generateCommand(intent: string, workspacePath: string | undefined
 	}
 }
 
-/** 获取可用的终端（优先活动终端，否则新建） */
+/** Agent 专用终端（不占用用户的活动终端：可能是 ssh 会话 / REPL / 正在跑的构建） */
+let _agentTerminal: vscode.Terminal | undefined;
+
+/**
+ * 获取 Agent 专用终端。
+ * 语义变更：以前复用 `vscode.window.activeTerminal`，模型命令会直接打进用户正在用的会话里，
+ * 输出与用户自己的命令混在一起、还会误伤交互式进程。现在改为独占一个名为 "Kodrix Agent" 的终端。
+ * （需要把命令发给用户指定终端时，显式传 `options.terminal`）
+ */
 export function ensureTerminal(): vscode.Terminal {
-	const active = vscode.window.activeTerminal;
-	if (active) {
-		active.show();
-		return active;
+	if (_agentTerminal && _agentTerminal.exitStatus === undefined) {
+		return _agentTerminal;
 	}
-	const terminal = vscode.window.createTerminal({ name: 'Kodrix Terminal' });
-	terminal.show();
-	return terminal;
+	_agentTerminal = vscode.window.createTerminal({ name: 'Kodrix Agent' });
+	return _agentTerminal;
+}
+
+/** 释放 Agent 终端引用（终端被用户关闭 / 扩展卸载时调用） */
+export function releaseAgentTerminal(): void {
+	_agentTerminal = undefined;
+}
+
+/** 危险命令模式（默认拦截；可用 kodrix.agentLoop.allowDangerousCommands 显式放开） */
+const DANGEROUS_COMMAND_PATTERNS: { re: RegExp; why: string }[] = [
+	{ re: /\brm\s+(-[a-z]*\s+)*-[a-z]*[rf]/i, why: l10n.t('recursive/forced delete (rm -rf)') },
+	{ re: /\bgit\s+reset\s+--hard\b/i, why: l10n.t('discard uncommitted changes (git reset --hard)') },
+	{ re: /\bgit\s+clean\s+-[a-z]*[fd]/i, why: l10n.t('delete untracked files (git clean -fd)') },
+	{ re: /\bgit\s+push\b[^\n]*(\s--force\b|\s-f\b)/i, why: l10n.t('force push (git push --force)') },
+	{ re: /\b(del|erase)\s+\/[a-z]*[fsq]/i, why: l10n.t('forced/silent delete (del /f /s /q)') },
+	{ re: /\b(format|mkfs(\.\w+)?)\s+[a-z]:?/i, why: l10n.t('format a disk') },
+	{ re: /\b(shutdown|reboot|halt)\b/i, why: l10n.t('shut down/reboot the machine') },
+	{ re: /:\s*\(\s*\)\s*\{.*\}\s*;\s*:/, why: l10n.t('fork bomb') },
+	{ re: /\b(curl|wget)\b[^\n|]*\|\s*(ba)?sh\b/i, why: l10n.t('pipe a remote script straight into a shell') },
+	{ re: /\bchmod\s+-R\s+777\b/i, why: l10n.t('recursively open all permissions') },
+	{ re: /\b(npm|pnpm|yarn)\s+publish\b/i, why: l10n.t('publish a package (irreversible)') },
+];
+
+/** 判定是否危险命令（返回原因；null 表示安全） */
+export function dangerousCommandReason(command: string): string | null {
+	for (const { re, why } of DANGEROUS_COMMAND_PATTERNS) {
+		if (re.test(command)) {
+			return why;
+		}
+	}
+	return null;
 }
 
 /** 将命令发送到终端（多行逐行执行） */
@@ -147,22 +182,22 @@ async function runPendingCommand(): Promise<void> {
 	}
 	const terminal = ensureTerminal();
 	sendToTerminal(terminal, command);
-	vscode.window.showInformationMessage(l10n.t('终端已运行：{0}', command.length > 60 ? command.slice(0, 60) + '…' : command));
+	vscode.window.showInformationMessage(l10n.t('Terminal ran: {0}', command.length > 60 ? command.slice(0, 60) + '…' : command));
 }
 
 /** 阶段 3：确认 / 编辑命令（Enter / Cmd+Enter 运行 · 复制按钮 · Esc 取消） */
 async function confirmCommand(initial: string, terminal: vscode.Terminal): Promise<void> {
 	const qp = vscode.window.createQuickPick<vscode.QuickPickItem>();
-	qp.title = l10n.t('终端 AI — 确认命令');
-	qp.placeholder = l10n.t('Enter / Cmd+Enter 运行 · 复制按钮复制 · Esc 取消');
+	qp.title = l10n.t('Terminal AI — confirm command');
+	qp.placeholder = l10n.t('Enter / Cmd+Enter to run · Copy button to copy · Esc to cancel');
 	qp.value = initial;
 	qp.items = [
-		{ label: l10n.t('$(play) 运行到终端'), description: l10n.t('Enter 或 Cmd+Enter'), alwaysShow: true },
-		{ label: l10n.t('$(copy) 复制命令'), description: l10n.t('点击右上角复制按钮'), alwaysShow: true },
+		{ label: l10n.t('$(play) Run in Terminal'), description: l10n.t('Enter or Cmd+Enter'), alwaysShow: true },
+		{ label: l10n.t('$(copy) Copy Command'), description: l10n.t('Click the copy button in the top-right corner'), alwaysShow: true },
 	];
 	qp.activeItems = [qp.items[0]];
 	qp.buttons = [
-		{ iconPath: new vscode.ThemeIcon('copy'), tooltip: l10n.t('复制命令到剪贴板') },
+		{ iconPath: new vscode.ThemeIcon('copy'), tooltip: l10n.t('Copy the command to the clipboard') },
 	];
 
 	await setPending(initial, qp);
@@ -173,7 +208,7 @@ async function confirmCommand(initial: string, terminal: vscode.Terminal): Promi
 
 	qp.onDidTriggerButton(async () => {
 		await vscode.env.clipboard.writeText(qp.value);
-		vscode.window.showInformationMessage(l10n.t('命令已复制到剪贴板'));
+		vscode.window.showInformationMessage(l10n.t('Command copied to clipboard'));
 	});
 
 	qp.onDidAccept(async () => {
@@ -184,7 +219,7 @@ async function confirmCommand(initial: string, terminal: vscode.Terminal): Promi
 			return;
 		}
 		sendToTerminal(terminal, command);
-		vscode.window.showInformationMessage(l10n.t('终端已运行：{0}', command.length > 60 ? command.slice(0, 60) + '…' : command));
+		vscode.window.showInformationMessage(l10n.t('Terminal ran: {0}', command.length > 60 ? command.slice(0, 60) + '…' : command));
 	});
 
 	qp.onDidHide(() => {
@@ -199,9 +234,9 @@ async function confirmCommand(initial: string, terminal: vscode.Terminal): Promi
 async function terminalAiPrompt(): Promise<void> {
 	// 阶段 1：输入意图
 	const intent = await vscode.window.showInputBox({
-		title: l10n.t('终端 AI — 描述要执行的命令'),
-		prompt: l10n.t('用自然语言描述操作；也可以直接输入命令'),
-		placeHolder: l10n.t('例如：启动开发服务器并打开浏览器'),
+		title: l10n.t('Terminal AI — describe the command to run'),
+		prompt: l10n.t('Describe the action in natural language; or type a command directly'),
+		placeHolder: l10n.t('e.g., start the dev server and open the browser'),
 		ignoreFocusOut: true,
 	});
 	if (intent === undefined) {
@@ -217,7 +252,7 @@ async function terminalAiPrompt(): Promise<void> {
 
 	// 阶段 2：生成命令（busy 态）
 	const gen = vscode.window.createQuickPick<vscode.QuickPickItem>();
-	gen.title = l10n.t('终端 AI — 正在生成命令…');
+	gen.title = l10n.t('Terminal AI — generating command…');
 	gen.busy = true;
 	gen.enabled = false;
 	gen.show();
@@ -252,12 +287,19 @@ export interface CommandResult {
 	 * 调用方应按 incomplete / exitCode 区分，勿当成「执行失败」。
 	 */
 	incomplete?: boolean;
+	/** 是否由用户取消（而非自然超时）：取消时已向终端发送 Ctrl+C */
+	cancelled?: boolean;
 }
 
 /** shell integration API 的类型视图（能力检测用，避免强依赖高版本 API） */
 interface ShellExecutionEvent {
 	terminal: vscode.Terminal;
-	execution: { onDidEnd(cb: () => unknown): vscode.Disposable; exitCode?: number };
+	execution: {
+		onDidEnd(cb: () => unknown): vscode.Disposable;
+		exitCode?: number;
+		/** 本次执行的命令行（用于确认"结束的是我们发出的那条命令"） */
+		commandLine?: { value?: string };
+	};
 }
 
 /**
@@ -266,17 +308,46 @@ interface ShellExecutionEvent {
  */
 export async function runCommandInTerminal(
 	command: string,
-	options: { terminal?: vscode.Terminal; timeoutMs?: number; token?: vscode.CancellationToken } = {},
+	options: { terminal?: vscode.Terminal; timeoutMs?: number; token?: vscode.CancellationToken; allowDangerous?: boolean } = {},
 ): Promise<CommandResult> {
+	if (!vscode.workspace.isTrusted) {
+		// 不受信任工作区里的命令可能来自工作区内的文件/提示词，直接拒绝执行
+		throw new Error(l10n.t('Terminal command execution is disabled in untrusted workspaces (trust the workspace first).'));
+	}
+	// 危险命令拦截（默认开启；kodrix.agentLoop.allowDangerousCommands 可显式放开）
+	const allowDangerous = options.allowDangerous
+		?? vscode.workspace.getConfiguration('kodrix.agentLoop').get<boolean>('allowDangerousCommands', false);
+	if (!allowDangerous) {
+		const reason = dangerousCommandReason(command);
+		if (reason) {
+			logger.warn(`[TerminalAI] 已拦截危险命令（${reason}）：${command.slice(0, 200)}`);
+			throw new Error(l10n.t('Dangerous command blocked ({0}). If you really need to run it, enable kodrix.agentLoop.allowDangerousCommands in settings, or run it manually in the terminal.', reason));
+		}
+	}
 	const timeoutMs = options.timeoutMs ?? TERMINAL_AI_RUN_TIMEOUT_MS;
 	const terminal = options.terminal ?? ensureTerminal();
 	const output: string[] = [];
 	const disposables: vscode.Disposable[] = [];
 	let settled = false;
+	let incompleteTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** 向终端发送 Ctrl+C，中断当前前台命令（超时/取消时调用） */
+	const interruptRunningCommand = (why: string): void => {
+		try {
+			terminal.sendText('\u0003', false);
+			logger.info(`[TerminalAI] 已向终端发送 Ctrl+C（${why}）`);
+		} catch {
+			/* 终端可能已关闭：忽略 */
+		}
+	};
 
 	const cleanup = (): void => {
 		for (const d of disposables) {
 			d.dispose();
+		}
+		if (incompleteTimer) {
+			clearTimeout(incompleteTimer);
+			incompleteTimer = undefined;
 		}
 	};
 
@@ -287,9 +358,7 @@ export async function runCommandInTerminal(
 			}
 			settled = true;
 			cleanup();
-			if (timer) {
-				clearTimeout(timer);
-			}
+			clearTimeout(timer);
 			resolve({ exitCode: undefined, output: output.join(''), timedOut: false, ...extra });
 		};
 
@@ -311,9 +380,21 @@ export async function runCommandInTerminal(
 
 		// 完成检测：shell integration execution 结束（VS Code 1.93+）
 		if (supportsShellIntegration) {
+			const normalize = (s: string): string => s.replace(/\s+/g, ' ').trim();
+			const expected = normalize(command);
 			disposables.push(win.onDidStartTerminalShellExecution!(e => {
 				if (e.terminal !== terminal) {
 					return;
+				}
+				// 校验命令行：同一终端里若有人手输命令、或上一条命令尚未结束，
+				// 只按"终端相同"就认账会把它的结束当成本次命令的结果（退出码/输出错配）
+				const actual = e.execution.commandLine?.value;
+				if (actual && expected) {
+					const a = normalize(actual);
+					if (a !== expected && !a.includes(expected) && !expected.includes(a)) {
+						logger.info(`[TerminalAI] 忽略非本次命令的 execution 结束：${a.slice(0, 120)}`);
+						return;
+					}
 				}
 				e.execution.onDidEnd(() => {
 					finish({ exitCode: e.execution.exitCode });
@@ -321,20 +402,24 @@ export async function runCommandInTerminal(
 			}));
 		}
 
-		// 超时兜底
-		let timer: NodeJS.Timeout | undefined;
-		timer = setTimeout(() => {
+		// 超时兜底：同时向终端发 Ctrl+C，避免"Agent 已结束但命令还在跑"
+		const timer = setTimeout(() => {
+			interruptRunningCommand('超时');
 			finish({ timedOut: true });
 		}, timeoutMs);
 
-		// 取消
+		// 取消：同样中断前台命令（此前只是停止等待，dev server / 迁移脚本会继续跑）
 		if (options.token) {
-			options.token.onCancellationRequested(() => finish({ timedOut: true }));
+			options.token.onCancellationRequested(() => {
+				interruptRunningCommand('已取消');
+				finish({ timedOut: true, cancelled: true });
+			});
 		}
 
 		// 无 shell integration 时：短等待后返回已捕获输出（尽力而为，标记 incomplete）
+		// 定时器存入 incompleteTimer，由 finish→cleanup 统一清理（此前是游离定时器，泄漏且无法取消）
 		if (!supportsShellIntegration) {
-			setTimeout(() => finish({ incomplete: true, timedOut: false }), 2000);
+			incompleteTimer = setTimeout(() => finish({ incomplete: true, timedOut: false }), 2000);
 		}
 
 		// 发送命令（确保监听已注册后再执行）

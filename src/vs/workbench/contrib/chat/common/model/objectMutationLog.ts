@@ -238,7 +238,8 @@ export const PERSIST_ENTRY_MAX_STRING_CHARS = 1 * 1024 * 1024;
  */
 export const PERSIST_ENTRY_MAX_TOTAL_CHARS = 100 * 1024 * 1024;
 
-const TRUNCATION_MARKER_PREFIX = '[Kodrix Code: value truncated for persistence';
+/** 截断标记前缀（导出以便测试引用同一来源，避免品牌改名导致测试漂移） */
+export const TRUNCATION_MARKER_PREFIX = '[Kodrix Code: value truncated for persistence';
 const TRUNCATION_MARKER_TOTAL = `${TRUNCATION_MARKER_PREFIX}; entry exceeded size budget]`;
 
 /**

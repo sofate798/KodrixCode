@@ -38,10 +38,15 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onKodrixEvent = void 0;
 exports.emitKodrixEvent = emitKodrixEvent;
+exports.disposeKodrixEventBus = disposeKodrixEventBus;
 const vscode = __importStar(require("vscode"));
 const bus = new vscode.EventEmitter();
 /** 订阅 Kodrix 事件（返回 Disposable） */
 exports.onKodrixEvent = bus.event;
 function emitKodrixEvent(event) {
     bus.fire(event);
+}
+/** 释放模块级事件总线（在 deactivate 时调用） */
+function disposeKodrixEventBus() {
+    bus.dispose();
 }

@@ -9,6 +9,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -93,24 +94,45 @@ export function getProfileInjection(): string {
 export function registerUserProfile(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.userProfileView, async () => {
-			const profile = loadUserProfile();
-			const doc = await vscode.workspace.openTextDocument({
-				content: [
-					'// Kodrix 全局用户偏好画像（跨项目注入所有 Agent 上下文）',
-					'// 编辑保存后生效；字段说明见 README 或「Kodrix: 重置用户偏好画像」',
-					JSON.stringify(profile, null, 2),
-				].join('\n'),
-				language: 'jsonc',
-			});
+			// 打开**真实文件**并注册保存即生效：此前打开的是 untitled 文档，提示却写"编辑保存后生效"，
+			// 用户改完保存只会存成"无标题-N"，画像根本没变。
+			const profilePath = getUserProfilePath();
+			if (!fs.existsSync(profilePath)) {
+				saveUserProfile({ ...USER_PROFILE_DEFAULT });
+			}
+			const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(profilePath));
 			await vscode.window.showTextDocument(doc, { preview: false });
 		}),
 		vscode.commands.registerCommand(COMMANDS.userProfileReset, async () => {
-			const ok = await vscode.window.showWarningMessage('确定重置全局用户偏好画像？此操作不可撤销。', { modal: true }, '重置');
-			if (ok !== '重置') {
+			// 按钮文案与比较值同源，且给出显式「取消」（破坏性操作不该只能点 ✕）
+			const resetLabel = l10n.t('Reset');
+			const ok = await vscode.window.showWarningMessage(
+				l10n.t('Reset the global user preference profile? This action cannot be undone.'),
+				{ modal: true },
+				resetLabel,
+				l10n.t('Cancel'),
+			);
+			if (ok !== resetLabel) {
 				return;
 			}
 			saveUserProfile({ ...USER_PROFILE_DEFAULT });
-			await vscode.window.showInformationMessage('用户偏好画像已重置为默认值');
+			await vscode.window.showInformationMessage(l10n.t('User preference profile reset to defaults'));
+		}),
+		// 保存画像文件 → 立即校验并生效（字段缺失用默认值补齐；JSON 坏了不覆盖当前值）
+		vscode.workspace.onDidSaveTextDocument(doc => {
+			if (doc.uri.fsPath !== getUserProfilePath()) {return;}
+			try {
+				const parsed = JSON.parse(doc.getText()) as Partial<UserProfile>;
+				if (!parsed || typeof parsed !== 'object') {
+					throw new Error('内容不是 JSON 对象');
+				}
+				saveUserProfile({ ...USER_PROFILE_DEFAULT, ...parsed });
+				void vscode.window.showInformationMessage(l10n.t('User preference profile updated (will be injected into future Agent contexts)'));
+			} catch (err) {
+				void vscode.window.showWarningMessage(
+					l10n.t('Profile not applied: JSON parse failed ({0}). Fix it and save again.', err instanceof Error ? err.message : String(err)),
+				);
+			}
 		}),
 	);
 }

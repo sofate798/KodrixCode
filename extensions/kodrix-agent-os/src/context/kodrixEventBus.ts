@@ -25,3 +25,8 @@ export const onKodrixEvent = bus.event;
 export function emitKodrixEvent(event: KodrixEvent): void {
 	bus.fire(event);
 }
+
+/** 释放模块级事件总线（在 deactivate 时调用） */
+export function disposeKodrixEventBus(): void {
+	bus.dispose();
+}

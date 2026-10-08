@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{htmlLang}}">
 <head>
 	<meta charset="UTF-8" />
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src {{cspSource}} 'unsafe-inline'; img-src {{cspSource}} data:;" />
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src 'nonce-{{nonce}}'; img-src {{cspSource}} data:;" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Skill 市场</title>
+	<title>{{l10n:Skill Market}}</title>
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<style>
 		:root {
@@ -156,17 +156,17 @@
 	<div class="wrap">
 		<div class="toolbar">
 			<div class="search">
-				<input id="q" type="search" placeholder="搜索 Skill…" autocomplete="off" />
-				<button class="btn secondary sm icon-only" id="btnRefresh" title="刷新" aria-label="刷新">
+				<input id="q" type="search" placeholder="{{l10n:Search skills…}}" autocomplete="off" />
+				<button class="btn secondary sm icon-only" id="btnRefresh" title="{{l10n:Refresh}}" aria-label="{{l10n:Refresh}}">
 					<i class="codicon codicon-refresh" aria-hidden="true"></i>
 				</button>
 			</div>
 			<div class="tabs">
 				<button class="tab active" data-tab="market">
-					<i class="codicon codicon-extensions" aria-hidden="true"></i>市场
+					<i class="codicon codicon-extensions" aria-hidden="true"></i>{{l10n:Market}}
 				</button>
 				<button class="tab" data-tab="installed">
-					<i class="codicon codicon-check" aria-hidden="true"></i>已安装
+					<i class="codicon codicon-check" aria-hidden="true"></i>{{l10n:Installed}}
 				</button>
 				<button class="tab" data-tab="github">
 					<i class="codicon codicon-github" aria-hidden="true"></i>GitHub
@@ -175,32 +175,39 @@
 			<div class="panel active" id="panel-market">
 				<div class="actions">
 					<button class="btn secondary sm" id="btnUrl">
-						<i class="codicon codicon-cloud-download" aria-hidden="true"></i>从 URL / 仓库安装
+						<i class="codicon codicon-cloud-download" aria-hidden="true"></i>{{l10n:Install from URL / Repo}}
 					</button>
 					<button class="btn secondary sm" id="btnImport">
-						<i class="codicon codicon-folder-opened" aria-hidden="true"></i>导入 ~/.cursor/skills
+						<i class="codicon codicon-folder-opened" aria-hidden="true"></i>{{l10n:Import ~/.cursor/skills}}
 					</button>
 				</div>
 			</div>
 			<div class="panel" id="panel-installed">
-				<div class="hint">已安装到 ~/.agents/skills，Agent 可自动发现。</div>
+				<div class="hint">{{l10n:Skills are installed to ~/.agents/skills and discovered by agents automatically.}}</div>
 			</div>
 			<div class="panel" id="panel-github">
 				<div class="gh-row">
-					<input id="ghQ" type="search" placeholder="搜索 GitHub 仓库（含 SKILL.md）" value="SKILL.md cursor skill" />
+					<input id="ghQ" type="search" placeholder="{{l10n:Search GitHub repositories (with SKILL.md)}}" value="SKILL.md cursor skill" />
 					<button class="btn sm" id="btnGhSearch">
-						<i class="codicon codicon-search" aria-hidden="true"></i>搜索
+						<i class="codicon codicon-search" aria-hidden="true"></i>{{l10n:Search}}
 					</button>
 				</div>
-				<div class="hint">结果来自 GitHub API；点「安装」会下载仓库 zip 并提取 SKILL.md。</div>
+				<div class="hint">{{l10n:Results come from the GitHub API; clicking "Install" downloads the repository zip and extracts SKILL.md.}}</div>
 			</div>
 		</div>
 		<div class="list" id="list"></div>
 		<div class="status" id="status"></div>
 	</div>
-	<script>
+	<!-- Host-injected localized strings (see marketplaceWebview.ts buildWebviewL10nDict) -->
+	<script type="application/json" id="kodrix-l10n">{{l10nDict}}</script>
+	<script nonce="{{nonce}}">
 		const vscode = acquireVsCodeApi();
 		const state = { tab: 'market', q: '', items: [], installed: [], github: [], busy: null };
+
+		const L10N = JSON.parse(document.getElementById('kodrix-l10n').textContent);
+
+		/* Simple {0}/{1} placeholder formatting for localized templates */
+		const fmt = (text, ...args) => String(text || '').replace(/\{(\d+)\}/g, (_, i) => (args[Number(i)] ?? `{${i}}`));
 
 		const $ = (id) => document.getElementById(id);
 		const listEl = $('list');
@@ -248,11 +255,11 @@
 						title: it.displayName || name,
 						sub: `${it.publisher || 'kodrix'} · ${it.version || '1.0.0'}`,
 						desc: it.description || '',
-						badge: installed ? '已安装' : (it.kind || 'skill'),
+						badge: installed ? L10N.installed : (it.kind || 'skill'),
 						installed,
 						primary: installed
-							? { label: '卸载', action: 'uninstall', id: name, danger: true }
-							: { label: '安装', action: 'install', id: it.id },
+							? { label: L10N.uninstall, action: 'uninstall', id: name, danger: true }
+							: { label: L10N.install, action: 'install', id: it.id },
 					});
 				});
 			} else if (state.tab === 'installed') {
@@ -264,10 +271,10 @@
 							icon: normalizeIcon(cat?.icon, 'check'),
 							title: cat?.displayName || name,
 							sub: name,
-							desc: cat?.description || '本地已安装 Skill',
-							badge: '已安装',
+							desc: cat?.description || L10N.installedLocally,
+							badge: L10N.installed,
 							installed: true,
-							primary: { label: '卸载', action: 'uninstall', id: name, danger: true },
+							primary: { label: L10N.uninstall, action: 'uninstall', id: name, danger: true },
 						});
 					});
 			} else {
@@ -282,22 +289,22 @@
 						title: it.full_name,
 						subHtml: `${ki('star-full')} ${stars} · ${esc(it.language || 'repo')}`,
 						desc: it.description || '',
-						badge: installed ? '已安装' : 'GitHub',
+						badge: installed ? L10N.installed : 'GitHub',
 						installed,
 						primary: installed
-							? { label: '卸载', action: 'uninstall', id: name, danger: true }
-							: { label: '安装', action: 'installGithub', id: it.html_url || `https://github.com/${it.full_name}` },
-						secondary: it.html_url ? { label: '打开', action: 'open', id: it.html_url } : null,
+							? { label: L10N.uninstall, action: 'uninstall', id: name, danger: true }
+							: { label: L10N.install, action: 'installGithub', id: it.html_url || `https://github.com/${it.full_name}` },
+						secondary: it.html_url ? { label: L10N.open, action: 'open', id: it.html_url } : null,
 					});
 				});
 			}
 
 			if (!rows.length) {
 				const emptyIcon = state.tab === 'github' ? 'github' : state.tab === 'installed' ? 'inbox' : 'package';
-				const emptyText = state.tab === 'github' ? '输入关键词搜索 GitHub，或点「搜索」。'
-					: state.tab === 'installed' ? '还没有安装任何 Skill。'
-					: '没有匹配的 Skill。';
-				listEl.innerHTML = `<div class="empty">${ki(emptyIcon)}${emptyText}</div>`;
+				const emptyText = state.tab === 'github' ? L10N.emptyGithub
+					: state.tab === 'installed' ? L10N.emptyInstalled
+					: L10N.emptyMarket;
+				listEl.innerHTML = `<div class="empty">${ki(emptyIcon)}${esc(emptyText)}</div>`;
 				return;
 			}
 			listEl.innerHTML = rows.join('');
@@ -338,7 +345,7 @@
 				state.tab = tab.dataset.tab;
 				document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
 				document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === `panel-${state.tab}`));
-				qEl.placeholder = state.tab === 'github' ? '过滤搜索结果…' : '搜索 Skill…';
+				qEl.placeholder = state.tab === 'github' ? L10N.filterResults : L10N.searchSkills;
 				render();
 				if (state.tab === 'github' && !state.github.length) {
 					vscode.postMessage({ type: 'searchGithub', query: $('ghQ').value.trim() });
@@ -375,12 +382,12 @@
 				state.installed = msg.installed || [];
 				if (msg.github) state.github = msg.github;
 				state.busy = null;
-				setStatus(msg.status || `${state.items.length} 个官方 · ${state.installed.length} 已安装`);
+				setStatus(msg.status || fmt(L10N.statusSummary, state.items.length, state.installed.length));
 				render();
 			} else if (msg.type === 'githubResults') {
 				state.github = msg.items || [];
 				state.busy = null;
-				setStatus(msg.status || `GitHub ${state.github.length} 个结果`, !!msg.error);
+				setStatus(msg.status || fmt(L10N.githubResultsCount, state.github.length), !!msg.error);
 				render();
 			} else if (msg.type === 'status') {
 				state.busy = null;

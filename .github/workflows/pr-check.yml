@@ -1,4 +1,4 @@
-﻿name: PR Check
+name: PR Check
 
 on:
   pull_request:
@@ -15,6 +15,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 仓库结构契约：不需要装依赖（checkout 后有 node 即可，约 10 秒），
+  # 因此放在最前面——它们能拦住“本地全绿但新克隆编译失败”这一类问题，
+  # 而 lint/typecheck 必须在 npm install 之后才跑得动，发现得太晚。
+  contract-checks:
+    name: Contract Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: '.nvmrc'
+      - name: "Imports resolve inside the git index"
+        run: node .github/workflows/_shared/check-kodrix-import-contract.mjs
+      - name: "Declared commands have registerCommand() sites"
+        run: node .github/workflows/_shared/check-kodrix-command-contract.mjs
+      - name: "Contributed APIs match the fork registry and sources"
+        run: node .github/workflows/_shared/check-kodrix-contributions.mjs
+
   lint-typecheck:
     name: Lint & Type Check
     runs-on: ubuntu-latest
@@ -30,6 +49,8 @@ jobs:
         run: npm run eslint
       - name: TypeScript type check
         run: npm run typecheck-client
+      - name: Skill catalog integrity (hashes)
+        run: npm run hash-skill-catalog
 
   extensions-test:
     name: Test ${{ matrix.extension }}

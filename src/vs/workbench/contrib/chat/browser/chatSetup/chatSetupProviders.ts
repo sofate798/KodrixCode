@@ -69,7 +69,7 @@ const defaultChat = {
 	},
 	outputChannelId: product.defaultChatAgent?.chatExtensionOutputId ?? '',
 	outputExtensionStateCommand: product.defaultChatAgent?.chatExtensionOutputExtensionStateCommand ?? '',
-}
+};
 
 const ToolsAgentContextKey = ContextKeyExpr.and(
 	ContextKeyExpr.equals(`config.${ChatConfiguration.AgentEnabled}`, true),

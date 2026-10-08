@@ -92,6 +92,7 @@ export function storedProviderFromPreset(
 	preset: ProviderPreset,
 	models: string[],
 	groupName: string,
+	byokVendor?: string,
 ): StoredProvider {
 	return {
 		id: `kodrix-${preset.id}`,
@@ -103,6 +104,9 @@ export function storedProviderFromPreset(
 		model: models[0] || preset.model,
 		models,
 		groupName,
+		// 记录 BYOK 注册位置，移除供应商时才能精确摘掉对应的组与密钥
+		byokVendor,
+		byokGroupName: byokVendor ? groupName : undefined,
 		needs_api_key: !!preset.needs_api_key,
 		pendingApiKey: false,
 		registeredAt: Date.now(),

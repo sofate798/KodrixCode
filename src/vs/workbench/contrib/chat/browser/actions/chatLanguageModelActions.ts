@@ -267,8 +267,32 @@ class MigrateLanguageModelsGroupAction extends Action2 {
 	}
 }
 
+class RemoveLanguageModelsProviderGroupAction extends Action2 {
+	constructor() {
+		super({
+			id: 'lm.removeLanguageModelsProviderGroup',
+			title: localize('lm.removeGroup', 'Remove Language Models Group'),
+		});
+	}
+
+	async run(accessor: ServicesAccessor, languageModelsProviderGroup: { vendor: string; name: string }): Promise<void> {
+		const languageModelsService = accessor.get(ILanguageModelsService);
+
+		const vendor = languageModelsProviderGroup?.vendor;
+		const name = languageModelsProviderGroup?.name;
+		if (!vendor || !name) {
+			throw new Error('Language model group vendor and name are required');
+		}
+
+		// Also deletes the group's secret entries (see LanguageModelsService.removeLanguageModelsProviderGroup),
+		// so callers that own a BYOK registration can clean it up together with their own key storage.
+		await languageModelsService.removeLanguageModelsProviderGroup(vendor, name);
+	}
+}
+
 export function registerLanguageModelActions() {
 	registerAction2(ManageLanguageModelAuthenticationAction);
 	registerAction2(ConfigureLanguageModelsGroupAction);
 	registerAction2(MigrateLanguageModelsGroupAction);
+	registerAction2(RemoveLanguageModelsProviderGroupAction);
 }

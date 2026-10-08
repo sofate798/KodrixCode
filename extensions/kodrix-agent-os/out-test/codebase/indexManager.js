@@ -45,12 +45,15 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerIndexManager = registerIndexManager;
+exports.buildIndexManagerHtml = buildIndexManagerHtml;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const vscode_1 = require("vscode");
 const projectIndexer_1 = require("./projectIndexer");
 const logger_1 = require("../logger");
+const panelTracker_1 = require("../utils/panelTracker");
+const webviewHtml_1 = require("../shared/webviewHtml");
 const CONFIG_SECTION = 'kodrix.codebase';
 function getCfg(key, def) {
     return vscode.workspace.getConfiguration(CONFIG_SECTION).get(key, def);
@@ -70,8 +73,9 @@ function registerIndexManager(context) {
     }));
     // 面板关闭时清理引用；状态事件订阅随 context 释放
     context.subscriptions.push((0, projectIndexer_1.onIndexStateChange)(() => {
-        if (_panel)
+        if (_panel) {
             pushState(_panel);
+        }
     }));
 }
 function openIndexManagerPanel() {
@@ -82,15 +86,16 @@ function openIndexManagerPanel() {
     }
     // 打开面板时刷新一次 grep 计数（仅此一次，避免构建期间反复解析）
     _grepFileCount = (0, projectIndexer_1.getGrepIndexFiles)().length;
-    _panel = vscode.window.createWebviewPanel('kodrix.codebaseIndexManager', '索引与文档', column, { enableScripts: true, retainContextWhenHidden: true });
-    _panel.webview.html = getWebviewHtml();
+    _panel = (0, panelTracker_1.createTrackedPanel)(_ctx, 'kodrix.codebaseIndexManager', vscode_1.l10n.t('Indexing & Docs'), column, { enableScripts: true, retainContextWhenHidden: true });
+    _panel.webview.html = buildIndexManagerHtml(_panel.webview);
     pushState(_panel);
     _panel.webview.onDidReceiveMessage(async (msg) => {
         try {
             switch (msg?.type) {
                 case 'getState':
-                    if (_panel)
+                    if (_panel) {
                         pushState(_panel);
+                    }
                     break;
                 case 'pause':
                     (0, projectIndexer_1.pauseIndexBuild)();
@@ -102,8 +107,8 @@ function openIndexManagerPanel() {
                     await (0, projectIndexer_1.deleteProjectIndex)();
                     break;
                 case 'rebuild':
-                    void (0, projectIndexer_1.ensureProjectIndex)(true).catch(err => {
-                        void vscode.window.showErrorMessage(vscode_1.l10n.t('索引重建失败：{0}', err instanceof Error ? err.message : String(err)));
+                    void (0, projectIndexer_1.ensureProjectIndex)(true, { manual: true }).catch(err => {
+                        void vscode.window.showErrorMessage(vscode_1.l10n.t('Index rebuild failed: {0}', err instanceof Error ? err.message : String(err)));
                     });
                     break;
                 case 'toggle':
@@ -111,6 +116,11 @@ function openIndexManagerPanel() {
                     break;
                 case 'editCursorignore':
                     await openCursorignoreFile();
+                    break;
+                case 'getAllFiles':
+                    // 面板默认只显示最近 30 个文件；用户要确认"某个文件是否被索引"时按需拉全量
+                    // （配合客户端过滤框，大仓也能查）
+                    _panel?.webview.postMessage({ type: 'allFiles', files: (0, projectIndexer_1.getIndexFiles)().map(toFileRow) });
                     break;
             }
         }
@@ -126,6 +136,10 @@ function openIndexManagerPanel() {
 function pushState(panel) {
     panel.webview.postMessage({ type: 'state', state: buildPanelState() });
 }
+/** 文件行（用于全量文件列表消息） */
+function toFileRow(f) {
+    return { language: f.language || 'txt', relativePath: f.relativePath, symbolCount: f.symbolCount ?? 0 };
+}
 function buildPanelState() {
     const st = (0, projectIndexer_1.getIndexState)();
     const grepIndex = getCfg('grepIndex', true);
@@ -133,7 +147,7 @@ function buildPanelState() {
         status: st.status,
         progress: st.progress,
         stats: st.stats,
-        files: st.files.map(f => ({ language: f.language || 'txt', relativePath: f.relativePath })),
+        files: st.files.map(f => toFileRow(f)),
         config: {
             autoIndexNewFolders: getCfg('autoIndexNewFolders', true),
             ignoreCursorignore: getCfg('ignoreCursorignore', true),
@@ -149,7 +163,7 @@ async function handleToggle(key, value) {
         if (value) {
             const n = (await (0, projectIndexer_1.ensureGrepIndex)()).length;
             _grepFileCount = n;
-            void vscode.window.setStatusBarMessage(vscode_1.l10n.t('Grep 索引已构建：{0} 个文件', n), 4000);
+            void vscode.window.setStatusBarMessage(vscode_1.l10n.t('Grep index built: {0} files', n), 4000);
         }
         else {
             (0, projectIndexer_1.clearGrepIndex)();
@@ -158,48 +172,53 @@ async function handleToggle(key, value) {
     }
     else if (key === 'autoIndexNewFolders') {
         // 即时生效：关闭时停用文件监听，打开时重新启用
-        if (value)
+        if (value) {
             (0, projectIndexer_1.startIndexWatcher)(_ctx);
-        else
+        }
+        else {
             (0, projectIndexer_1.disposeIndexWatcher)();
+        }
     }
     else if (key === 'ignoreCursorignore') {
-        void (0, projectIndexer_1.ensureProjectIndex)(true).catch(err => {
-            void vscode.window.showErrorMessage(vscode_1.l10n.t('索引重建失败：{0}', err instanceof Error ? err.message : String(err)));
+        void (0, projectIndexer_1.ensureProjectIndex)(true, { manual: true }).catch(err => {
+            void vscode.window.showErrorMessage(vscode_1.l10n.t('Index rebuild failed: {0}', err instanceof Error ? err.message : String(err)));
         });
     }
     // 回发最新状态刷新面板
-    if (_panel)
+    if (_panel) {
         pushState(_panel);
+    }
 }
 // ── .cursorignore 编辑入口 ─────────────────────────────────────
 async function openCursorignoreFile() {
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (!folder) {
-        void vscode.window.showErrorMessage(vscode_1.l10n.t('当前没有打开的工作区文件夹'));
+        void vscode.window.showErrorMessage(vscode_1.l10n.t('No workspace folder is currently open'));
         return;
     }
     const file = path.join(folder.uri.fsPath, '.cursorignore');
     try {
         if (!fs.existsSync(file)) {
-            fs.writeFileSync(file, '# 在此文件中添加要从代码库索引中排除的文件/目录（glob 规则）\n', 'utf-8');
+            fs.writeFileSync(file, vscode_1.l10n.t('# Add files/directories (glob patterns) to exclude from the codebase index in this file') + '\n', 'utf-8');
         }
         const doc = await vscode.workspace.openTextDocument(file);
         await vscode.window.showTextDocument(doc);
     }
     catch (err) {
-        void vscode.window.showErrorMessage(vscode_1.l10n.t('打开 .cursorignore 失败：{0}', err instanceof Error ? err.message : String(err)));
+        void vscode.window.showErrorMessage(vscode_1.l10n.t('Failed to open .cursorignore: {0}', err instanceof Error ? err.message : String(err)));
     }
 }
 // ── Webview HTML ──────────────────────────────────────────────
-function getWebviewHtml() {
-    const nonce = 'kodrixIndexManagerN1';
+/** 面板 HTML（导出供测试断言：脚本可解析 + 文案全部走 l10n） */
+function buildIndexManagerHtml(webview) {
+    // 一次性 nonce（此前是硬编码常量，等于没有防护）
+    const nonce = (0, webviewHtml_1.createNonce)();
     return /* html */ `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="${(0, webviewHtml_1.webviewCsp)(webview, nonce)}">
 <style>
 :root {
 	--bg: #ffffff;
@@ -319,44 +338,48 @@ button[hidden] { display: none; }
 </style>
 </head>
 <body>
-<h1>索引与文档</h1>
-<div class="subtitle">管理 Kodrix 代码库索引</div>
+<h1>${vscode_1.l10n.t('Indexing & Docs')}</h1>
+<div class="subtitle">${vscode_1.l10n.t('Manage the Kodrix codebase index')}</div>
 
-<h2>代码库</h2>
+<h2>${vscode_1.l10n.t('Codebase')}</h2>
 <div class="card">
-	<h3>代码库索引</h3>
-	<p class="desc">嵌入代码库以提升上下文理解和知识。嵌入和元数据存储在云端，但所有代码都存储在本地。</p>
+	<h3>${vscode_1.l10n.t('Codebase index')}</h3>
+	<p class="desc">${vscode_1.l10n.t('Embed the codebase to improve context understanding and knowledge. Embeddings and metadata are stored in the cloud, but all code stays local.')}</p>
 	<div class="progress-row">
 		<span class="percent" id="percent">--</span>
 		<div class="bar"><div class="fill" id="fill"></div></div>
-		<button id="pauseBtn" hidden>Pause Indexing</button>
-		<button id="rebuildBtn" hidden>重建索引</button>
-		<button id="deleteBtn" class="danger">删除索引</button>
+		<button id="pauseBtn" hidden>${vscode_1.l10n.t('Pause Indexing')}</button>
+		<button id="rebuildBtn" hidden>${vscode_1.l10n.t('Rebuild Index')}</button>
+		<button id="deleteBtn" class="danger">${vscode_1.l10n.t('Delete index')}</button>
 	</div>
 	<div class="status"><span class="dot" id="dot"></span><span id="statusText">--</span></div>
+	<div class="file-tools" style="display:flex;gap:6px;align-items:center;margin:6px 0">
+		<input type="text" id="fileFilter" placeholder="${(0, webviewHtml_1.htmlAttr)(vscode_1.l10n.t('Filter file paths…'))}" style="flex:1;min-width:0">
+		<button id="loadAllFiles">${vscode_1.l10n.t('Show all')}</button>
+	</div>
 	<div class="file-list" id="fileList"></div>
 </div>
 
 <div class="settings">
 	<div class="setting-row">
 		<div class="setting-text">
-			<div class="title">索引新文件夹</div>
-			<div class="desc">自动索引包含少于 50,000 个文件的文件夹</div>
+			<div class="title">${vscode_1.l10n.t('Index new folder')}</div>
+			<div class="desc">${vscode_1.l10n.t('Automatically index folders with fewer than 50,000 files')}</div>
 		</div>
 		<div class="toggle"><input type="checkbox" id="autoIndexFolders" data-key="autoIndexNewFolders"><span class="track"></span></div>
 	</div>
 	<div class="setting-row">
 		<div class="setting-text">
-			<div class="title">忽略 .cursorignore 中的文件</div>
-			<div class="desc">除 .gitignore 外，还要从索引中排除的文件</div>
+			<div class="title">${vscode_1.l10n.t('Ignore files in .cursorignore')}</div>
+			<div class="desc">${vscode_1.l10n.t('Files to exclude from the index in addition to .gitignore')}</div>
 		</div>
 		<div class="toggle"><input type="checkbox" id="ignoreCursorignore" data-key="ignoreCursorignore"><span class="track"></span></div>
-		<button id="editCursorignore" class="ghost">编辑</button>
+		<button id="editCursorignore" class="ghost">${vscode_1.l10n.t('Edit')}</button>
 	</div>
 	<div class="setting-row">
 		<div class="setting-text">
-			<div class="title">为即时 Grep 索引仓库 <span class="beta">测试版</span></div>
-			<div class="desc">自动索引仓库以加速 Grep 搜索。所有数据均存储在本地。<span id="grepCount"></span></div>
+			<div class="title">${vscode_1.l10n.t('Index the repository for instant Grep')} <span class="beta">${vscode_1.l10n.t('Beta')}</span></div>
+			<div class="desc">${vscode_1.l10n.t('Automatically index the repository to speed up Grep searches. All data is stored locally.')}<span id="grepCount"></span></div>
 		</div>
 		<div class="toggle"><input type="checkbox" id="grepIndex" data-key="grepIndex"><span class="track"></span></div>
 	</div>
@@ -366,6 +389,9 @@ button[hidden] { display: none; }
 const vscode = acquireVsCodeApi();
 
 const $ = id => document.getElementById(id);
+
+/** 本地化后的动态文案：宿主侧已把 {0}/{1} 占位保留，这里按运行时的值替换 */
+const fmt = (template, ...args) => String(template).replace(/\\{(\\d+)\\}/g, (m, i) => (args[i] === undefined ? m : String(args[i])));
 
 function render(s) {
 	// 状态行
@@ -380,7 +406,7 @@ function render(s) {
 		percent.textContent = '--';
 		fill.style.width = '0%';
 		dot.className = 'dot';
-		statusText.textContent = '未索引';
+		statusText.textContent = ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Not indexed'))};
 		pauseBtn.hidden = true;
 		rebuildBtn.hidden = false;
 	} else if (s.status === 'building' || s.status === 'paused') {
@@ -389,35 +415,30 @@ function render(s) {
 		percent.textContent = pct + '%';
 		fill.style.width = pct + '%';
 		dot.className = 'dot ' + (s.status === 'paused' ? 'paused' : 'syncing');
-		statusText.textContent = s.status === 'paused' ? '已暂停 (Paused)' : '正在同步 (Syncing) ' + s.progress.parsed + '/' + total;
+		statusText.textContent = s.status === 'paused'
+			? ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Paused'))}
+			: fmt(${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Syncing {0}/{1}'))}, s.progress.parsed, total);
 		pauseBtn.hidden = false;
-		pauseBtn.textContent = s.status === 'paused' ? 'Resume' : 'Pause Indexing';
+		pauseBtn.textContent = s.status === 'paused' ? ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Resume'))} : ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Pause Indexing'))};
 		rebuildBtn.hidden = true;
 	} else if (s.status === 'done') {
 		const total = s.stats ? s.stats.totalFiles : 0;
-		percent.textContent = total + ' 文件';
+		percent.textContent = fmt(${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('{0} files'))}, total);
 		fill.style.width = '100%';
 		dot.className = 'dot done';
 		if (total === 0) {
-			statusText.textContent = '索引为空 — 未发现可索引源文件，可点击「重建索引」重试';
+			statusText.textContent = ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Index is empty — no indexable source files found. Click "Rebuild Index" to retry'))};
 		} else {
-			statusText.textContent = '索引完成' + (s.stats ? ' · ' + s.stats.totalSymbols + ' 个符号 · ' + Math.round((s.stats.indexDurationMs || 0) / 1000) + 's' : '');
+			statusText.textContent = s.stats
+				? fmt(${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Indexing complete · {0} symbols · {1}s'))}, s.stats.totalSymbols, Math.round((s.stats.indexDurationMs || 0) / 1000))
+				: ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Indexing complete'))};
 		}
 		pauseBtn.hidden = true;
 		rebuildBtn.hidden = false;
 	}
 
-	// 文件列表
-	const list = $('fileList');
-	if (!s.files || !s.files.length) {
-		list.innerHTML = s.status === 'done'
-			? '<div class="empty">尚无索引文件。请确认工作区已打开，且存在 .ts/.js/.py 等源文件（已排除 node_modules / out 等）。</div>'
-			: '<div class="empty">尚无索引文件</div>';
-	} else {
-		list.innerHTML = s.files.map(f =>
-			'<div class="file-item"><span class="lang-badge">' + escapeHtml(f.language) + '</span><span>' + escapeHtml(f.relativePath) + '</span></div>'
-		).join('');
-	}
+	// 文件列表：默认最近 30 条；点「显示全部」拉全量，配合过滤框可确认"某文件是否被索引"
+	renderFileList(s.files || [], s.status === 'done');
 
 	// 配置开关
 	const cfg = s.config || {};
@@ -427,7 +448,7 @@ function render(s) {
 	});
 	const grepCount = $('grepCount');
 	if (s.grepFileCount > 0) {
-		grepCount.textContent = '（已索引 ' + s.grepFileCount + ' 个文件）';
+		grepCount.textContent = fmt(${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('({0} files indexed)'))}, s.grepFileCount);
 	} else {
 		grepCount.textContent = '';
 	}
@@ -437,20 +458,59 @@ function escapeHtml(s) {
 	return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** 当前文件列表数据源：默认是最近 30 条，点「显示全部」后换成全量 */
+let fileRows = [];
+let fileRowsFull = false;
+
+function renderFileList(files, isDone) {
+	fileRows = files || [];
+	const filter = ($('fileFilter').value || '').trim().toLowerCase();
+	const shown = filter ? fileRows.filter(f => String(f.relativePath).toLowerCase().includes(filter)) : fileRows;
+	const list = $('fileList');
+	if (!shown.length) {
+		list.innerHTML = filter
+			? '<div class="empty">' + fmt(${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('No indexed files match "{0}". If the file does exist, check whether it is excluded by rules such as .cursorignore / node_modules, or click "Show All" and confirm.'))}, escapeHtml(filter)) + '</div>'
+			: (isDone
+				? '<div class="empty">' + ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('No indexed files yet. Make sure a workspace is open and contains source files such as .ts/.js/.py (node_modules / out etc. are excluded).'))} + '</div>'
+				: '<div class="empty">' + ${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('No indexed files yet'))} + '</div>');
+		return;
+	}
+	list.innerHTML = shown.map(f =>
+		'<div class="file-item"><span class="lang-badge">' + escapeHtml(f.language) + '</span><span>' + escapeHtml(f.relativePath) + '</span></div>'
+	).join('') + (filter || fileRowsFull
+		? ''
+		: '<div class="empty">' + fmt(${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Showing only the last {0} files — click "Show All" above to see the full list'))}, fileRows.length) + '</div>');
+}
+
 // 消息接收
+let lastIndexStatus = 'idle';
 window.addEventListener('message', e => {
-	if (e.data && e.data.type === 'state') render(e.data.state);
+	if (e.data && e.data.type === 'state') {
+		lastIndexStatus = e.data.state && e.data.state.status ? e.data.state.status : 'idle';
+		render(e.data.state);
+	} else if (e.data && e.data.type === 'allFiles') {
+		fileRowsFull = true;
+		renderFileList(e.data.files || [], true);
+	}
 });
 
-// 按钮
+$('loadAllFiles').addEventListener('click', () => {
+	vscode.postMessage({ type: 'getAllFiles' });
+});
+$('fileFilter').addEventListener('input', () => {
+	renderFileList(fileRows, lastIndexStatus === 'done');
+});
+
+// 按钮：同一个按钮在「构建中」发 pause、在「已暂停」发 resume
+// （此前固定发 pause，导致按钮显示 Resume 却点不动，索引永久卡在暂停态）
 $('pauseBtn').addEventListener('click', () => {
-	vscode.postMessage({ type: 'pause' });
+	vscode.postMessage({ type: lastIndexStatus === 'paused' ? 'resume' : 'pause' });
 });
 $('rebuildBtn').addEventListener('click', () => {
 	vscode.postMessage({ type: 'rebuild' });
 });
 $('deleteBtn').addEventListener('click', () => {
-	if (confirm('确定要删除代码库索引吗？删除后需要重新构建。')) {
+	if (confirm(${(0, webviewHtml_1.jsJson)(vscode_1.l10n.t('Delete the codebase index? You will need to rebuild it afterwards.'))})) {
 		vscode.postMessage({ type: 'delete' });
 	}
 });

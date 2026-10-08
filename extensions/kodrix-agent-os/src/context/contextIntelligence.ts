@@ -14,11 +14,12 @@ import { getSemanticContext, getTopicalMemories, getSemanticStats } from '../lea
 import {
 	WIKI_CACHE_TTL_MS,
 	ASSEMBLED_CONTEXT_MAX_CHARS,
-	COMPACT_CONTEXT_MAX_CHARS,
 	CONFIG_FEATURES,
 	COMMANDS,
 	INSTRUCTION_REGISTER_DELAY_MS,
+	FEATURE_FLAGS,
 } from '../shared/constants';
+import { isKodrixFeatureEnabled } from '../utils/featureFlags';
 
 /** 上下文摘要结构化数据 */
 export interface ContextSummary {
@@ -37,7 +38,8 @@ export function getContextSummary(): ContextSummary {
 	const wikiKB = wikiBytes / 1024;
 
 	const memory = readMemoryContent();
-	const memoryLines = Math.max(1, memory.split('\n').filter(l => l.trim().startsWith('-') || l.trim().startsWith('##')).length);
+	// 记忆条目计数：以 `-` 开头的条目 + 章节标题；空记忆如实为 0（此前 Math.max(1, …) 让"空"永远不可达）
+	const memoryLines = memory.split('\n').filter(l => l.trim().startsWith('-') || l.trim().startsWith('##')).length;
 
 	const learning = getRecentLearning(100);
 	const semantic = getSemanticStats();
@@ -64,20 +66,30 @@ let _cachedWikiTime = 0;
 
 function getCachedWikiContext(): string | null {
 	const now = Date.now();
-	if (_cachedWiki && (now - _cachedWikiTime) < WIKI_CACHE_TTL_MS) return _cachedWiki;
+	if (_cachedWiki && (now - _cachedWikiTime) < WIKI_CACHE_TTL_MS) {return _cachedWiki;}
 	_cachedWiki = getWikiContextForAgent();
 	_cachedWikiTime = now;
 	return _cachedWiki;
 }
 
+/**
+ * 清空上下文缓存。
+ * 必须在工作区切换与上下文刷新时调用：否则同一窗口从工作区 A 切到 B 后，
+ * 缓存窗口内会把 A 的仓库结构/模块清单注入到 B（跨项目内容泄漏）。
+ */
+export function invalidateContextCaches(): void {
+	_cachedWiki = null;
+	_cachedWikiTime = 0;
+}
+
 /** 获取当前编辑器内容作为上下文提示 */
 function getEditorContextHint(): string {
 	const editor = vscode.window.activeTextEditor;
-	if (!editor) return '';
+	if (!editor) {return '';}
 
 	const doc = editor.document;
 	const selection = doc.getText(editor.selection);
-	if (selection && selection.length > 10) return selection.slice(0, 500);
+	if (selection && selection.length > 10) {return selection.slice(0, 500);}
 
 	// 获取当前行附近内容
 	const cursor = editor.selection.active;
@@ -90,31 +102,50 @@ function getEditorContextHint(): string {
 	return contextLines.join('\n').slice(0, 800);
 }
 
-export function getAssembledContext(maxChars = ASSEMBLED_CONTEXT_MAX_CHARS): string {
-	const parts: string[] = [];
+/**
+ * 分层字符预算。
+ * 背景：原先只有"整体预算"（Chat 注入 2000 字符），而 Wiki 单层就可能到 12000 字符，
+ * 于是 `combined.slice(0, 2000)` 永远只留下 Wiki —— Memory / Learning / 语义记忆
+ * 在 UI 上显示"已就绪"，实际永远进不了 prompt。现在每层独立截断后再拼装。
+ */
+export const CONTEXT_LAYER_BUDGETS = {
+	wiki: 1200,
+	memory: 500,
+	learning: 400,
+	semantic: 400,
+} as const;
 
-	// 1. Wiki context (cached to avoid redundant file I/O)
-	const wiki = getCachedWikiContext();
-	if (wiki) parts.push(wiki);
+/** Chat 注入总预算：四层预算之和（1200+500+400+400=2500）+ 结构开销 */
+export const CHAT_CONTEXT_MAX_CHARS = 3000;
 
-	// 2. Memory
-	const memory = readMemoryContent().slice(0, 2000);
-	if (memory) parts.push(`[Project Memory]\n${memory}`);
-
-	// 3. Recent learning (recency-based, sync path — no semantic query)
-	const learning = getRecentLearning(5);
-	if (learning.length) {
-		const header = '[Recent Learning]';
-		const lines = learning.map(e => `- [${e.category}] ${e.content}`);
-		parts.push(`${header}\n${lines.join('\n')}`);
+/**
+ * 分层开关（单一来源：`kodrix.features.*`）。
+ * 状态栏的「选择要注入的上下文层级」写的就是这些配置项，装配时必须真的读它们，
+ * 否则开关只是装饰（曾出现"取消勾选后注入内容完全不变"）。
+ */
+export function isContextLayerEnabled(layer: 'wiki' | 'memory' | 'learning' | 'semantic'): boolean {
+	const cfg = vscode.workspace.getConfiguration(CONFIG_FEATURES);
+	switch (layer) {
+		case 'wiki': return cfg.get<boolean>('wiki', true);
+		case 'memory': return cfg.get<boolean>('memory', true);
+		case 'learning': return cfg.get<boolean>('learning', true);
+		case 'semantic': return cfg.get<boolean>('semanticMemory', true) !== false;
 	}
+}
 
-	// NOTE: 语义记忆检索（query-based）已移至异步路径 getAssembledContextFull()
+/** Hub 卡片预览的上下文长度（与 Chat 注入预算 CHAT_CONTEXT_MAX_CHARS 分开：预览只需一小段） */
+export const HUB_PREVIEW_MAX_CHARS = 600;
 
-	const combined = parts.join('\n\n');
-	if (combined.length <= maxChars) return combined;
+/** 单层超预算时截断并显式标注（避免"看起来完整、实际被砍"的误判） */
+export function truncateLayer(text: string, budget: number): string {
+	const trimmed = text.trim();
+	if (trimmed.length <= budget) {return trimmed;}
+	return `${trimmed.slice(0, budget).trimEnd()}\n…（本层已截断，原 ${trimmed.length} 字符）`;
+}
 
-	// Graceful truncation: cut at the last double-newline (paragraph boundary)
+/** 按段落边界做整体预算裁剪 */
+export function applyTotalBudget(combined: string, maxChars: number): string {
+	if (combined.length <= maxChars) {return combined;}
 	const truncated = combined.slice(0, maxChars);
 	const lastBreak = truncated.lastIndexOf('\n\n');
 	if (lastBreak > maxChars * 0.7) {
@@ -123,39 +154,119 @@ export function getAssembledContext(maxChars = ASSEMBLED_CONTEXT_MAX_CHARS): str
 	return truncated + '\n…(truncated)';
 }
 
-/**
- * 异步版本的完整上下文组装，包含语义记忆检索
- */
-export async function getAssembledContextFull(maxChars = ASSEMBLED_CONTEXT_MAX_CHARS): Promise<string> {
-	const sync = getAssembledContext(maxChars);
-	const editorCtx = getEditorContextHint();
-	if (!editorCtx) return sync;
-
-	try {
-		const semantic = await getSemanticContext(editorCtx, 1000);
-		if (semantic && !sync.includes(semantic.slice(10, 50))) {
-			const combined = sync + '\n\n' + semantic;
-			if (combined.length <= maxChars) return combined;
-			return combined.slice(0, maxChars) + '\n…(truncated)';
-		}
-	} catch {
-		// semantic search failed, return sync version
-	}
-	return sync;
+/** 同步构建的上下文层（wiki / memory / learning），已按各自预算截断 */
+export interface ContextLayers {
+	wiki: string;
+	memory: string;
+	learning: string;
 }
 
-/** 获取简短上下文（用于状态栏 / tooltip） */
-export function getCompactContext(maxChars = COMPACT_CONTEXT_MAX_CHARS): string {
+/**
+ * 构建同步三层内容（wiki / memory / learning）。
+ * 抽出来的目的：状态栏只需要"各层大小"，不该为此把 5 万字符拼成一个字符串（纯属浪费）。
+ */
+export function buildContextLayers(): ContextLayers {
+	const wiki = isContextLayerEnabled('wiki') ? getCachedWikiContext() : null;
+	const memory = isContextLayerEnabled('memory') ? readMemoryContent() : '';
+	const learning = isContextLayerEnabled('learning') ? getRecentLearning(5) : [];
+
+	const learningText = learning.length
+		? `[Recent Learning]\n${learning.map(e => `- [${e.category}] ${e.content}`).join('\n')}`
+		: '';
+
+	return {
+		wiki: wiki ? truncateLayer(wiki, CONTEXT_LAYER_BUDGETS.wiki) : '',
+		memory: memory.trim() ? truncateLayer(`[Project Memory]\n${memory}`, CONTEXT_LAYER_BUDGETS.memory) : '',
+		learning: learningText ? truncateLayer(learningText, CONTEXT_LAYER_BUDGETS.learning) : '',
+	};
+}
+
+export function getAssembledContext(maxChars = ASSEMBLED_CONTEXT_MAX_CHARS): string {
+	const layers = buildContextLayers();
+	const parts = [layers.wiki, layers.memory, layers.learning].filter(Boolean);
+	// NOTE: 语义记忆检索（query-based）在异步路径 getAssembledContextFull() 中
+	return applyTotalBudget(parts.join('\n\n'), maxChars);
+}
+
+/**
+ * 上下文规模汇总（供状态栏 tooltip 使用）：**只统计各层字符数，不拼接字符串**。
+ * 此前状态栏为了显示一个数字调用了 `getAssembledContext(50000)`，等于每次刷新都做一次全量组装。
+ */
+export function getContextSizeSummary(): { totalChars: number; layers: Record<keyof ContextLayers, number> } {
+	const layers = buildContextLayers();
+	const sizes = {
+		wiki: layers.wiki.length,
+		memory: layers.memory.length,
+		learning: layers.learning.length,
+	};
+	return { totalChars: sizes.wiki + sizes.memory + sizes.learning, layers: sizes };
+}
+
+/**
+ * Chat 上下文提供者专用：只组装**指令文件未覆盖**的层（Learning + Semantic）。
+ *
+ * 为什么需要它：Wiki 与 Memory 已经由 `.kodrix/instructions/*.md` 的指令文件注入
+ * （`chat.instructionsFilesLocations`，见 instructionRegistry），Chat 上下文提供者若再把
+ * 同一份 Wiki/Memory 拼进来，同一个 prompt 里就会出现 2–3 份重复内容（实测约 3–4k token 浪费）。
+ * 只在**指令注入关闭**时才回退到全量组装（否则用户会完全失去 Wiki/Memory 上下文）。
+ */
+export async function getChatOnlyContext(maxChars = CHAT_CONTEXT_MAX_CHARS): Promise<string> {
 	const parts: string[] = [];
-	const wiki = getCachedWikiContext();
-	if (wiki) parts.push(wiki.slice(0, 80));
-	const memory = readMemoryContent();
-	if (memory) parts.push(`Memory: ${memory.slice(0, 60)}…`);
-	const learning = getRecentLearning(2);
+
+	const learning = isContextLayerEnabled('learning') ? getRecentLearning(5) : [];
 	if (learning.length) {
-		parts.push(`Learning: ${learning.map(e => e.category).join(', ')}`);
+		const lines = learning.map(e => `- [${e.category}] ${e.content}`);
+		parts.push(truncateLayer(`[Recent Learning]\n${lines.join('\n')}`, CONTEXT_LAYER_BUDGETS.learning));
 	}
-	return parts.join(' | ').slice(0, maxChars);
+
+	const editorCtx = isContextLayerEnabled('semantic') ? getEditorContextHint() : '';
+	if (editorCtx) {
+		try {
+			const semantic = await getSemanticContext(editorCtx, CONTEXT_LAYER_BUDGETS.semantic);
+			if (semantic && semantic.trim()) {
+				parts.push(truncateLayer(semantic, CONTEXT_LAYER_BUDGETS.semantic));
+			}
+		} catch {
+			// 语义检索失败：不影响 Learning 层注入
+		}
+	}
+
+	return applyTotalBudget(parts.join('\n\n'), maxChars);
+}
+
+/**
+ * 异步版本的完整上下文组装，包含语义记忆检索。
+ * 四层各自按预算截断后再拼装，最后才做整体裁剪 —— 保证任何一层都不会被前一层挤掉。
+ */
+export async function getAssembledContextFull(maxChars = ASSEMBLED_CONTEXT_MAX_CHARS): Promise<string> {
+	const parts: string[] = [];
+
+	const wiki = isContextLayerEnabled('wiki') ? getCachedWikiContext() : null;
+	if (wiki) {parts.push(truncateLayer(wiki, CONTEXT_LAYER_BUDGETS.wiki));}
+
+	const memory = isContextLayerEnabled('memory') ? readMemoryContent() : '';
+	if (memory.trim()) {parts.push(truncateLayer(`[Project Memory]\n${memory}`, CONTEXT_LAYER_BUDGETS.memory));}
+
+	const learning = isContextLayerEnabled('learning') ? getRecentLearning(5) : [];
+	if (learning.length) {
+		const lines = learning.map(e => `- [${e.category}] ${e.content}`);
+		parts.push(truncateLayer(`[Recent Learning]\n${lines.join('\n')}`, CONTEXT_LAYER_BUDGETS.learning));
+	}
+
+	// 语义记忆：以编辑器上下文为查询，单独占一层预算（失败不影响其它层）
+	const editorCtx = isContextLayerEnabled('semantic') ? getEditorContextHint() : '';
+	if (editorCtx) {
+		try {
+			const semantic = await getSemanticContext(editorCtx, CONTEXT_LAYER_BUDGETS.semantic);
+			if (semantic && semantic.trim()) {
+				parts.push(truncateLayer(semantic, CONTEXT_LAYER_BUDGETS.semantic));
+			}
+		} catch {
+			// 语义检索失败：其余三层照常注入
+		}
+	}
+
+	return applyTotalBudget(parts.join('\n\n'), maxChars);
 }
 
 /** 智能上下文建议（根据当前编辑器内容推荐关注点） */
@@ -177,8 +288,8 @@ export async function getContextSuggestions(): Promise<ContextSuggestion[]> {
 			if (r.score > 0.2) {
 				suggestions.push({
 					type: 'semantic',
-					title: `相关记忆：${r.entry.content.slice(0, 60)}…`,
-					detail: `[${r.entry.category}] 相似度 ${(r.score * 100).toFixed(0)}%`,
+					title: l10n.t('Related memory: {0}…', r.entry.content.slice(0, 60)),
+					detail: l10n.t('[{0}] Similarity {1}%', r.entry.category, (r.score * 100).toFixed(0)),
 				});
 			}
 		}
@@ -189,8 +300,8 @@ export async function getContextSuggestions(): Promise<ContextSuggestion[]> {
 	if (!wiki) {
 		suggestions.push({
 			type: 'wiki',
-			title: '尚未生成 Repo Wiki',
-			detail: '运行「Kodrix: 生成 Repo Wiki」加速 Agent 理解项目',
+			title: l10n.t('Repo Wiki has not been generated yet'),
+			detail: l10n.t('Run "Kodrix: Generate Repo Wiki" to help the Agent understand the project faster'),
 			action: COMMANDS.wikiGenerate,
 		});
 	}
@@ -200,8 +311,8 @@ export async function getContextSuggestions(): Promise<ContextSuggestion[]> {
 	if (!memory.trim()) {
 		suggestions.push({
 			type: 'memory',
-			title: '项目 Memory 为空',
-			detail: '使用 Ctrl+Shift+Alt+M 沉淀第一条项目知识',
+			title: l10n.t('Project Memory is empty'),
+			detail: l10n.t('Press Ctrl+Shift+Alt+M to distill your first piece of project knowledge'),
 			action: COMMANDS.learnCapture,
 		});
 	}
@@ -225,12 +336,13 @@ export function getContextStatus(): {
 	const learning = getRecentLearning(100);
 	const semantic = getSemanticStats();
 
-	const assembled = getAssembledContext(50000);
-	const charCount = assembled.length;
+	// 只统计规模，不拼接 5 万字符的上下文串（状态栏、Hub 每次刷新都会走这里）
+	const charCount = getContextSizeSummary().totalChars;
 
 	return {
 		wikiOk: !!wiki,
-		memoryCount: Math.max(1, memoryLines),
+		// 空记忆如实报 0：让状态栏/建议能给出"去沉淀第一条"的引导（此前恒 ≥1，空态永不可达）
+		memoryCount: memoryLines,
 		learningCount: learning.length,
 		semanticVectors: semantic.totalVectors,
 		contextSize: charCount > 10000 ? `${(charCount / 1000).toFixed(1)}K` : `${charCount} chars`,
@@ -239,12 +351,12 @@ export function getContextStatus(): {
 
 export async function refreshAllContext(): Promise<void> {
 	if (!vscode.workspace.workspaceFolders?.length) {
-		vscode.window.showWarningMessage(l10n.t('请先打开工作区文件夹'));
+		vscode.window.showWarningMessage(l10n.t('Please open a workspace folder first'));
 		return;
 	}
 
 	await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: l10n.t('Kodrix: 刷新 Agent 上下文…') },
+		{ location: vscode.ProgressLocation.Notification, title: l10n.t('Kodrix: Refreshing Agent context…') },
 		async () => {
 			await generateRepoWiki({ recordLearning: true });
 			syncProjectInstructionsFile();
@@ -254,7 +366,7 @@ export async function refreshAllContext(): Promise<void> {
 			notifyContextChanged();
 		},
 	);
-	vscode.window.showInformationMessage(l10n.t('Agent 上下文已刷新（Wiki + Memory + Semantic + Instructions）'));
+	vscode.window.showInformationMessage(l10n.t('Agent context refreshed (Wiki + Memory + Semantic + Instructions)'));
 }
 
 export async function showContextStatus(): Promise<void> {
@@ -307,17 +419,6 @@ export async function showContextStatus(): Promise<void> {
 	await vscode.window.showTextDocument(doc);
 }
 
-/** 状态栏显示上下文摘要 */
-export function getStatusBarText(): string {
-	const status = getContextStatus();
-	const parts: string[] = [];
-	if (status.wikiOk) parts.push('W');
-	if (status.memoryCount > 0) parts.push(`M${status.memoryCount}`);
-	if (status.learningCount > 0) parts.push(`L${status.learningCount}`);
-	if (status.semanticVectors > 0) parts.push(`S${status.semanticVectors}`);
-	return parts.length ? `Kodrix: ${parts.join('·')}` : 'Kodrix';
-}
-
 type WorkspaceChatContextItem = {
 	label: string;
 	icon?: vscode.ThemeIcon;
@@ -341,34 +442,51 @@ export function registerContextIntelligence(context: vscode.ExtensionContext): v
 		vscode.commands.registerCommand(COMMANDS.contextRefresh, () => refreshAllContext()),
 	);
 
-	setTimeout(() => {
+	const instructionTimer = setTimeout(() => {
 		void registerInstructionFolders();
 	}, INSTRUCTION_REGISTER_DELAY_MS);
+	// 延迟注册定时器纳入 subscriptions：扩展卸载时取消（触发时机不变）
+	context.subscriptions.push(new vscode.Disposable(() => clearTimeout(instructionTimer)));
+
+	// 工作区切换 → 清空缓存（否则新工作区会短暂复用上一个工作区的 Wiki 内容）
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeWorkspaceFolders(() => invalidateContextCaches()),
+	);
+	// 上下文被显式刷新（wiki 重新生成 / 记忆写入 / session 学习）→ 清空缓存，保证下次注入是最新内容
+	context.subscriptions.push(onContextChanged(() => invalidateContextCaches()));
 
 	const chatApi = (vscode as typeof vscode & { chat?: ChatWorkspaceApi }).chat;
 	if (chatApi?.registerChatWorkspaceContextProvider) {
 		const provider = {
 			onDidChangeWorkspaceChatContext: onContextChanged,
 			provideWorkspaceChatContext: async (_token: vscode.CancellationToken): Promise<WorkspaceChatContextItem[]> => {
-				const enabled = vscode.workspace.getConfiguration(CONFIG_FEATURES).get<boolean>('contextInjection', true);
-				if (!enabled) return [];
+				// 总开关 kodrix.features.contextIntelligence（模块级）+ 注入开关 kodrix.features.contextInjection，
+				// 任一关闭即不注入（均默认 true，不配置时行为与此前一致）
+				const enabled = isKodrixFeatureEnabled(FEATURE_FLAGS.contextIntelligence)
+					&& vscode.workspace.getConfiguration(CONFIG_FEATURES).get<boolean>(FEATURE_FLAGS.contextInjection, true);
+				if (!enabled) {return [];}
 
-				const value = await getAssembledContextFull(2000);
-				if (!value.trim()) return [];
+				// 指令注入开启时：Wiki/Memory 已由指令文件提供 → 这里只补 Learning/Semantic，避免同 prompt 重复
+				const instructionsActive = vscode.workspace.getConfiguration(CONFIG_FEATURES)
+					.get<boolean>(FEATURE_FLAGS.contextInjection, true);
+				const value = instructionsActive
+					? await getChatOnlyContext(CHAT_CONTEXT_MAX_CHARS)
+					: await getAssembledContextFull(CHAT_CONTEXT_MAX_CHARS);
+				if (!value.trim()) {return [];}
 
 				const summary = getContextSummary();
-				const summaryText = l10n.t('上下文: Wiki {0}KB + Memory {1}条 + Learning {2}条 + Semantic {3}向量 ≈ {4} tokens',
+				const summaryText = l10n.t('Context: Wiki {0}KB + Memory {1} entries + Learning {2} entries + Semantic {3} vectors ≈ {4} tokens',
 					summary.wikiKB.toFixed(1), summary.memoryCount, summary.learningCount, summary.semanticVectors, summary.estimatedTokens);
 
 				return [
 					{
-						label: l10n.t('Kodrix 项目上下文（Wiki + Memory + Semantic）'),
+						label: l10n.t('Kodrix project context (Wiki + Memory + Semantic)'),
 						icon: new vscode.ThemeIcon('brain'),
-						modelDescription: l10n.t('Repo Wiki + Memory + 学习沉淀 + 语义记忆的智能组装'),
+						modelDescription: l10n.t('Smart assembly of Repo Wiki + Memory + learning captures + semantic memory'),
 						value,
 					},
 					{
-						label: l10n.t('Kodrix 上下文摘要'),
+						label: l10n.t('Kodrix Context Summary'),
 						icon: new vscode.ThemeIcon('info'),
 						modelDescription: summaryText,
 						value: summaryText,

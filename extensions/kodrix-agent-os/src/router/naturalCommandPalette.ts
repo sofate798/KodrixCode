@@ -8,15 +8,15 @@ import { classifyIntent } from './agentRouter';
 
 // 命令映射表
 const COMMAND_MAP: Record<string, { command: string; labelKey: string; descKey: string; icon?: string }> = {
-	agent: { command: 'workbench.action.chat.open', labelKey: 'Agent 模式', descKey: '多文件编辑与自主推理', icon: '$(robot)' },
-	spec: { command: 'kodrix.spec.create', labelKey: '创建 Spec', descKey: '需求→设计→任务三件套', icon: '$(file-code)' },
-	plan: { command: 'kodrix.agent.plan', labelKey: 'Plan 模式', descKey: '只读分析与规划', icon: '$(checklist)' },
-	ask: { command: 'workbench.action.chat.open', labelKey: 'Ask 模式', descKey: '问答与探索', icon: '$(question)' },
-	terminal: { command: 'kodrix.terminal.aiPrompt', labelKey: '终端 AI', descKey: '自然语言生成并运行命令', icon: '$(terminal)' },
-	wiki: { command: 'kodrix.wiki.generate', labelKey: '生成 Repo Wiki', descKey: '项目文档与架构分析', icon: '$(book)' },
-	checkpoint: { command: 'kodrix.checkpoint.list', labelKey: '检查点管理', descKey: '查看/回滚/创建检查点', icon: '$(history)' },
-	models: { command: 'kodrix.modelRouter.status', labelKey: '模型供应商管理', descKey: '配置 AI 模型与 API', icon: '$(gear)' },
-	settings: { command: 'workbench.action.openSettings', labelKey: 'Kodrix 设置', descKey: '打开 Kodrix 配置', icon: '$(settings-gear)' },
+	agent: { command: 'workbench.action.chat.open', labelKey: 'Agent Mode', descKey: 'Multi-file editing and autonomous reasoning', icon: '$(robot)' },
+	spec: { command: 'kodrix.spec.create', labelKey: 'Create Spec', descKey: 'Requirements → design → tasks trio', icon: '$(file-code)' },
+	plan: { command: 'kodrix.agent.plan', labelKey: 'Plan Mode', descKey: 'Read-only analysis and planning', icon: '$(checklist)' },
+	ask: { command: 'workbench.action.chat.open', labelKey: 'Ask Mode', descKey: 'Q&A and exploration', icon: '$(question)' },
+	terminal: { command: 'kodrix.terminal.aiPrompt', labelKey: 'Terminal AI', descKey: 'Generate and run commands from natural language', icon: '$(terminal)' },
+	wiki: { command: 'kodrix.wiki.generate', labelKey: 'Generate Repo Wiki', descKey: 'Project docs and architecture analysis', icon: '$(book)' },
+	checkpoint: { command: 'kodrix.checkpoint.list', labelKey: 'Checkpoint Management', descKey: 'View / roll back / create checkpoints', icon: '$(history)' },
+	models: { command: 'kodrix.modelRouter.status', labelKey: 'Model Provider Management', descKey: 'Configure AI models and APIs', icon: '$(gear)' },
+	settings: { command: 'workbench.action.openSettings', labelKey: 'Kodrix Settings', descKey: 'Open Kodrix configuration', icon: '$(settings-gear)' },
 };
 
 // 路由目标到 QuickPick key 的映射
@@ -43,7 +43,7 @@ export function registerNaturalCommandPalette(context: vscode.ExtensionContext):
 			}));
 
 			const picked = await vscode.window.showQuickPick(items, {
-				placeHolder: l10n.t('输入自然语言或选择命令...'),
+				placeHolder: l10n.t('Type natural language or pick a command...'),
 				matchOnDescription: true,
 			});
 
@@ -70,8 +70,8 @@ export function registerNaturalCommandPalette(context: vscode.ExtensionContext):
 	context.subscriptions.push(
 		vscode.commands.registerCommand('kodrix.router.naturalInput', async () => {
 			const input = await vscode.window.showInputBox({
-				prompt: l10n.t('用自然语言描述你想做的事...'),
-				placeHolder: l10n.t('例如：打开终端、查看检查点、模型配置...'),
+				prompt: l10n.t('Describe what you want to do in natural language...'),
+				placeHolder: l10n.t('e.g., open the terminal, view checkpoints, model configuration...'),
 			});
 
 			if (!input?.trim()) {
@@ -89,7 +89,7 @@ export function registerNaturalCommandPalette(context: vscode.ExtensionContext):
 					await vscode.commands.executeCommand(entry.command);
 				}
 				vscode.window.setStatusBarMessage(
-					`$(hubot) ${l10n.t('已路由到')} ${l10n.t(entry.labelKey)}（${route.reason}）`,
+					`$(hubot) ${l10n.t('Routed to')} ${l10n.t(entry.labelKey)}（${route.reason}）`,
 					3000,
 				);
 			} else {

@@ -1,7 +1,7 @@
 "use strict";
 /*---------------------------------------------------------------------------------------------
- *  Codebase Intelligence — 全工程级语义索引类型定义
- *  大厂对标：Sourcegraph Code Intelligence + GitHub Copilot Workspace Context
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SymbolVisibility = exports.SymbolKind = void 0;

@@ -50,6 +50,7 @@ exports.findAffectedCallSites = findAffectedCallSites;
 exports.getAffectedFilesForSymbol = getAffectedFilesForSymbol;
 exports.registerPredictiveCompletion = registerPredictiveCompletion;
 const vscode = __importStar(require("vscode"));
+const vscode_1 = require("vscode");
 const projectIndexer_1 = require("./projectIndexer");
 const logger_1 = require("../logger");
 const types_1 = require("./types");
@@ -76,11 +77,13 @@ function getCachedIndex() {
 /** 检测到函数调用时，匹配项目中的函数签名 */
 function matchFunctionCall(prefix, index) {
     const callMatch = prefix.match(/(?:(\w+)\.(\w+)|(\w+))\s*\(\s*?$/);
-    if (!callMatch)
+    if (!callMatch) {
         return null;
+    }
     const funcName = callMatch[2] || callMatch[3];
-    if (!funcName || funcName.length < 2)
+    if (!funcName || funcName.length < 2) {
         return null;
+    }
     for (const [name, ids] of Object.entries(index.symbolNameIndex)) {
         if (name.toLowerCase() === funcName.toLowerCase()) {
             for (const id of ids) {
@@ -90,8 +93,9 @@ function matchFunctionCall(prefix, index) {
                     if (sigMatch) {
                         const params = sigMatch[1].trim();
                         const afterParen = prefix.substring(prefix.lastIndexOf('(') + 1);
-                        if (afterParen.trim())
+                        if (afterParen.trim()) {
                             return null;
+                        }
                         return params;
                     }
                 }
@@ -103,16 +107,19 @@ function matchFunctionCall(prefix, index) {
 /** 检测到变量名引用时，匹配项目中的导出符号 */
 function matchSymbolReference(prefix, index) {
     const wordMatch = prefix.match(/([a-zA-Z_$][\w.]*)$/);
-    if (!wordMatch)
+    if (!wordMatch) {
         return null;
+    }
     const partial = wordMatch[1];
-    if (partial.length < 3)
+    if (partial.length < 3) {
         return null;
+    }
     const matches = [];
     let scanned = 0;
     for (const [name, ids] of Object.entries(index.symbolNameIndex)) {
-        if (++scanned > MAX_SYMBOL_SCAN_ENTRIES)
+        if (++scanned > MAX_SYMBOL_SCAN_ENTRIES) {
             break;
+        }
         if (name.startsWith(partial) && name !== partial && name.length > partial.length) {
             for (const id of ids) {
                 const sym = index.symbols[id];
@@ -123,16 +130,18 @@ function matchSymbolReference(prefix, index) {
             }
         }
     }
-    if (matches.length === 0)
+    if (matches.length === 0) {
         return null;
+    }
     matches.sort((a, b) => b.score - a.score);
     return matches[0].name.substring(partial.length);
 }
 /** 检测到链式调用，匹配项目中的已知 API */
 function matchChainedCall(prefix, index) {
     const chainMatch = prefix.match(/\.(\w*)$/);
-    if (!chainMatch)
+    if (!chainMatch) {
         return null;
+    }
     const partial = chainMatch[1];
     const beforeDot = prefix.slice(0, prefix.lastIndexOf('.'));
     const objNameMatch = beforeDot.match(/([a-zA-Z_$]\w*)\s*$/);
@@ -156,12 +165,14 @@ function matchChainedCall(prefix, index) {
             const sym = index.symbols[id];
             if (sym && sym.name === objName && (sym.kind === types_1.SymbolKind.Class || sym.kind === types_1.SymbolKind.Interface)) {
                 objSymbols.push(sym);
-                if (objSymbols.length >= MAX_OBJ_SYMBOLS)
+                if (objSymbols.length >= MAX_OBJ_SYMBOLS) {
                     break;
+                }
             }
         }
-        if (objSymbols.length >= MAX_OBJ_SYMBOLS)
+        if (objSymbols.length >= MAX_OBJ_SYMBOLS) {
             break;
+        }
     }
     for (const objSym of objSymbols) {
         // 构建该类的子方法索引：只在找到的 class/interface 中搜索一次
@@ -212,12 +223,14 @@ class ProjectAwareCompletionProvider {
     async provideInlineCompletionItems(document, position, _context, token) {
         // 节流：避免每次击键都触发完整搜索
         const now = Date.now();
-        if (now - this._lastCallTime < this._minCallInterval)
+        if (now - this._lastCallTime < this._minCallInterval) {
             return [];
+        }
         this._lastCallTime = now;
         const items = [];
-        if (token.isCancellationRequested)
+        if (token.isCancellationRequested) {
             return items;
+        }
         // 获取编辑器上下文
         let prefix, suffix;
         try {
@@ -231,33 +244,34 @@ class ProjectAwareCompletionProvider {
         }
         // 获取索引（带 TTL 缓存，避免大文件下每次击键都读索引）
         const index = getCachedIndex();
-        if (!index || index.stats.totalSymbols === 0)
+        if (!index || index.stats.totalSymbols === 0) {
             return items;
+        }
         const suggestions = [];
         try {
             const funcCall = matchFunctionCall(prefix, index);
             if (funcCall) {
-                suggestions.push({ text: funcCall, reason: '项目函数签名匹配', confidence: 0.9 });
+                suggestions.push({ text: funcCall, reason: vscode_1.l10n.t('Project function signature match'), confidence: 0.9 });
             }
         }
         catch { /* 单次匹配失败不影响其他补全 */ }
         try {
             const symbolRef = matchSymbolReference(prefix, index);
             if (symbolRef) {
-                suggestions.push({ text: symbolRef, reason: '项目导出符号匹配', confidence: 0.85 });
+                suggestions.push({ text: symbolRef, reason: vscode_1.l10n.t('Project exported symbol match'), confidence: 0.85 });
             }
         }
         catch { /* 同上 */ }
         try {
             const chained = matchChainedCall(prefix, index);
             if (chained) {
-                suggestions.push({ text: chained, reason: 'API 链式调用模式', confidence: 0.75 });
+                suggestions.push({ text: chained, reason: vscode_1.l10n.t('API chained-call pattern'), confidence: 0.75 });
             }
         }
         catch { /* 同上 */ }
         const block = matchBlockCompletion(prefix, suffix);
         if (block) {
-            suggestions.push({ text: block, reason: '代码块闭合', confidence: 0.65 });
+            suggestions.push({ text: block, reason: vscode_1.l10n.t('Code block closing'), confidence: 0.65 });
         }
         for (const s of suggestions) {
             items.push(new vscode.InlineCompletionItem(s.text));
@@ -270,8 +284,9 @@ exports.ProjectAwareCompletionProvider = ProjectAwareCompletionProvider;
 /** 检测签名变更时，查找所有调用点 */
 function findAffectedCallSites(filePath, symbolName) {
     const index = (0, projectIndexer_1.getProjectIndex)();
-    if (!index)
+    if (!index) {
         return [];
+    }
     const symId = `${filePath}#${symbolName}`;
     const calls = index.calls.filter(c => c.calleeId === symId);
     return calls.map(c => ({
@@ -282,8 +297,9 @@ function findAffectedCallSites(filePath, symbolName) {
 /** 当符号被重命名/修改时，返回需要同步更新的文件列表 */
 function getAffectedFilesForSymbol(filePath, symbolName) {
     const index = (0, projectIndexer_1.getProjectIndex)();
-    if (!index)
+    if (!index) {
         return [];
+    }
     const symId = `${filePath}#${symbolName}`;
     const importers = index.reverseDependencyGraph[filePath] || [];
     const callers = index.calls

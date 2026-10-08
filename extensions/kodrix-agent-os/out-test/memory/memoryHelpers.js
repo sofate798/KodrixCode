@@ -36,6 +36,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getMemoryTemplate = getMemoryTemplate;
 exports.readMemoryContent = readMemoryContent;
 exports.ensureMemoryFile = ensureMemoryFile;
 exports.appendMemoryBullet = appendMemoryBullet;
@@ -44,6 +45,7 @@ exports.persistMemoryAppend = persistMemoryAppend;
 const fs = __importStar(require("fs"));
 const paths_1 = require("../paths");
 const fsSafe_1 = require("../utils/fsSafe");
+const textFile_1 = require("../utils/textFile");
 const DEFAULT_MEMORY = `# 项目 Memory
 
 > Kodrix 跨会话记忆 · 自动注入 Agent 上下文
@@ -70,15 +72,25 @@ const DEFAULT_MEMORY = `# 项目 Memory
 - （例：此项目 API 需要 X-Custom-Header）
 `;
 /**
- * 只读读取 Memory 内容。文件不存在时返回默认模板但**不写盘**（避免读操作产生副作用）。
- * 首次写入由 appendMemoryBullet / writeMemoryContentRaw / ensureMemoryFile 显式完成。
+ * Memory 初始模板（仅用于"首次写入"与"在编辑器中打开"这类显式创建场景）。
+ * 注意：不要把它当作"读取结果"返回 —— 模板里的示例文本会被当成真实项目记忆注入 prompt，
+ * 并被 learningEngine 固化成 Agent 指令（曾出现"从没沉淀过知识，Agent 却收到示例偏好"）。
+ */
+function getMemoryTemplate() {
+    return DEFAULT_MEMORY;
+}
+/**
+ * 只读读取 Memory 内容。**文件不存在时返回空串**（不写盘、也不返回模板）：
+ * 让"项目 Memory 为空"这个状态能被上层如实判断并给出引导。
  */
 function readMemoryContent() {
     const memPath = (0, paths_1.getMemoryPath)();
     if (!fs.existsSync(memPath)) {
-        return DEFAULT_MEMORY;
+        return '';
     }
-    return fs.readFileSync(memPath, 'utf-8');
+    // 容错 BOM / UTF-16 / GBK，且读失败返回空串而不是抛错：
+    // memory.md 是用户直接用编辑器改的文件，一次读失败不应把整条上下文组装链路带崩
+    return (0, textFile_1.readUserTextFileSync)(memPath) ?? '';
 }
 /**
  * 确保 memory.md 存在（用于需要真实文件的场景，如在编辑器中打开）。
@@ -88,7 +100,7 @@ function ensureMemoryFile() {
     const memPath = (0, paths_1.getMemoryPath)();
     if (!fs.existsSync(memPath)) {
         (0, paths_1.ensureDir)((0, paths_1.getMemoryDir)());
-        (0, fsSafe_1.atomicWriteFileSync)(memPath, DEFAULT_MEMORY);
+        (0, fsSafe_1.atomicWriteFileSync)(memPath, getMemoryTemplate());
     }
     return memPath;
 }
@@ -109,7 +121,8 @@ function appendMemoryBullet(text) {
         return readMemoryContent();
     }
     const entry = `- ${trimmed} _(${new Date().toISOString().slice(0, 10)})_`;
-    const current = readMemoryContent();
+    // 首次沉淀：以模板为底（保证章节结构完整），而不是从空白文件开始
+    const current = readMemoryContent() || getMemoryTemplate();
     const underCapture = insertUnderSection(current, '## 捕获记录', entry);
     if (underCapture) {
         return underCapture;

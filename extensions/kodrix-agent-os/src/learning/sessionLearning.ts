@@ -129,17 +129,17 @@ async function applyInsights(
 	if (mode === 'prompt') {
 		const preview = insights.map(i => `• [${i.category}] ${i.content}`).join('\n');
 		const choice = await vscode.window.showInformationMessage(
-			l10n.t('Kodrix 从 Agent 会话提炼了 {0} 条项目知识，是否沉淀？\n\n{1}', insights.length, preview),
-			l10n.t('全部沉淀'), l10n.t('逐条选择'), l10n.t('忽略'),
+			l10n.t('Kodrix distilled {0} project knowledge entries from the Agent session. Save them?\n\n{1}', insights.length, preview),
+			l10n.t('Distill All'), l10n.t('Select one by one'), l10n.t('Ignore'),
 		);
-		if (choice === l10n.t('忽略') || !choice) {
+		if (choice === l10n.t('Ignore') || !choice) {
 			return 0;
 		}
-		if (choice === l10n.t('逐条选择')) {
+		if (choice === l10n.t('Select one by one')) {
 			const picked: SessionInsight[] = [];
 			for (const insight of insights) {
 				const ok = await vscode.window.showQuickPick(
-					[{ label: l10n.t('沉淀'), apply: true }, { label: l10n.t('跳过'), apply: false }],
+					[{ label: l10n.t('Distill'), apply: true }, { label: l10n.t('Skip'), apply: false }],
 					{ placeHolder: `[${insight.category}] ${insight.content}` },
 				);
 				if (ok?.apply) {
@@ -158,7 +158,7 @@ async function applyInsights(
 	}
 	if (applied > 0) {
 		notifyContextChanged();
-		vscode.window.showInformationMessage(l10n.t('已沉淀 {0} 条会话知识（会话 {1}…）', applied, sessionId.slice(0, 8)));
+		vscode.window.showInformationMessage(l10n.t('Captured {0} pieces of session knowledge (session {1}…)', applied, sessionId.slice(0, 8)));
 	}
 	return applied;
 }
@@ -203,6 +203,36 @@ export async function processSessionPayload(payload: SessionPendingPayload): Pro
 	});
 }
 
+/** 已处理会话的保留上限与保留天数（transcript 属私有数据，不能无限堆积在工作区里） */
+const PROCESSED_KEEP_MAX = 50;
+const PROCESSED_KEEP_DAYS = 7;
+
+/** 清理已处理会话：超过天数或超过数量的旧文件删除（只保留最近若干条便于排查） */
+function pruneProcessedSessions(processedDir: string): void {
+	try {
+		const files = fs.readdirSync(processedDir)
+			.filter(f => f.endsWith('.json'))
+			.map(f => {
+				const full = path.join(processedDir, f);
+				return { full, mtime: fs.statSync(full).mtimeMs };
+			})
+			.sort((a, b) => b.mtime - a.mtime);
+
+		const cutoff = Date.now() - PROCESSED_KEEP_DAYS * 24 * 60 * 60 * 1000;
+		let removed = 0;
+		for (let i = 0; i < files.length; i++) {
+			if (i < PROCESSED_KEEP_MAX && files[i].mtime >= cutoff) {continue;}
+			fs.unlinkSync(files[i].full);
+			removed++;
+		}
+		if (removed > 0) {
+			logger.info(`[SessionLearning] 已清理 ${removed} 个过期会话记录（保留最多 ${PROCESSED_KEEP_MAX} 条 / ${PROCESSED_KEEP_DAYS} 天）`);
+		}
+	} catch (err) {
+		logger.warn(`[SessionLearning] 清理已处理会话失败：${err instanceof Error ? err.message : String(err)}`);
+	}
+}
+
 function moveToProcessed(pendingPath: string, sessionId: string): void {
 	const processedDir = getProcessedSessionsDir();
 	if (!processedDir) {
@@ -213,6 +243,7 @@ function moveToProcessed(pendingPath: string, sessionId: string): void {
 	const dest = path.join(processedDir, `${sessionId}.json`);
 	try {
 		fs.renameSync(pendingPath, dest);
+		pruneProcessedSessions(processedDir);
 	} catch {
 		fs.unlinkSync(pendingPath);
 	}
@@ -278,7 +309,7 @@ export async function installSessionLearningHook(
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
 		if (!options?.silent) {
-			vscode.window.showWarningMessage(l10n.t('请先打开工作区以安装 Session Learning Hook'));
+			vscode.window.showWarningMessage(l10n.t('Please open a workspace first to install the Session Learning Hook'));
 		}
 		return false;
 	}
@@ -317,7 +348,7 @@ export async function installSessionLearningHook(
 	await context.workspaceState.update(HOOK_INSTALLED_KEY, true);
 	if (!options?.silent) {
 		vscode.window.showInformationMessage(
-			l10n.t('Session Learning Hook 已安装 — Agent 会话结束时将自动提炼项目知识'),
+			l10n.t('Session Learning Hook installed — project knowledge will be distilled automatically when an Agent session ends'),
 		);
 	}
 	return true;
@@ -333,29 +364,29 @@ export async function showSessionLearningStatus(): Promise<void> {
 
 	const recent = index.entries.slice(-8).reverse();
 	const lines = [
-		'# Session Learning — Agent 会话自动学习',
+		l10n.t('# Session Learning — Automatic learning from Agent sessions'),
 		'',
-		'## 配置',
+		l10n.t('## Configuration'),
 		'',
-		`| 项 | 值 |`,
-		`|----|-----|`,
-		`| 启用 | ${cfg.enabled ? '是' : '否'} |`,
-		`| 模式 | ${cfg.mode}（auto=自动沉淀 / prompt=询问 / off=关闭） |`,
-		`| 最少用户消息 | ${cfg.minUserMessages} |`,
-		`| 待处理队列 | ${pendingCount} |`,
-		`| 已处理会话 | ${index.entries.length} |`,
+		l10n.t('| Setting | Value |'),
+		'|----|-----|',
+		l10n.t('| Enabled | {0} |', cfg.enabled ? l10n.t('Yes') : l10n.t('No')),
+		l10n.t('| Mode | {0} (auto = distill automatically / prompt = ask each time / off = disabled) |', cfg.mode),
+		l10n.t('| Minimum user messages | {0} |', cfg.minUserMessages),
+		l10n.t('| Pending queue | {0} |', pendingCount),
+		l10n.t('| Processed sessions | {0} |', index.entries.length),
 		'',
-		'## 最近处理',
+		l10n.t('## Recently processed'),
 		'',
 		...(recent.length
-			? recent.map(e => `- \`${e.processedAt.slice(0, 16)}\` **${e.sessionId.slice(0, 8)}…** — 沉淀 ${e.insightCount} 条 · ${e.userMessages} 轮用户消息`)
-			: ['- （尚无 — 完成 Agent 任务后会自动触发）']),
+			? recent.map(e => l10n.t('- `{0}` **{1}…** — {2} insights distilled · {3} user messages', e.processedAt.slice(0, 16), e.sessionId.slice(0, 8), e.insightCount, e.userMessages))
+			: [l10n.t('(None yet — triggers automatically when an Agent task finishes)')]),
 		'',
-		'## 原理',
+		l10n.t('## How it works'),
 		'',
-		'1. `.github/hooks/kodrix-session-learning.json` 在 Agent **Stop** 时运行',
-		'2. Hook 将会话 transcript 写入 `.kodrix/sessions/pending/`',
-		'3. Learning Engine 用 LLM 蒸馏 0-3 条项目知识 → Memory + 学习日志',
+		l10n.t('1. `.github/hooks/kodrix-session-learning.json` runs when the Agent **Stop** event fires'),
+		l10n.t('2. The Hook writes the session transcript to `.kodrix/sessions/pending/`'),
+		l10n.t('3. The Learning Engine uses an LLM to distill 0-3 project knowledge entries → Memory + learning log'),
 	];
 
 	const doc = await vscode.workspace.openTextDocument({ content: lines.join('\n'), language: 'markdown' });
@@ -368,7 +399,7 @@ export function registerSessionLearning(context: vscode.ExtensionContext): void 
 		vscode.commands.registerCommand('kodrix.learn.sessionStatus', () => showSessionLearningStatus()),
 		vscode.commands.registerCommand('kodrix.learn.processPendingSessions', () => {
 			scanPendingSessions();
-			vscode.window.showInformationMessage('已扫描待处理会话队列');
+			vscode.window.showInformationMessage(l10n.t('Scanned pending session queue'));
 		}),
 	);
 
@@ -377,19 +408,21 @@ export function registerSessionLearning(context: vscode.ExtensionContext): void 
 		ensureDir(pendingDir);
 		const pattern = new vscode.RelativePattern(vscode.Uri.file(pendingDir), '*.json');
 		const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+		const scanTimer = setTimeout(() => scanPendingSessions(), 4000);
 		context.subscriptions.push(
 			watcher,
 			watcher.onDidCreate(uri => enqueuePendingFile(uri.fsPath)),
 			watcher.onDidChange(uri => enqueuePendingFile(uri.fsPath)),
+			new vscode.Disposable(() => clearTimeout(scanTimer)),
 		);
-		setTimeout(() => scanPendingSessions(), 4000);
 	}
 
 	const cfg = getSessionLearningConfig();
 	if (cfg.enabled && cfg.autoInstallHook && !context.workspaceState.get<boolean>(HOOK_INSTALLED_KEY)) {
-		setTimeout(() => {
+		const hookTimer = setTimeout(() => {
 			void installSessionLearningHook(context, { silent: true });
 		}, 6000);
+		context.subscriptions.push(new vscode.Disposable(() => clearTimeout(hookTimer)));
 	}
 }
 

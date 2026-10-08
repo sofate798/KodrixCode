@@ -5,11 +5,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { anthropicMessagesUrl, openaiChatCompletionsUrl } from './endpointUrls';
 import { readProviderApiKey } from './providerSecrets';
 import { loadStoredProviders, StoredProvider } from './providerStore';
+import { describeHttpError, describeNetworkError, isCancellation } from './requestErrors';
 
 const VENDOR = 'kodrix';
+
+/**
+ * Kodrix 语言模型供应商能直接服务的 api_type：
+ *   - anthropic → Messages API
+ *   - 其余（openai / ollama 等）→ OpenAI 兼容 /chat/completions
+ * 原生 Gemini 不在其中（该路径由项目内 Copilot BYOK 的 Gemini 供应商提供）。必须在模型列表
+ * 阶段就过滤掉，否则 Chat 模型选择器里会长期挂着一个点了必然报错的 Kodrix / gemini-* 模型。
+ */
+const UNSUPPORTED_API_TYPES = new Set(['gemini']);
+
+/**
+ * 该 api_type 能否由 Kodrix 自有供应商通道直接服务（即不依赖 GitHub Copilot）。
+ * 注册路径（byokRegister）必须与本判断保持一致，否则会出现「BYOK 注册失败但 UI 报成功」
+ * 的误判：只有当两条通道都不通时，注册失败才是真失败。
+ */
+export function supportsKodrixNativePath(apiType: string): boolean {
+	return !UNSUPPORTED_API_TYPES.has(apiType);
+}
 
 interface KodrixModelInfo extends vscode.LanguageModelChatInformation {
 	providerId: string;
@@ -33,18 +53,19 @@ export function registerKodrixLanguageModels(context: vscode.ExtensionContext): 
 		async provideLanguageModelChatResponse(model, messages, options, progress, token) {
 			const stored = loadStoredProviders(context).find(p => p.id === model.providerId);
 			if (!stored) {
-				throw new Error(`供应商「${model.providerId}」已不存在，请在 AI 供应商管理中重新添加。`);
+				throw new Error(l10n.t('Provider "{0}" no longer exists. Re-add it in AI Provider Management.', model.providerId));
 			}
 			const apiKey = await readProviderApiKey(context, stored.id);
 			if (stored.needs_api_key && !apiKey) {
-				throw new Error(`「${stored.name}」还没有 API Key。请在 AI 供应商管理中填写。`);
+				throw new Error(l10n.t('"{0}" has no API Key yet. Fill in this provider\'s API Key in AI Provider Management.', stored.name));
 			}
 			if (stored.api_type === 'anthropic') {
 				await streamAnthropic(stored, model.modelId, apiKey, messages, options, progress, token);
 				return;
 			}
 			if (stored.api_type === 'gemini') {
-				throw new Error('Gemini 请改用 OpenAI 兼容或 Anthropic 兼容的 base_url 接入。');
+				// 安全网：模型列表已过滤掉 gemini，此处只兜住升级前已选中的旧模型 ID
+				throw new Error(l10n.t('Kodrix providers do not support the native Gemini API: use an OpenAI-compatible endpoint instead, or register via BYOK in an environment where Copilot is installed and ready.'));
 			}
 			await streamOpenAI(stored, model.modelId, apiKey, messages, options, progress, token);
 		},
@@ -61,6 +82,9 @@ export function registerKodrixLanguageModels(context: vscode.ExtensionContext): 
 }
 
 function toModelInfos(provider: StoredProvider): KodrixModelInfo[] {
+	if (UNSUPPORTED_API_TYPES.has(provider.api_type)) {
+		return [];
+	}
 	const names = provider.models.length ? provider.models : (provider.model ? [provider.model] : []);
 	return names.map(modelId => ({
 		id: `${provider.id}::${modelId}`,
@@ -174,15 +198,12 @@ async function streamOpenAI(
 		}
 	}
 
-	const response = await fetch(openaiChatCompletionsUrl(provider.base_url, provider.api_type), {
+	const response = await requestStream(provider, openaiChatCompletionsUrl(provider.base_url, provider.api_type), {
 		method: 'POST',
 		headers,
 		body: JSON.stringify(body),
 		signal: abortSignal(token),
 	});
-	if (!response.ok) {
-		throw new Error(await httpError(provider.name, response));
-	}
 	const pending = new Map<number, { id: string; name: string; args: string }>();
 	await readSse(response, token, payload => {
 		if (payload === '[DONE]') {
@@ -283,15 +304,12 @@ async function streamAnthropic(
 	if (apiKey) {
 		headers['x-api-key'] = apiKey;
 	}
-	const response = await fetch(anthropicMessagesUrl(provider.base_url), {
+	const response = await requestStream(provider, anthropicMessagesUrl(provider.base_url), {
 		method: 'POST',
 		headers,
 		body: JSON.stringify(toAnthropicBody(modelId, messages, options)),
 		signal: abortSignal(token),
 	});
-	if (!response.ok) {
-		throw new Error(await httpError(provider.name, response));
-	}
 	let toolId = '';
 	let toolName = '';
 	let toolArgs = '';
@@ -344,14 +362,32 @@ function abortSignal(token: vscode.CancellationToken): AbortSignal {
 	return controller.signal;
 }
 
-async function httpError(name: string, response: Response): Promise<string> {
-	let detail = '';
+/**
+ * 发起请求并把两类失败都转成可行动的中文提示：
+ *   - 没拿到响应（DNS/连接/证书/超时）→ describeNetworkError，附带 base_url 便于自查
+ *   - 拿到非 2xx → describeHttpError，按状态码给出下一步
+ * 取消与超时中断按原语义传播，不当作故障提示。
+ */
+async function requestStream(provider: StoredProvider, url: string, init: RequestInit): Promise<Response> {
+	let response: Response;
 	try {
-		detail = (await response.text()).slice(0, 400);
-	} catch {
-		detail = '';
+		response = await fetch(url, init);
+	} catch (err) {
+		if (isCancellation(err)) {
+			throw err;
+		}
+		throw new Error(describeNetworkError(provider.name, provider.base_url, err));
 	}
-	return `「${name}」请求失败（HTTP ${response.status}）${detail ? `: ${detail}` : ''}`;
+	if (!response.ok) {
+		let detail = '';
+		try {
+			detail = (await response.text()).slice(0, 400);
+		} catch {
+			detail = '';
+		}
+		throw new Error(describeHttpError(provider.name, response.status, detail));
+	}
+	return response;
 }
 
 async function readSse(
@@ -361,7 +397,7 @@ async function readSse(
 ): Promise<void> {
 	const reader = response.body?.getReader();
 	if (!reader) {
-		throw new Error('接口没有返回流式响应');
+		throw new Error(vscode.l10n.t('The endpoint did not return a streaming response'));
 	}
 	const decoder = new TextDecoder();
 	let buffer = '';

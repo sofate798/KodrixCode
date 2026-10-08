@@ -9,6 +9,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as child_process from 'child_process';
+import { l10n } from 'vscode';
 import { logWarn } from './logger';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -114,7 +115,7 @@ async function detectGPU(): Promise<{ hasGPU: boolean; gpuInfo: string }> {
 		if (cimGpus.length) {
 			return { hasGPU: true, gpuInfo: cimGpus.join('; ') };
 		}
-		return { hasGPU: false, gpuInfo: '未检测到独立 GPU（集成显卡可用）' };
+		return { hasGPU: false, gpuInfo: l10n.t('No dedicated GPU detected (integrated graphics available)') };
 	}
 
 	if (process.platform === 'darwin') {
@@ -125,11 +126,11 @@ async function detectGPU(): Promise<{ hasGPU: boolean; gpuInfo: string }> {
 			execProbe('ioreg -l | grep -i "model" | grep -i "gpu\\|graphics" | head -1', 5000),
 			execProbe('sysctl -n machdep.cpu.brand_string', 3000),
 		]);
-		const info = (ioreg ?? sysctl ?? (isAppleSilicon ? 'Apple Silicon GPU' : 'Intel 集成显卡'))
+		const info = (ioreg ?? sysctl ?? (isAppleSilicon ? 'Apple Silicon GPU' : l10n.t('Intel integrated graphics')))
 			.split('\n')[0]?.trim() || 'Apple GPU';
 		return {
 			hasGPU: isAppleSilicon,
-			gpuInfo: isAppleSilicon ? info : `${info}（集成显卡，本地推理性能有限）`,
+			gpuInfo: isAppleSilicon ? info : l10n.t('{0} (integrated graphics; limited local inference performance)', info),
 		};
 	}
 
@@ -142,9 +143,9 @@ async function detectGPU(): Promise<{ hasGPU: boolean; gpuInfo: string }> {
 		return { hasGPU: true, gpuInfo: `NVIDIA: ${nvidiaSmi.split('\n')[0]}` };
 	}
 	if (lspci) {
-		return { hasGPU: true, gpuInfo: lspci.split(':').slice(-1)[0]?.trim() || '未知 GPU' };
+		return { hasGPU: true, gpuInfo: lspci.split(':').slice(-1)[0]?.trim() || l10n.t('Unknown GPU') };
 	}
-	return { hasGPU: false, gpuInfo: '未检测到独立 GPU' };
+	return { hasGPU: false, gpuInfo: l10n.t('No dedicated GPU detected') };
 }
 
 async function detectOllama(): Promise<{ hasOllama: boolean; ollamaModels: string[] }> {
@@ -170,7 +171,7 @@ async function detectOllama(): Promise<{ hasOllama: boolean; ollamaModels: strin
 		: ['/usr/local/bin/ollama', '/usr/bin/ollama'];
 
 	for (const p of commonPaths) {
-		if (fs.existsSync(p)) return { hasOllama: true, ollamaModels: [] };
+		if (fs.existsSync(p)) {return { hasOllama: true, ollamaModels: [] };}
 	}
 	return { hasOllama: false, ollamaModels: [] };
 }
@@ -181,7 +182,7 @@ async function detectPython(): Promise<{ hasPython: boolean; pythonVersion: stri
 		execProbe('python3 --version 2>&1', 4000),
 	]);
 	const raw = py3 ?? py;
-	if (raw) return { hasPython: true, pythonVersion: raw.replace(/^Python\s+/i, '').trim() };
+	if (raw) {return { hasPython: true, pythonVersion: raw.replace(/^Python\s+/i, '').trim() };}
 	return { hasPython: false, pythonVersion: '' };
 }
 
@@ -235,25 +236,25 @@ export async function detectEnvironment(): Promise<EnvInfo> {
 
 	// Smart suggestions based on environment（图标用引导页 codicon）
 	if (ollama.hasOllama && ollama.ollamaModels.length > 0) {
-		suggestions.push({ icon: 'pass', text: `检测到 Ollama + ${ollama.ollamaModels.length} 个模型 — 已自动配置本地推理` });
+		suggestions.push({ icon: 'pass', text: l10n.t('Detected Ollama with {0} model(s) — local inference is configured automatically', String(ollama.ollamaModels.length)) });
 	} else if (ollama.hasOllama) {
-		suggestions.push({ icon: 'zap', text: '检测到 Ollama — 建议运行 `ollama pull codellama` 拉取编程模型' });
+		suggestions.push({ icon: 'zap', text: l10n.t('Detected Ollama — run `ollama pull codellama` to pull a coding model') });
 	} else if (gpu.hasGPU && totalMemGB >= 16) {
-		suggestions.push({ icon: 'lightbulb', text: '你的 GPU 性能良好，建议安装 Ollama 享受免费本地推理' });
+		suggestions.push({ icon: 'lightbulb', text: l10n.t('Your GPU is capable — consider installing Ollama for free local inference') });
 	}
 
 	if (gpu.hasGPU && totalMemGB >= 16) {
-		suggestions.push({ icon: 'circuit-board', text: 'GPU 可用于本地大模型推理（7B-13B 参数）' });
+		suggestions.push({ icon: 'circuit-board', text: l10n.t('GPU can run local LLM inference (7B-13B parameters)') });
 	} else if (totalMemGB < 8) {
-		suggestions.push({ icon: 'warning', text: '内存较小（<8GB），建议使用云端 API 模型' });
+		suggestions.push({ icon: 'warning', text: l10n.t('Low memory (<8GB) — cloud API models are recommended') });
 	}
 
 	if (!python.hasPython) {
-		suggestions.push({ icon: 'python', text: '建议安装 Python 3.10+ 以支持更多 Agent 工具' });
+		suggestions.push({ icon: 'python', text: l10n.t('Install Python 3.10+ to enable more agent tools') });
 	}
 
 	if (freeDisk > 0 && freeDisk < 10) {
-		suggestions.push({ icon: 'warning', text: '磁盘空间不足（<10GB），可能影响本地模型下载' });
+		suggestions.push({ icon: 'warning', text: l10n.t('Low disk space (<10GB) — local model downloads may be affected') });
 	}
 
 	return {

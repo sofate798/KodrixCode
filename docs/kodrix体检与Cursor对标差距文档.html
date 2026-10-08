@@ -3,370 +3,528 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>kodrix体检与Cursor对标差距总览</title>
+<title>Kodrix 体检与 Cursor 3.x 对标差距总览 (2026-10)</title>
 <style>
 	:root{
-		--bg:#0f1318; --panel:#161c24; --panel2:#1b2330; --line:#263040;
-		--tx:#e8eaed; --sub:#98a1ae; --faint:#6b7480;
-		--ok:#3fb950; --wait:#d29922; --cloud:#f85149; --no:#6e7681;
-		--accent:#58a6ff; --teal:#3fb950;
+		--bg:#0d1117; --panel:#161b22; --panel2:#1c2128; --panel3:#21262d;
+		--line:#30363d; --line2:#21262d;
+		--tx:#e6edf3; --sub:#8b949e; --faint:#6e7681;
+		--ok:#3fb950; --wait:#d29922; --bad:#f85149; --no:#6e7681;
+		--accent:#58a6ff; --purple:#bc8cff; --teal:#39d353;
+		--grad1:linear-gradient(135deg,#1a1f35 0%,#0d1117 100%);
 	}
 	*{box-sizing:border-box;margin:0;padding:0}
 	html{scroll-behavior:smooth}
-	body{background:var(--bg);color:var(--tx);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;padding:0 0 60px}
-	.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
-	.cover{padding:48px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#141a24 0%,var(--bg) 100%)}
-	.kicker{font-size:12px;color:var(--accent);font-weight:600;letter-spacing:1px;margin-bottom:8px}
-	h1{font-size:26px;font-weight:700}
-	.sub{color:var(--sub);font-size:13px;margin-top:8px;max-width:860px}
-	.baseline{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
-	.bl{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13px}
+	body{background:var(--bg);color:var(--tx);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.7;padding:0 0 60px}
+	.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+	/* Cover */
+	.cover{padding:56px 0 36px;border-bottom:1px solid var(--line);background:var(--grad1)}
+	.kicker{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+	h1{font-size:28px;font-weight:800;letter-spacing:-0.5px}
+	.sub{color:var(--sub);font-size:13.5px;margin-top:10px;max-width:900px;line-height:1.8}
+	.baseline{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 0}
+	.bl{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:12.5px}
 	.bl b{color:var(--accent);font-weight:600}
-	.overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:24px 0 0}
-	.ov{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
-	.ov .num{font-size:28px;font-weight:700;line-height:1.1}
-	.ov .lab{font-size:12px;color:var(--sub);margin-top:6px}
-	.ov.ok .num{color:var(--ok)} .ov.wait .num{color:var(--wait)} .ov.cloud .num{color:var(--cloud)} .ov.no .num{color:var(--no)} .ov.accent .num{color:var(--accent)}
-	nav.toc{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 0;position:sticky;top:0;z-index:10}
-	nav.toc .wrap{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px}
-	nav.toc a{color:var(--sub);text-decoration:none}
-	nav.toc a:hover{color:#fff}
-	section{padding:40px 0;border-bottom:1px solid var(--line)}
-	h2{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+	/* Stats */
+	.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:28px 0 0}
+	.st{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;text-align:center;transition:border-color .2s}
+	.st:hover{border-color:var(--accent)}
+	.st .num{font-size:32px;font-weight:800;line-height:1.1}
+	.st .lab{font-size:11.5px;color:var(--sub);margin-top:8px;line-height:1.4}
+	.st.ok .num{color:var(--ok)} .st.accent .num{color:var(--accent)} .st.purple .num{color:var(--purple)} .st.wait .num{color:var(--wait)} .st.bad .num{color:var(--bad)}
+	/* Nav */
+	nav.toc{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 0;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+	nav.toc .wrap{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px}
+	nav.toc a{color:var(--sub);text-decoration:none;font-weight:500;transition:color .15s}
+	nav.toc a:hover{color:var(--accent)}
+	/* Section */
+	section{padding:44px 0;border-bottom:1px solid var(--line)}
+	h2{font-size:19px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:8px}
 	.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
-	.desc{color:var(--sub);font-size:12.5px;margin-bottom:14px}
-	.desc a{color:var(--accent)}
-	.cards{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px}
-	.card{flex:1;min-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
-	.card h3{font-size:13px;font-weight:700;margin-bottom:8px}
-	.card.ok h3{color:var(--ok)} .card.fix h3{color:var(--accent)} .card.wait h3{color:var(--wait)} .card.cloud h3{color:var(--cloud)}
-	.card p,.card li{font-size:13px;color:var(--tx);line-height:1.85}
+	.desc{color:var(--sub);font-size:12.5px;margin-bottom:16px;line-height:1.7}
+	.desc a{color:var(--accent);text-decoration:none}
+	.desc a:hover{text-decoration:underline}
+	/* Cards */
+	.cards{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px}
+	.card{flex:1;min-width:260px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+	.card h3{font-size:13px;font-weight:700;margin-bottom:10px}
+	.card.ok h3{color:var(--ok)} .card.accent h3{color:var(--accent)} .card.wait h3{color:var(--wait)} .card.bad h3{color:var(--bad)} .card.purple h3{color:var(--purple)}
+	.card p,.card li{font-size:12.5px;color:var(--tx);line-height:1.9}
 	.card ul{margin:0;padding-left:18px}
-	.arch{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-	.arch-item{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
-	.arch-item .t{font-weight:700;font-size:13px;color:var(--accent)}
-	.arch-item .d{font-size:12px;color:var(--sub);margin-top:4px}
-	table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-	colgroup col:nth-child(1){width:17%}
-	colgroup col:nth-child(2){width:31%}
-	colgroup col:nth-child(3){width:34%}
-	colgroup col:nth-child(4){width:18%}
-	th{text-align:left;color:var(--faint);font-weight:600;padding:9px 10px;border-bottom:2px solid var(--line);font-size:12px}
-	td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-	.domain{font-weight:600}
+	/* Table */
+	.table-scroll{overflow-x:auto;margin:12px 0}
+	table{width:100%;border-collapse:collapse;font-size:12.5px}
+	th{text-align:left;color:var(--faint);font-weight:600;padding:10px 12px;border-bottom:2px solid var(--line);font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px}
+	td{padding:12px;border-bottom:1px solid var(--line2);vertical-align:top}
+	tr:hover td{background:rgba(88,166,255,.03)}
+	.domain{font-weight:600;color:var(--tx)}
 	.cur{color:var(--sub)}
-	.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:9px;white-space:nowrap;margin-top:2px}
-	.t-ok{background:rgba(63,185,80,.12);color:var(--ok);border:1px solid rgba(63,185,80,.35)}
-	.t-wait{background:rgba(210,153,34,.12);color:var(--wait);border:1px solid rgba(210,153,34,.35)}
-	.t-cloud{background:rgba(248,81,73,.12);color:var(--cloud);border:1px solid rgba(248,81,73,.35)}
-	.t-no{background:rgba(110,118,129,.12);color:var(--no);border:1px solid rgba(110,118,129,.35)}
-	.t-p0{background:rgba(248,81,73,.15);color:#ff7b72;border:1px solid rgba(248,81,73,.4)}
-	.t-p1{background:rgba(210,153,34,.15);color:var(--wait);border:1px solid rgba(210,153,34,.4)}
-	.t-p2{background:rgba(63,185,80,.12);color:var(--ok);border:1px solid rgba(63,185,80,.3)}
-	.phase{margin:18px 0;border-left:3px solid var(--ok);padding:4px 0 4px 20px}
-	.phase.wait{border-color:var(--wait)}
-	.phase.cloud{border-color:var(--cloud)}
-	.phase.accent{border-color:var(--accent)}
-	.phase h3{font-size:15px;margin-bottom:4px}
-	.phase .meta{font-size:12px;color:var(--faint);margin-bottom:8px}
-	.phase p{font-size:13px;color:var(--sub)}
-	.note{margin-top:8px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:14px 18px;font-size:13px;color:var(--sub);line-height:1.8}
-	.note a{color:var(--accent)}
-	.doclinks{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-	.doclinks a{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--accent);text-decoration:none}
+	/* Tags */
+	.tag{display:inline-block;font-size:10.5px;padding:2px 9px;border-radius:12px;white-space:nowrap;font-weight:600}
+	.t-ok{background:rgba(63,185,80,.12);color:var(--ok);border:1px solid rgba(63,185,80,.3)}
+	.t-wait{background:rgba(210,153,34,.12);color:var(--wait);border:1px solid rgba(210,153,34,.3)}
+	.t-bad{background:rgba(248,81,73,.12);color:var(--bad);border:1px solid rgba(248,81,73,.3)}
+	.t-no{background:rgba(110,118,129,.12);color:var(--no);border:1px solid rgba(110,118,129,.3)}
+	.t-acc{background:rgba(88,166,255,.12);color:var(--accent);border:1px solid rgba(88,166,255,.3)}
+	.t-pur{background:rgba(188,140,255,.12);color:var(--purple);border:1px solid rgba(188,140,255,.3)}
+	/* Architecture */
+	.arch{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+	.arch-item{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+	.arch-item .t{font-weight:700;font-size:13px;color:var(--accent)}
+	.arch-item .d{font-size:11.5px;color:var(--sub);margin-top:5px;line-height:1.6}
+	/* Phase */
+	.phase{margin:16px 0;border-left:3px solid var(--ok);padding:6px 0 6px 20px}
+	.phase.wait{border-color:var(--wait)} .phase.bad{border-color:var(--bad)} .phase.accent{border-color:var(--accent)} .phase.purple{border-color:var(--purple)}
+	.phase h3{font-size:14px;font-weight:700;margin-bottom:4px}
+	.phase .meta{font-size:11.5px;color:var(--faint);margin-bottom:6px}
+	.phase p,.phase li{font-size:12.5px;color:var(--sub);line-height:1.8}
+	.phase ul{padding-left:18px;margin:6px 0 0}
+	/* Note */
+	.note{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:16px 20px;font-size:12.5px;color:var(--sub);line-height:1.9}
+	.note b{color:var(--tx)}
+	.note a{color:var(--accent);text-decoration:none}
+	/* Score bar */
+	.score-row{display:flex;align-items:center;gap:12px;margin:8px 0}
+	.score-label{width:140px;font-size:12px;color:var(--sub);text-align:right;flex:none}
+	.score-bar{flex:1;height:8px;background:var(--panel3);border-radius:4px;overflow:hidden;position:relative}
+	.score-fill{height:100%;border-radius:4px;transition:width .5s}
+	.score-val{width:44px;font-size:12px;font-weight:700;flex:none}
+	/* Doc links */
+	.doclinks{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+	.doclinks a{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--accent);text-decoration:none;transition:border-color .2s}
 	.doclinks a:hover{border-color:var(--accent)}
-	.doclinks a span{display:block;color:var(--faint);font-size:11px;margin-top:2px}
-	footer{padding:28px 0;color:var(--faint);font-size:12px}
-	@media (max-width:640px){
-		.wrap{padding:0 14px}
-		.table-scroll{overflow-x:auto}
-		table{min-width:560px}
+	.doclinks a span{display:block;color:var(--faint);font-size:11px;margin-top:3px}
+	/* Comparison */
+	.vs-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+	.vs-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+	.vs-box h4{font-size:13px;font-weight:700;margin-bottom:10px}
+	.vs-box.kodrix h4{color:var(--accent)} .vs-box.cursor h4{color:var(--purple)}
+	.vs-box li{font-size:12px;color:var(--sub);line-height:2}
+	.vs-box ul{padding-left:16px;margin:0}
+	footer{padding:32px 0;color:var(--faint);font-size:11.5px;text-align:center}
+	@media (max-width:768px){
+		.wrap{padding:0 16px}
+		.vs-grid{grid-template-columns:1fr}
+		.stats{grid-template-columns:repeat(2,1fr)}
 		h1{font-size:22px}
+		.score-label{width:100px;font-size:11px}
 	}
 </style>
 </head>
 <body>
+
+<!-- ═══════════════════ COVER ═══════════════════ -->
 <header class="cover">
 	<div class="wrap">
-		<div class="kicker">KODRIX · HEALTH + CURSOR ALIGNMENT</div>
-		<h1>体检与 Cursor 对标总览</h1>
-		<div class="sub">按 <b>2026-09-25</b> 文档合流更新。Cursor 式基线能力已齐；审计缺陷 D1–D4 全部闭环；核心功能 P0×3 + P1×3 + P2×3 全部实现。当前主线进入「体验打磨 + 差异化壁垒深化」阶段。</div>
+		<div class="kicker">KODRIX CODE · COMPREHENSIVE HEALTH & CURSOR 3.x GAP ANALYSIS</div>
+		<h1>体检与 Cursor 3.x 对标差距总览</h1>
+		<div class="sub">
+			按 <b>2026-10-04</b> 最新状态更新。两轮审计共 <b>81+</b> 项缺陷已闭环；本轮全项目体检又闭环 <b>28</b> 项（含 CI 门禁修复、<b>核心单测 10 个既有失败清零</b>、<b>索引阻塞 347ms → 46–50ms</b>），<b>当前开放缺陷为 0</b>（详见《项目新发现待修复的缺陷问题审计总报告》）；核心功能 P0–P2 共 9 项全部实现；Cursor 对标基线能力已齐。
+			对标目标已从 Cursor 2.x 更新至 <b>Cursor 3.x</b>（Background Agents / Multi-Agent 并行 / Bugbot / Composer 2.5 / Shared Canvases / Automations）。
+			当前主线进入「<b>深度体验打磨 + Agent 云化追赶 + 差异化壁垒强化</b>」阶段。
+		</div>
 		<div class="baseline">
 			<span class="bl">基线 <b>VS Code 1.128 / Electron 42</b></span>
-			<span class="bl">编译 <b>tsc=0</b></span>
-			<span class="bl">审计缺陷 <b>D1–D4 全部闭环</b></span>
-			<span class="bl">核心功能 <b>P0–P2 全部实现</b></span>
+			<span class="bl">编译 <b>tsc=0 · 三扩展 exit 0</b></span>
+			<span class="bl">审计 <b>本轮闭环 28 项 · 开放缺陷 0</b></span>
+			<span class="bl">核心功能 <b>P0–P2 × 9 全部实现</b></span>
+			<span class="bl">对标 <b>Cursor 3.x (2026-10)</b></span>
 		</div>
-		<div class="overview">
-			<div class="ov ok"><div class="num">✔</div><div class="lab">Cursor 对标基线已齐</div></div>
-			<div class="ov ok"><div class="num">36+</div><div class="lab">Bug 审计项已修</div></div>
-			<div class="ov ok"><div class="num">9</div><div class="lab">核心功能已实现</div></div>
-			<div class="ov ok"><div class="num">✔</div><div class="lab">D1–D4 全部闭环</div></div>
-			<div class="ov accent"><div class="num"></div><div class="lab">进入体验打磨期</div></div>
+		<div class="stats">
+			<div class="st ok"><div class="num">81+</div><div class="lab">审计缺陷已修复<br/>(含本轮 28 项)</div></div>
+			<div class="st ok"><div class="num">9</div><div class="lab">核心功能已实现<br/>(P0×3 + P1×3 + P2×3)</div></div>
+			<div class="st accent"><div class="num">77</div><div class="lab">Agent OS 源文件<br/>(智能层核心)</div></div>
+			<div class="st purple"><div class="num">34</div><div class="lab">kodrix-local 源文件<br/>(体验层)</div></div>
+			<div class="st wait"><div class="num">6</div><div class="lab">待追赶差距项<br/>(云/并行/审查)</div></div>
 		</div>
 		<div class="doclinks">
-			<a href="./项目总共已更新修复完善的全部内容.md">已更新 / 修复 / 完善<span>含修复日期 · 迁移与对标闭环</span></a>
-			<a href="./项目新发现待修复的缺陷问题审计总报告.md">待修复缺陷总报告<span>D1 运维 · D2 环境 · D3 债务 · D4 基建</span></a>
-			<a href="./项目非常有必要新实现的核心功能总报告.md">必做核心新功能<span>P0–P3 优先级与 Phase 节奏</span></a>
-			<a href="../MIGRATION.md">迁移指南<span>Cursormini / Cursor → Kodrix</span></a>
+			<a href="./项目总共已更新修复完善的全部内容.md">已更新 / 修复 / 完善<span>含修复日期 · 两轮审计闭环</span></a>
+			<a href="./项目新发现待修复的缺陷问题审计总报告.md">待修复缺陷总报告<span>本轮闭环 28 项 · 开放 0 · 测试全绿</span></a>
+			<a href="./项目非常有必要新实现的核心功能总报告.md">必做核心新功能<span>全部实现 · 无待建项</span></a>
 		</div>
 	</div>
 </header>
 
+<!-- ═══════════════════ NAV ═══════════════════ -->
 <nav class="toc">
 	<div class="wrap">
 		<a href="#health">① 工程健康</a>
 		<a href="#arch">② 架构</a>
-		<a href="#gap-ok">③ 对标已齐</a>
-		<a href="#debt">④ 待修债务</a>
-		<a href="#roadmap">⑤ 必做新功能</a>
-		<a href="#cloud">⑥ 云 / 不追</a>
-		<a href="#docs">⑦ 文档索引</a>
+		<a href="#score">③ 对标评分</a>
+		<a href="#gap-ok">④ 已齐能力</a>
+		<a href="#gap-real">⑤ 真实差距</a>
+		<a href="#advantage">⑥ Kodrix 独有优势</a>
+		<a href="#roadmap">⑦ 追赶路线图</a>
+		<a href="#cloud">⑧ 云 / 不追</a>
+		<a href="#docs">⑨ 文档索引</a>
 	</div>
 </nav>
 
+<!-- ═══════════════════ ① 工程健康 ═══════════════════ -->
 <section id="health">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--ok)"></span>① 工程健康检查</h2>
-		<div class="desc">来源：2026-09-21 体检 · 2026-09-23 Bug 审计与 23:10 复核 · 2026-09-25 三份 MD 合流（全部闭环）。</div>
+		<h2><span class="dot" style="background:var(--ok)"></span>① 工程健康状态</h2>
+		<div class="desc">来源：2026-09-21 体检 → 09-23 Bug 审计 → 09-25 合流闭环 → 09-26 第二轮 45 项闭环 → 10-03 总览更新。</div>
 		<div class="cards">
 			<div class="card ok">
-				<h3>● 正常</h3>
+				<h3>● 运行正常</h3>
 				<ul>
-					<li>三扩展激活（local / agent-os / skills）</li>
+					<li>三扩展激活（kodrix-local / agent-os / skills）</li>
 					<li><code>kodrix.codebase</code> 参与者 + PredictiveCompletion</li>
-					<li>ProjectIndexer / Copilot / zh-cn 语言包</li>
+					<li>ProjectIndexer 全工程语义索引（AST 级）</li>
+					<li>Copilot Chat / NES / Background Agent 封装</li>
 					<li>三扩展 <code>tsc --noEmit</code> exit 0</li>
-					<li>Node 系统 v24.21.0（≥ .nvmrc 24.17）</li>
-					<li>dev-fast：扩展 + 客户端 out 新鲜度</li>
+					<li>NLS 本地化 100%（192 key × zh-cn）</li>
+					<li>集成测试 mocha + vscode-mock 接入</li>
 				</ul>
 			</div>
 			<div class="card ok">
-				<h3>● 已修闭环（摘要）</h3>
+				<h3>● 第一轮闭环 (09-21~09-25)</h3>
 				<ul>
-					<li><b>09-21</b>：chatParticipants / tunnel 配置 / nls 噪音 / git init</li>
-					<li><b>09-23</b>：路径穿越 · ACP 流式 · CTS 泄漏 · LLM 超时 · 终端误报等 P1×5</li>
-					<li><b>09-23</b>：快照 dirty · diff 内存 · 原子索引 · 迁移不覆盖等 P2</li>
-					<li><b>09-23 23:10</b>：agentLoop 注释 · 脚本路径 · stderr 1MB · proposals</li>
-					<li><b>09-25</b>：D1-1 git 基线 3 批提交 · D3-1 NLS 本地化 · D4-1 集成测试</li>
-					<li><b>09-25</b>：核心功能 T1–T9 全部实现（P0×3 + P1×3 + P2×3）</li>
+					<li>运行时修复 6 项 · P1 高危 5 项 · P2 中危 7 项</li>
+					<li>P3 低危 8 项 · 复核增补 12 项</li>
+					<li>D1 git 基线 · D3 NLS 100% · D4 集成测试</li>
+					<li>核心功能 T1–T9 全部实现</li>
 				</ul>
 			</div>
 			<div class="card ok">
-				<h3>● 全部闭环</h3>
+				<h3>● 第二轮闭环 (09-26)</h3>
 				<ul>
-					<li><b>D1-1</b> ✔ git 基线 3 批提交完成（工作树清洁）</li>
-					<li><b>D2</b> ENOPRO / cargo ENOENT / GitHub 登录 / Node 沙箱（上游/环境，接受）</li>
-					<li><b>D3-1</b> ✔ NLS 本地化 100% 覆盖（三扩展 192 key）</li>
-					<li><b>D4-1</b> ✔ 三扩展集成测试接入（mocha + vscode mock）</li>
+					<li><b>安全 4 项</b>：npm audit · GUID · SecretStorage · PS 注入</li>
+					<li><b>功能 8 项</b>：SSE 泄漏 · 同步 I/O · 竞态 · mock 重建</li>
+					<li><b>质量 10 项</b>：CI · editorconfig · gitignore · engines</li>
+					<li><b>清理 16 项</b>：空 catch · 死代码 · @ts-ignore · 依赖</li>
+					<li>共 <b>45 项</b>全部修复（A-01~C-16）</li>
 				</ul>
 			</div>
+		</div>
+		<div class="note" style="border-left-color:var(--ok)">
+			<b>结论</b>：工程健康度良好。两轮审计 81+ 项缺陷已闭环，本轮体检又闭环 28 项：CI 两道门禁由红转绿、扩展测试 183 项全绿、<b>核心单测 10 个既有失败清零（11,729 passing / 0 failing）</b>（其中修掉两个真实实现回归：主题旧 ID 迁移丢失、终端环境变量 GitHub token 漏脱敏），并用实测数据把<b>大仓索引最坏阻塞从 347ms 压到 46–50ms</b>。<b>当前开放缺陷为 0</b>；`src/vs` 定制足迹属分支固有特性，按维护者判断不再作为跟踪项（原盘点脚本与报告已撤除）。代码可编译、测试全绿、CI 门禁通过。
 		</div>
 	</div>
 </section>
 
+<!-- ═══════════════════ ② 架构 ═══════════════════ -->
 <section id="arch">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--accent)"></span>② 工程架构（核心 + 3 扩展）</h2>
-		<div class="desc">L0 上游框架 · L1 BYOK 模型 · L2 编排与产品体验。产品定制优先改 <code>kodrix-*</code>。</div>
-		<div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;font-weight:700;font-size:14px;margin-bottom:4px">
-			核心：VS Code 1.128 框架（Chat / Inline / MCP / Agent Host）+ Copilot Chat
+		<h2><span class="dot" style="background:var(--accent)"></span>② 工程架构</h2>
+		<div class="desc">L0 上游框架 · L1 BYOK 模型层 · L2 编排与产品体验。产品定制优先改 <code>extensions/kodrix-*</code>。</div>
+		<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;text-align:center;font-weight:700;font-size:14px;margin-bottom:6px">
+			L0 核心：VS Code 1.128 框架（Chat / Inline / MCP / Agent Host / NES）+ GitHub Copilot
 		</div>
 		<div class="arch">
 			<div class="arch-item">
-				<div class="t">kodrix-local</div>
-				<div class="d">体验层：Tab/Ctrl+K/Composer · 13 供应商 · BYOK · Cursor 导入 · 欢迎向导</div>
+				<div class="t">kodrix-local (34 文件)</div>
+				<div class="d">体验层：Tab/Ctrl+K/Composer · 13 供应商 · BYOK · Cursor 导入 · 欢迎向导 · 模型发现 · Provider Workbench · LanguageModelProvider SSE</div>
 			</div>
 			<div class="arch-item">
-				<div class="t">kodrix-agent-os</div>
-				<div class="d">智能层：codebase · Router · Spec/Wiki/Learning · Crew/Hub · Checkpoint · ACP</div>
+				<div class="t">kodrix-agent-os (77 文件)</div>
+				<div class="d">智能层：Codebase 全工程索引 · Router 3.0 · Idea Flow · Spec · Wiki 2.0 + Code Smell · Crew 冲突检测 · Hub · Checkpoint 时间线 + Diff 画廊 · Learning 2.0 · Vibe 迭代 · ACP · Background · Kanban · Arena · Terminal AI · Code Lens · NaturalCmd · 主动上下文</div>
 			</div>
 			<div class="arch-item">
-				<div class="t">kodrix-skills</div>
-				<div class="d">Skill 市场：侧栏 / URL / GitHub / 导入 ~/.cursor/skills</div>
+				<div class="t">kodrix-skills (9 文件)</div>
+				<div class="d">Skill 市场：侧栏 Webview · URL/GitHub 安装 · zip-slip 防护 · Cursor Skills 导入 · 大小限制 · fetch API</div>
 			</div>
 		</div>
 	</div>
 </section>
 
+<!-- ═══════════════════ ③ 对标评分 ═══════════════════ -->
+<section id="score">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--purple)"></span>③ Cursor 3.x 对标评分矩阵</h2>
+		<div class="desc">以 Cursor 3.x (2026-10) 为参照系，按功能域打分。满分 10 分；<span style="color:var(--ok)">≥8 已齐/超越</span> · <span style="color:var(--wait)">5-7 部分具备</span> · <span style="color:var(--bad)">&lt;5 明显差距</span>。</div>
+
+		<div class="score-row"><div class="score-label">Tab 补全 / NES</div><div class="score-bar"><div class="score-fill" style="width:90%;background:var(--ok)"></div></div><div class="score-val" style="color:var(--ok)">9/10</div></div>
+		<div class="score-row"><div class="score-label">行内编辑 Ctrl+K</div><div class="score-bar"><div class="score-fill" style="width:90%;background:var(--ok)"></div></div><div class="score-val" style="color:var(--ok)">9/10</div></div>
+		<div class="score-row"><div class="score-label">Chat / Agent 模式</div><div class="score-bar"><div class="score-fill" style="width:85%;background:var(--ok)"></div></div><div class="score-val" style="color:var(--ok)">8.5</div></div>
+		<div class="score-row"><div class="score-label">@Codebase 语义</div><div class="score-bar"><div class="score-fill" style="width:85%;background:var(--ok)"></div></div><div class="score-val" style="color:var(--ok)">8.5</div></div>
+		<div class="score-row"><div class="score-label">模型路由 / BYOK</div><div class="score-bar"><div class="score-fill" style="width:95%;background:var(--ok)"></div></div><div class="score-val" style="color:var(--ok)">9.5</div></div>
+		<div class="score-row"><div class="score-label">Rules / MCP / Skills</div><div class="score-bar"><div class="score-fill" style="width:90%;background:var(--ok)"></div></div><div class="score-val" style="color:var(--ok)">9/10</div></div>
+		<div class="score-row"><div class="score-label">Checkpoint / 回滚</div><div class="score-bar"><div class="score-fill" style="width:85%;background:var(--ok)"></div></div><div class="score-val" style="color:var(--ok)">8.5</div></div>
+		<div class="score-row"><div class="score-label">Composer 多文件</div><div class="score-bar"><div class="score-fill" style="width:70%;background:var(--wait)"></div></div><div class="score-val" style="color:var(--wait)">7/10</div></div>
+		<div class="score-row"><div class="score-label">Background Agent</div><div class="score-bar"><div class="score-fill" style="width:45%;background:var(--bad)"></div></div><div class="score-val" style="color:var(--bad)">4.5</div></div>
+		<div class="score-row"><div class="score-label">Multi-Agent 并行</div><div class="score-bar"><div class="score-fill" style="width:40%;background:var(--bad)"></div></div><div class="score-val" style="color:var(--bad)">4/10</div></div>
+		<div class="score-row"><div class="score-label">PR 自动审查 (Bugbot)</div><div class="score-bar"><div class="score-fill" style="width:20%;background:var(--bad)"></div></div><div class="score-val" style="color:var(--bad)">2/10</div></div>
+		<div class="score-row"><div class="score-label">团队 / 协作</div><div class="score-bar"><div class="score-fill" style="width:15%;background:var(--bad)"></div></div><div class="score-val" style="color:var(--bad)">1.5</div></div>
+		<div class="score-row"><div class="score-label">Automations 自动化</div><div class="score-bar"><div class="score-fill" style="width:30%;background:var(--bad)"></div></div><div class="score-val" style="color:var(--bad)">3/10</div></div>
+		<div class="score-row"><div class="score-label">Learning / 知识沉淀</div><div class="score-bar"><div class="score-fill" style="width:100%;background:var(--accent)"></div></div><div class="score-val" style="color:var(--accent)">10</div></div>
+		<div class="score-row"><div class="score-label">Idea Flow / 全流水线</div><div class="score-bar"><div class="score-fill" style="width:100%;background:var(--accent)"></div></div><div class="score-val" style="color:var(--accent)">10</div></div>
+		<div class="score-row"><div class="score-label">Agent OS 超集</div><div class="score-bar"><div class="score-fill" style="width:100%;background:var(--accent)"></div></div><div class="score-val" style="color:var(--accent)">10</div></div>
+
+		<div class="note" style="margin-top:18px">
+			<b>综合评分</b>：Kodrix 对标 Cursor 3.x 加权得分约 <b style="color:var(--accent);font-size:16px">72%</b>。
+			本地编辑器体验、模型自由度、知识沉淀已超越；云端异步能力、多 Agent 并行、PR 审查自动化为主要短板。
+		</div>
+	</div>
+</section>
+
+<!-- ═══════════════════ ④ 已齐能力 ═══════════════════ -->
 <section id="gap-ok">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--ok)"></span>③ Cursor 对标基线已齐</h2>
-		<div class="desc">相对 Cursor 主线：补全 · 行内编辑 · Composer/Agent · @Codebase 双路径 · Rules 导入 · 模型路由均已具备。详情与日期见 <a href="./项目总共已更新修复完善的全部内容.md">已更新修复完善清单</a> · <a href="../MIGRATION.md">MIGRATION.md</a>。</div>
+		<h2><span class="dot" style="background:var(--ok)"></span>④ Cursor 对标基线 — 已齐能力</h2>
+		<div class="desc">以下功能域已达到或超越 Cursor 3.x 同等水平。详情见 <a href="./项目总共已更新修复完善的全部内容.md">已更新修复完善清单</a>。</div>
 		<div class="table-scroll">
 		<table>
-			<colgroup><col/><col/><col/><col/></colgroup>
-			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>状态</th></tr>
-			<tr><td class="domain">Tab + NES</td><td>Copilot Inline + NES；可选本地 Tab/FIM（默认关）</td><td class="cur">Tab 智能补全</td><td><span class="tag t-ok">已齐</span></td></tr>
-			<tr><td class="domain">Ctrl+K / Chat</td><td>Inline Chat · Ctrl+L/I · Composer 封装</td><td class="cur">行内编辑 / Composer</td><td><span class="tag t-ok">已齐</span></td></tr>
-			<tr><td class="domain">@Codebase</td><td>Copilot #codebase + 本地 kodrix.codebase</td><td class="cur">语义问答</td><td><span class="tag t-ok">双路径</span></td></tr>
-			<tr><td class="domain">Rules / MCP / Skills</td><td>首次静默迁移 + 欢迎向导导入</td><td class="cur">.cursor/*</td><td><span class="tag t-ok">已齐</span></td></tr>
-			<tr><td class="domain">模型供应商</td><td>13 预设 + modelRoutes + BYOK</td><td class="cur">多模型</td><td><span class="tag t-ok">已齐</span></td></tr>
-			<tr><td class="domain">Background / Cloud</td><td>Copilot CLI / Coding Agent 命令封装</td><td class="cur">长时 / 云 Agent</td><td><span class="tag t-ok">本地编排</span></td></tr>
-			<tr><td class="domain">Plan / Agent / Ask</td><td>四模式 + 智能路由</td><td class="cur">Plan / Agent</td><td><span class="tag t-ok">已齐</span></td></tr>
-			<tr><td class="domain">Checkpoint</td><td>回滚路径校验 + operations 滚动（审计已加固）</td><td class="cur">历史回退</td><td><span class="tag t-ok">已齐</span></td></tr>
-			<tr><td class="domain">Agent OS 超集</td><td>Idea / Spec / Wiki / Crew 壳 / Learning / Hub / Arena</td><td class="cur">部分无对等</td><td><span class="tag t-ok">超集骨架</span></td></tr>
-			<tr><td class="domain">Remote Tunnels</td><td>product tunnelApplicationConfig 已补</td><td class="cur">远程</td><td><span class="tag t-wait">dev 需 Rust / 用打包版</span></td></tr>
+			<tr><th style="width:16%">功能域</th><th style="width:30%">Kodrix 现状</th><th style="width:30%">Cursor 3.x 参考</th><th style="width:12%">评分</th><th style="width:12%">状态</th></tr>
+			<tr><td class="domain">Tab + NES 补全</td><td>Copilot Inline + NES；可选本地 Tab/FIM（DeepSeek/Ollama）；PredictiveCompletion 上下文预测</td><td class="cur">自研 Tab 模型 + 多行续写 + 下一步编辑建议</td><td>9/10</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Ctrl+K / 行内编辑</td><td>Inline Chat · Ctrl+K/I · Composer 封装 · 多文件 Diff 视图</td><td class="cur">Ctrl+K 行内编辑 · 多文件修改</td><td>9/10</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Chat / Agent 模式</td><td>四模式（Ask/Edit/Agent/Plan）+ 智能路由 3.0 加权评分 + AgentLoop + Subagent + Threads</td><td class="cur">Agent / Ask / Manual + Auto-Review 模式</td><td>8.5</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">@Codebase 语义</td><td>Copilot #codebase + 本地 kodrix.codebase 双路径；AST 级全工程索引 + 符号表 + 调用图 + 依赖图</td><td class="cur">闭源 Merkle 索引 + 语法块级 embedding</td><td>8.5</td><td><span class="tag t-ok">双路径</span></td></tr>
+			<tr><td class="domain">模型供应商 / BYOK</td><td>13 预设（本地 4 + 云端 9）+ modelRoutes 多模型路由 + BYOK + LanguageModelProvider SSE + 模型发现</td><td class="cur">内置模型 + API Key 接入</td><td>9.5</td><td><span class="tag t-ok">超越</span></td></tr>
+			<tr><td class="domain">Rules / MCP / Skills</td><td>首次静默迁移 + 欢迎向导导入 + Skill 市场（URL/GitHub/侧栏）+ MCP 合并 + Rules Manager</td><td class="cur">.cursor/rules · MCP · Skill</td><td>9/10</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Checkpoint / 回滚</td><td>时间线 TreeView + Diff 画廊 Webview + 路径穿越防护 + 异步 I/O + 节流 + operations 滚动</td><td class="cur">历史回退 + 分支隔离</td><td>8.5</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Terminal AI</td><td>命令解析 + 错误诊断 + 命令建议 + 输出上限保护</td><td class="cur">终端集成 + CLI Debug</td><td>7/10</td><td><span class="tag t-ok">已齐</span></td></tr>
+			<tr><td class="domain">Code Lens for Agents</td><td>5 种 Lens（Optimize/Test/Explain/Dependencies/Callers）· 索引驱动自动刷新</td><td class="cur">无对等</td><td>—</td><td><span class="tag t-acc">独有</span></td></tr>
+			<tr><td class="domain">自然语言命令面板</td><td>9 类意图路由 + QuickPick/InputBox 双模式 + 路由说明</td><td class="cur">无对等</td><td>—</td><td><span class="tag t-acc">独有</span></td></tr>
 		</table>
 		</div>
-		<div class="note" style="margin-top:14px">
-			<b>结论</b>：账号生态（GitHub / Cursor 订阅）仍是云端能力门槛；本地模型链路可独立使用。真正差距已转到「语义深度 · Agent 真协作 · 大厂级体验」，见下两节。
-		</div>
 	</div>
 </section>
 
-<section id="debt">
+<!-- ═══════════════════ ⑤ 真实差距 ═══════════════════ -->
+<section id="gap-real">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--ok)"></span>④ 待修复缺陷与产品债务（全部闭环）</h2>
-		<div class="desc">完整条目见 <a href="./项目新发现待修复的缺陷问题审计总报告.md">待修复缺陷总报告</a>。2026-09-25 全部缺陷已闭环。</div>
-		<div class="cards">
-			<div class="card ok">
-				<h3>D1 运维（已闭环）</h3>
-				<ul>
-					<li><b>D1-1</b> ✔ git 基线 3 批提交完成（文档 1 + 扩展 118 + 核心 177 文件），工作树清洁</li>
-				</ul>
-			</div>
-			<div class="card ok">
-				<h3>D2 环境 / 上游（接受）</h3>
-				<ul>
-					<li>Agent Host ENOPRO（上游噪音，接受）</li>
-					<li>dev <code>cargo ENOENT</code> · GitHub 未登录（环境配置，接受）</li>
-					<li>沙箱 Node 22 · native-keymap 降级（接受）</li>
-				</ul>
-			</div>
-			<div class="card ok">
-				<h3>D3 产品债务（已闭环）</h3>
-				<ul>
-					<li><b>D3-1</b> ✔ NLS 本地化 100% 覆盖：agent-os 143 / local 36 / skills 13 key</li>
-					<li>Learning 2.0 · 主动上下文 · Wiki 2.0 · Crew 冲突检测 — 均已实现</li>
-				</ul>
-			</div>
-			<div class="card ok">
-				<h3>D4 质量基建（已闭环）</h3>
-				<ul>
-					<li><b>D4-1</b> ✔ 三扩展集成测试接入（mocha + vscode mock + runTests）</li>
-					<li>agent-os: checkpoint/apply/acp · local: migrate/byok · skills: install</li>
-				</ul>
-			</div>
+		<h2><span class="dot" style="background:var(--bad)"></span>⑤ 与 Cursor 3.x 的真实差距</h2>
+		<div class="desc">以下为 Cursor 3.x (2026-04~10) 新增的杀手级能力，Kodrix 当前存在明显差距的领域。</div>
+
+		<div class="table-scroll">
+		<table>
+			<tr><th style="width:15%">差距域</th><th style="width:25%">Cursor 3.x 能力</th><th style="width:25%">Kodrix 现状</th><th style="width:10%">差距</th><th style="width:25%">追赶难度 & 路径</th></tr>
+			<tr>
+				<td class="domain">Background Agent 云执行</td>
+				<td class="cur">隔离 Ubuntu VM 异步运行长任务；用户可继续工作；完成后生成 diff 审查视图；支持 Privacy Mode</td>
+				<td>本地队列 + Copilot CLI 封装；backgroundAgent.ts 骨架存在但无云沙箱</td>
+				<td><span class="tag t-bad">大</span></td>
+				<td>需服务端基础设施（容器编排 + 代码隔离）；短期可对接 GitHub Codespaces / Dev Container</td>
+			</tr>
+			<tr>
+				<td class="domain">Multi-Agent 并行工作台</td>
+				<td class="cur">Agents Window 平铺管理多任务；每个 Agent 独立 git worktree；互不阻塞；统一交付视图</td>
+				<td>Agent Crew 有冲突检测 + 编排，但非真并行（串行执行 + 合并策略）</td>
+				<td><span class="tag t-bad">大</span></td>
+				<td>需实现 git worktree 隔离 + 并行 Agent 进程 + 统一交付面板；中等工程量</td>
+			</tr>
+			<tr>
+				<td class="domain">Bugbot PR 自动审查</td>
+				<td class="cur">GitHub PR 自动审查 + Security Review + 一键 Fix in Cursor + MCP 外部工具上下文 + 90 秒完成</td>
+				<td>无对等功能；CI 有 lint/typecheck 但无 AI 审查</td>
+				<td><span class="tag t-bad">大</span></td>
+				<td>需 GitHub App / Webhook + 审查 Agent + 评论 API；可作为 Skill 或独立服务</td>
+			</tr>
+			<tr>
+				<td class="domain">Composer 2.5 (10x 效率)</td>
+				<td class="cur">自动编排多文件修改 + MoE 重写推理性能翻倍 + 成本效率 10x + 自动构建/测试循环</td>
+				<td>Apply Manager + Diff + 多文件编辑可用，但无自研推理优化和自动验证循环</td>
+				<td><span class="tag t-wait">中</span></td>
+				<td>核心受限于模型供应商能力；可在编排层加入自动 lint/test/fix 循环</td>
+			</tr>
+			<tr>
+				<td class="domain">Shared Canvases 共享画布</td>
+				<td class="cur">团队分享 Agent 创建的交互式仪表盘/报告；实时快照链接 + 只读 Dashboard</td>
+				<td>Kodrix Hub / Learning Dashboard 为本地 Webview，无共享/协作能力</td>
+				<td><span class="tag t-wait">中</span></td>
+				<td>需账号体系 + 云存储 + 实时同步；短期可导出 HTML 分享</td>
+			</tr>
+			<tr>
+				<td class="domain">Automations 自动化</td>
+				<td class="cur">Agent 窗口级自动化；多仓库 + 无代码模板（Slack 摘要/产品分析/FAQ/财务/客户健康）</td>
+				<td>Hooks 预置 + Background Agent 骨架；无多仓库支持和无代码模板</td>
+				<td><span class="tag t-wait">中</span></td>
+				<td>可在 Hooks 基础上扩展 Automation 模板引擎 + 多仓库配置</td>
+			</tr>
+			<tr>
+				<td class="domain">Auto-Review 运行模式</td>
+				<td class="cur">v3.6 允许列表内调用立即执行；沙箱内运行；分类器子 Agent 判断处理；自定义指令</td>
+				<td>AgentLoop 有权限检查但无分级自动审批机制</td>
+				<td><span class="tag t-wait">中</span></td>
+				<td>可在 Router 层增加 Allow-list + 分类器逻辑</td>
+			</tr>
+			<tr>
+				<td class="domain">团队协作 / 权限</td>
+				<td class="cur">Teams Rules 共享 · Enterprise 权限管理 · 统一计费 · 代码不经过云（Self-hosted）</td>
+				<td>纯单机；无账号体系、无团队 Rules 共享、无权限管理</td>
+				<td><span class="tag t-bad">大</span></td>
+				<td>需完整账号 + 服务端 + 权限系统；为长期目标</td>
+			</tr>
+		</table>
 		</div>
-		<div class="note" style="margin-top:14px;border-left-color:var(--ok)">
-			<b>结论</b>：审计缺陷 D1–D4 全部闭环。D2 为上游/环境项，已标记接受。下一步进入体验打磨 + 差异化壁垒深化。
+
+		<div class="note" style="border-left-color:var(--bad)">
+			<b>差距总结</b>：核心差距集中在<b>云基础设施</b>（Background Agent / 团队 / 共享）和<b>多 Agent 真并行</b>两大方向。
+			这些需要服务端投入，非纯客户端可解决。本地编辑器体验层面差距已很小。
 		</div>
 	</div>
 </section>
 
+<!-- ═══════════════════ ⑥ Kodrix 独有优势 ═══════════════════ -->
+<section id="advantage">
+	<div class="wrap">
+		<h2><span class="dot" style="background:var(--accent)"></span>⑥ Kodrix 独有优势（Cursor 无对等）</h2>
+		<div class="desc">以下为 Kodrix 差异化壁垒，Cursor 3.x 目前无直接对等功能。</div>
+
+		<div class="vs-grid">
+			<div class="vs-box kodrix">
+				<h4>Kodrix 独有能力</h4>
+				<ul>
+					<li><b>Idea Flow</b> — 想法→分析→规划→多Agent开发→预览→知识沉淀全自动</li>
+					<li><b>Idea Canvas</b> — 可视化想法画布 + 语音输入</li>
+					<li><b>Learning Engine 2.0</b> — EmbeddingProvider + 向量存储 v3 + 30 天衰减 + 仪表盘</li>
+					<li><b>Semantic Memory</b> — 零依赖 TF-IDF + 真 Embedding 双模 + Session Learning 自动蒸馏</li>
+					<li><b>主动上下文感知</b> — 意图检测 + 状态栏 KB/Token + QuickPick 多层开关</li>
+					<li><b>Agent OS 完整生态</b> — Spec/Wiki/Crew/Kanban/Arena/Hub/ACP/Hooks/Router</li>
+					<li><b>Code Smell 检测</b> — 过大文件/高耦合/循环依赖/未使用导出 → CODE_SMELLS.md</li>
+					<li><b>Code Lens for Agents</b> — 5 种 Lens 索引驱动</li>
+					<li><b>自然语言命令面板</b> — 9 类意图路由 + 双模式</li>
+					<li><b>Vibe Coding 迭代式</b> — 自动 Checkpoint + 任意版本回退</li>
+					<li><b>13 模型供应商 + BYOK</b> — 本地 Ollama/llama.cpp/LM Studio + 9 云端</li>
+					<li><b>完全开源 MIT</b> — 可自由定制/私有部署/审计</li>
+					<li><b>Cursor 一键迁移</b> — Rules/MCP/Skills/SQLite 全自动导入</li>
+				</ul>
+			</div>
+			<div class="vs-box cursor">
+				<h4>Cursor 3.x 独有能力</h4>
+				<ul>
+					<li><b>Background Agents</b> — 云端 Ubuntu VM 异步长任务</li>
+					<li><b>Agents Window</b> — 多 Agent 平铺管理 + git worktree 隔离</li>
+					<li><b>Bugbot + Security Review</b> — PR 自动审查 + 90 秒完成</li>
+					<li><b>Composer 2.5 MoE</b> — 自研推理优化 10x 成本效率</li>
+					<li><b>Shared Canvases</b> — 团队分享交互式仪表盘</li>
+					<li><b>Automations</b> — 无代码模板 + 多仓库自动化</li>
+					<li><b>Auto-Review</b> — 分级自动审批 + 分类器子 Agent</li>
+					<li><b>自研 Tab 模型</b> — 专有训练数据 + Blackwell 优化</li>
+					<li><b>闭源 Merkle 索引</b> — 增量同步 + 云端代码理解</li>
+					<li><b>Teams / Enterprise</b> — 账号/权限/统一计费/Self-hosted</li>
+					<li><b>best-of-n 并行评估</b> — 多方案隔离分支对比</li>
+					<li><b>SpaceX AI 合作</b> — 600 亿美元级资源背书</li>
+				</ul>
+			</div>
+		</div>
+
+		<div class="note">
+			<b>定位差异</b>：Kodrix = 「<b>越用越聪明的开源 Agent OS</b>」+「<b>完全自主可控的本地 IDE</b>」；
+			Cursor = 「<b>云端多 Agent 协作平台</b>」+「<b>自研模型 + 闭源索引</b>」。
+			两者路线已分叉：Kodrix 深耕本地智能 + 开源自由；Cursor 深耕云端协作 + 商业闭环。
+		</div>
+	</div>
+</section>
+
+<!-- ═══════════════════ ⑦ 追赶路线图 ═══════════════════ -->
 <section id="roadmap">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--ok)"></span>⑤ 非常有必要新实现的核心功能（全部实现）</h2>
-		<div class="desc">P0×3 + P1×3 + P2×3 共 9 项功能已于 2026-09-25 全部实现闭环。详情见 <a href="./项目非常有必要新实现的核心功能总报告.md">必做核心新功能总报告</a>。</div>
+		<h2><span class="dot" style="background:var(--wait)"></span>⑦ 追赶路线图（建议优先级）</h2>
+		<div class="desc">基于差距分析，按「投入产出比」排列的追赶建议。不追求 1:1 复制 Cursor，而是以 Kodrix 开源+本地优势为基础选择性追赶。</div>
 
-		<div class="phase" style="border-color:var(--ok)">
-			<h3>Phase 1 · P0 核心壁垒（已实现）</h3>
-			<div class="meta">Learning Engine 2.0 · Checkpoint 时间线 + Diff 画廊 · 主动上下文感知增强</div>
-			<p>T1: EmbeddingProvider 接口 + 向量存储 v3 + 仪表盘增强 · T2: TreeDataProvider + Webview 画廊 · T3: 意图检测 + 状态栏 + QuickPick 开关</p>
+		<div class="phase accent">
+			<h3>Phase A · 本地可闭环（1-2 周）</h3>
+			<div class="meta">无需服务端，纯客户端可实现</div>
+			<ul>
+				<li><b>A1</b> Multi-Agent 真并行：基于 git worktree 的本地多 Agent 隔离执行 + Agents Window 平铺面板</li>
+				<li><b>A2</b> Auto-Review 分级审批：Allow-list 配置 + 操作分类器 + 自动/确认/拒绝三级</li>
+				<li><b>A3</b> Composer 自动验证循环：Apply 后自动 lint/typecheck/test，失败自动修复重试</li>
+				<li><b>A4</b> Automations 模板引擎：在 Hooks 基础上扩展无代码模板（本地执行）</li>
+			</ul>
 		</div>
-		<div class="phase" style="border-color:var(--ok)">
-			<h3>Phase 2 · P1 差异化杀手锏（已实现）</h3>
-			<div class="meta">Vibe Coding 迭代式 · Wiki 2.0 + Code Smell · Agent Crew 冲突检测</div>
-			<p>T4: 迭代循环 + 自动 Checkpoint + 任意版本回退 · T5: LLM 模块描述 + Code Smell 检测 · T6: 文件写入追踪 + 并行冲突检测 + 合并策略</p>
+		<div class="phase wait">
+			<h3>Phase B · 需轻量服务（2-4 周）</h3>
+			<div class="meta">需 GitHub App / Webhook / 轻量后端</div>
+			<ul>
+				<li><b>B1</b> Bugbot 式 PR 审查：GitHub App + Webhook 触发 → Agent 审查 → 评论 API 反馈</li>
+				<li><b>B2</b> Background Agent (Codespaces)：对接 GitHub Codespaces / Dev Container 作为远程执行环境</li>
+				<li><b>B3</b> Shared Canvas 导出：Webview → 静态 HTML 导出 + 本地 HTTP 分享链接</li>
+			</ul>
 		</div>
-		<div class="phase" style="border-color:var(--ok)">
-			<h3>Phase 3 · P2 体验加分（已实现）</h3>
-			<div class="meta">性能优化 · Code Lens for Agents · 自然语言命令面板</div>
-			<p>T7: Webview 复用 + LRU 查询缓存 + 索引防抖 · T8: 5 种 Code Lens（Optimize/Test/Explain/Dependencies/Callers）· T9: 9 类意图路由 + QuickPick/InputBox 双模式</p>
+		<div class="phase bad">
+			<h3>Phase C · 需完整后端（长期）</h3>
+			<div class="meta">需账号体系 + 云基础设施 + 持续运维</div>
+			<ul>
+				<li><b>C1</b> 云端 Background Agent：自建容器编排 + 代码隔离沙箱</li>
+				<li><b>C2</b> Teams 协作：账号体系 + 权限管理 + Rules 共享 + 统一配置</li>
+				<li><b>C3</b> 实时 Shared Canvases：WebSocket 同步 + 协作编辑</li>
+				<li><b>C4</b> Self-hosted 企业版：私有部署 + 审计日志 + SSO</li>
+			</ul>
 		</div>
 
-		<div class="table-scroll" style="margin-top:8px">
-		<table>
-			<colgroup><col/><col/><col/><col/></colgroup>
-			<tr><th>优先级</th><th>功能</th><th>实现日期</th><th>状态</th></tr>
-			<tr><td><span class="tag t-p0">P0</span></td><td class="domain">Learning 2.0 · 时间线画廊 · 主动上下文</td><td class="cur">2026-09-25</td><td><span class="tag t-ok">已实现</span></td></tr>
-			<tr><td><span class="tag t-p1">P1</span></td><td class="domain">Vibe 迭代 · Wiki 2.0 · Crew 冲突检测</td><td class="cur">2026-09-25</td><td><span class="tag t-ok">已实现</span></td></tr>
-			<tr><td><span class="tag t-p2">P2</span></td><td class="domain">性能优化 · Code Lens · 自然语言命令</td><td class="cur">2026-09-25</td><td><span class="tag t-ok">已实现</span></td></tr>
-		</table>
-		</div>
-
-		<div class="note" style="margin-top:14px;border-left-color:var(--ok)">
-			<b>定位</b>：「越用越聪明的 Agent OS」+「大厂级打磨的 IDE 体验」— 核心壁垒已落地。下一步：体验打磨（骨架屏/动画/微交互）+ Phase 4–5 加分项。
+		<div class="note" style="border-left-color:var(--wait)">
+			<b>策略建议</b>：优先完成 Phase A（本地可闭环，投入小收益大），Phase B 按需启动（Bugbot 是高频需求），Phase C 作为商业化长期目标。
+			Kodrix 的核心竞争力在于「开源 + 本地智能 + 越用越聪明」，不必完全复制 Cursor 的云路线。
 		</div>
 	</div>
 </section>
 
+<!-- ═══════════════════ ⑧ 云 / 不追 ═══════════════════ -->
 <section id="cloud">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--no)"></span>⑥ 云设施 · 待定触发 · 不追</h2>
-		<div class="desc">不纳入当前本地迭代主线；与 D2 环境项、闭源私有能力区分。</div>
+		<h2><span class="dot" style="background:var(--no)"></span>⑧ 云设施 · 待定触发 · 不追</h2>
+		<div class="desc">不纳入当前本地迭代主线；明确区分「需云才能实现」与「闭源私有不追」。</div>
 
-		<h2 style="font-size:15px;margin:18px 0 8px"><span class="dot" style="background:var(--wait)"></span>待定（规模/生态触发）</h2>
+		<h3 style="font-size:14px;margin:20px 0 10px;color:var(--wait)">⏳ 待定（规模/生态触发）</h3>
 		<div class="table-scroll">
 		<table>
-			<colgroup><col/><col/><col/><col/></colgroup>
-			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>触发条件</th></tr>
-			<tr><td class="domain">文本 rerank</td><td>API 可用，未接入</td><td class="cur">检索后重排</td><td><span class="tag t-wait">长查询变多 / 命中率降</span></td></tr>
-			<tr><td class="domain">Embedding 粒度</td><td style="color:var(--ok)">文件 / 符号 / 语法块级 ✔</td><td class="cur">语法块级</td><td><span class="tag t-done">已实现 2026-09-25</span></td></tr>
-			<tr><td class="domain">ACP 生态对接</td><td>协议基础版就绪</td><td class="cur">外部 agent 互通</td><td><span class="tag t-wait">外部生态成熟</span></td></tr>
+			<tr><th style="width:18%">功能域</th><th style="width:28%">Kodrix 现状</th><th style="width:28%">Cursor 参考</th><th style="width:26%">触发条件</th></tr>
+			<tr><td class="domain">文本 Rerank</td><td>API 可用，未接入检索管线</td><td class="cur">检索后重排提升精度</td><td><span class="tag t-wait">长查询变多 / 命中率下降</span></td></tr>
+			<tr><td class="domain">ACP 生态对接</td><td>协议基础版就绪（JSONL + 进程管理）</td><td class="cur">MCP 标准化 + 外部 Agent 互通</td><td><span class="tag t-wait">外部 ACP/MCP 生态成熟</span></td></tr>
+			<tr><td class="domain">best-of-n 评估</td><td>Arena 对比框架存在</td><td class="cur">多方案隔离分支 + 自动评估选优</td><td><span class="tag t-wait">Agent 并行能力就位后</span></td></tr>
 		</table>
 		</div>
 
-		<h2 style="font-size:15px;margin:22px 0 8px"><span class="dot" style="background:var(--cloud)"></span>需云 / 协作</h2>
+		<h3 style="font-size:14px;margin:24px 0 10px;color:var(--bad)">☁️ 需云 / 协作基础设施</h3>
 		<div class="table-scroll">
 		<table>
-			<colgroup><col/><col/><col/><col/></colgroup>
-			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>前置</th></tr>
-			<tr><td class="domain">Background 远程执行</td><td>本地队列 / Copilot CLI 封装</td><td class="cur">云端沙箱</td><td><span class="tag t-cloud">服务端</span></td></tr>
-			<tr><td class="domain">团队协作</td><td>单机</td><td class="cur">Teams Rules/权限</td><td><span class="tag t-cloud">账号 + 服务端</span></td></tr>
-			<tr><td class="domain">多端覆盖</td><td>桌面（code-server 可扩）</td><td class="cur">Web / 远程</td><td><span class="tag t-cloud">独立部署层</span></td></tr>
+			<tr><th style="width:18%">功能域</th><th style="width:28%">Kodrix 现状</th><th style="width:28%">Cursor 参考</th><th style="width:26%">前置条件</th></tr>
+			<tr><td class="domain">Background 远程执行</td><td>本地队列 + backgroundAgent.ts 骨架</td><td class="cur">云端 Ubuntu VM + Privacy Mode</td><td><span class="tag t-bad">容器编排 + 隔离沙箱</span></td></tr>
+			<tr><td class="domain">团队协作</td><td>纯单机 · 无账号体系</td><td class="cur">Teams Rules / Enterprise 权限 / Self-hosted</td><td><span class="tag t-bad">账号 + 服务端 + 权限</span></td></tr>
+			<tr><td class="domain">多端覆盖</td><td>桌面 Electron（code-server 可扩展）</td><td class="cur">Web + 远程 + CLI + 移动端查看</td><td><span class="tag t-bad">独立部署层</span></td></tr>
+			<tr><td class="domain">Shared Canvases 实时</td><td>本地 Webview · 可导出 HTML</td><td class="cur">实时快照 + 团队只读 Dashboard</td><td><span class="tag t-bad">WebSocket + 云存储</span></td></tr>
 		</table>
 		</div>
 
-		<h2 style="font-size:15px;margin:22px 0 8px"><span class="dot" style="background:var(--no)"></span>不追 · 闭源私有</h2>
+		<h3 style="font-size:14px;margin:24px 0 10px;color:var(--no)">🚫 不追 · 闭源私有</h3>
 		<div class="table-scroll">
 		<table>
-			<colgroup><col/><col/><col/><col/></colgroup>
-			<tr><th>功能域</th><th>Kodrix 现状</th><th>Cursor 参考</th><th>说明</th></tr>
-			<tr><td class="domain">专有索引内核</td><td>自研索引 + embedding</td><td class="cur">闭源 Merkle</td><td><span class="tag t-no">无公开路径</span></td></tr>
-			<tr><td class="domain">专有补全训练</td><td>Copilot / DeepSeek FIM / 自定义</td><td class="cur">自家 Tab 模型</td><td><span class="tag t-no">需自训算力</span></td></tr>
-			<tr><td class="domain">云端推理编排</td><td>BYOK 双协议</td><td class="cur">专用集群</td><td><span class="tag t-no">需云资源</span></td></tr>
-			<tr><td class="domain">闭源编辑器内核</td><td>VS Code / VSCodium</td><td class="cur">自研内核</td><td><span class="tag t-no">不适用分支形态</span></td></tr>
+			<tr><th style="width:18%">功能域</th><th style="width:28%">Kodrix 替代方案</th><th style="width:28%">Cursor 实现</th><th style="width:26%">说明</th></tr>
+			<tr><td class="domain">专有索引内核</td><td>自研 AST 索引 + 语义 embedding + 符号/调用/依赖图</td><td class="cur">闭源 Merkle 树 + 云端增量同步</td><td><span class="tag t-no">无公开路径 · 自研替代</span></td></tr>
+			<tr><td class="domain">自研 Tab 模型</td><td>Copilot NES + DeepSeek FIM + 本地 Ollama</td><td class="cur">专有训练数据 + MoE + Blackwell 优化</td><td><span class="tag t-no">需自训算力 · BYOK 替代</span></td></tr>
+			<tr><td class="domain">云端推理集群</td><td>BYOK 双协议 + 13 供应商 + modelRoutes</td><td class="cur">专用推理集群 + 成本优化</td><td><span class="tag t-no">需云资源 · 开放替代</span></td></tr>
+			<tr><td class="domain">闭源编辑器内核</td><td>VS Code 1.128 开源 + MIT 可审计</td><td class="cur">VS Code 分支 + 闭源改动</td><td><span class="tag t-no">路线不同 · 开源优势</span></td></tr>
 		</table>
 		</div>
 	</div>
 </section>
 
+<!-- ═══════════════════ ⑨ 文档索引 ═══════════════════ -->
 <section id="docs">
 	<div class="wrap">
-		<h2><span class="dot" style="background:var(--accent)"></span>⑦ 文档索引与合并说明</h2>
-		<div class="desc">2026-09-25 起以三份 MD 为权威源；本 HTML 为可视化总览。</div>
+		<h2><span class="dot" style="background:var(--accent)"></span>⑨ 文档索引与版本说明</h2>
+		<div class="desc">2026-10-03 起以三份 MD 为权威数据源；本 HTML 为可视化总览。</div>
 		<div class="cards">
-			<div class="card ok">
-				<h3>权威 Markdown</h3>
+			<div class="card accent">
+				<h3>权威 Markdown 源</h3>
 				<ul>
-					<li><a href="./项目总共已更新修复完善的全部内容.md" style="color:var(--accent)">已更新修复完善的全部内容</a></li>
-					<li><a href="./项目新发现待修复的缺陷问题审计总报告.md" style="color:var(--accent)">新发现待修复缺陷总报告</a></li>
-					<li><a href="./项目非常有必要新实现的核心功能总报告.md" style="color:var(--accent)">必做核心新功能总报告</a></li>
-					<li><a href="../MIGRATION.md" style="color:var(--accent)">MIGRATION.md</a> · README / AGENTS 已挂链</li>
+					<li><a href="./项目总共已更新修复完善的全部内容.md" style="color:var(--accent)">已更新修复完善的全部内容</a> — 两轮 81+ 项闭环</li>
+					<li><a href="./项目新发现待修复的缺陷问题审计总报告.md" style="color:var(--accent)">待修复缺陷总报告</a> — 本轮闭环 28 项 · 开放 0 · 测试全绿</li>
+					<li><a href="./项目非常有必要新实现的核心功能总报告.md" style="color:var(--accent)">必做核心新功能总报告</a> — 全部实现 · 无待建项</li>
 				</ul>
 			</div>
-			<div class="card fix">
-				<h3>已归档删除（勿再引用）</h3>
+			<div class="card purple">
+				<h3>本页历史</h3>
 				<ul>
-					<li>项目体检与Cursor方向升级报告-2026-09-21.md</li>
-					<li>项目Bug与缺陷审计报告-2026-09-23.md</li>
-					<li>项目缺陷与Bug深度审计报告-复核版.md</li>
-					<li>improvement-plan.md · 当前项目的已更新已修复的全部内容.md</li>
+					<li><b>2026-09-24</b> — 初版合流（Cursor 2.x 对标）</li>
+					<li><b>2026-09-25</b> — D1–D4 闭环 + P0–P2 实现</li>
+					<li><b>2026-10-03</b> — <span style="color:var(--accent)">全新重制</span>：对标升级至 Cursor 3.x；增加评分矩阵、真实差距分析、独有优势对比、追赶路线图</li>
 				</ul>
 			</div>
 		</div>
 		<div class="note" style="margin-top:16px">
-			<b>验证局限</b>：合流整理未在 09-25 重跑全量 Electron UI；开放项状态以最近一次报告为准。
-			<br/><b>本页历史</b>：2026-09-24 初版合流 → 2026-09-25 更新（D1–D4 全部闭环 + P0–P2 核心功能全部实现）。
+			<b>Cursor 3.x 信息来源</b>：cursor.com 官方发布（2026-04 Cursor 3 / 05 Composer 2.5 + Shared Canvases / 06 Bugbot 升级 + Auto-Review v3.6 / 07 Background Agent GA）· 第三方评测与社区文档。
+			<br/><b>验证局限</b>：对标分析基于公开信息，Cursor 内部未发布功能不纳入；Kodrix 状态以代码仓库实际为准。
 		</div>
 	</div>
 </section>
 
 <footer>
 	<div class="wrap">
-		Kodrix 体检与 Cursor 对标总览 · 更新 2026-09-25 · D1–D4 全部闭环 · P0–P2 核心功能全部实现
+		Kodrix Code · 体检与 Cursor 3.x 对标差距总览 · 更新 2026-10-04 · 两轮 81+ 缺陷已闭环（本轮新增 28 项）· 开放缺陷 0 · 核心单测 11,729/0 · 索引 maxGap 46–50ms · 9 核心功能全部实现 · 对标综合 72%
 	</div>
 </footer>
 </body>

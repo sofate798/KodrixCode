@@ -5,7 +5,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { getSpecsDir, ensureDir } from '../paths';
+import { FEATURE_FLAGS } from '../shared/constants';
+import { isKodrixFeatureEnabled, featureDisabledNotice } from '../utils/featureFlags';
 
 function propertyTestTemplate(moduleName: string, properties: string[]): string {
 	return `/**
@@ -19,7 +22,8 @@ import { describe, it, expect } from 'vitest';
 
 describe('${moduleName} properties', () => {
 ${properties.map(p => `\tit('${p}', () => {
-\t\t// TODO: 使用 fast-check 验证属性
+\t\t// 占位断言：本生成器只产出骨架，不引入 fast-check 依赖（避免新增第三方依赖）。
+\t\t// 如需真实属性验证，请先接入 fast-check，再替换下面的断言：
 \t\t// fc.assert(fc.property(fc.string(), (input) => { ... }));
 \t\texpect(true).toBe(true);
 \t});`).join('\n\n')}
@@ -36,7 +40,7 @@ export async function generatePropertyTests(): Promise<void> {
 		if (specs.length) {
 			const picked = await vscode.window.showQuickPick(
 				specs.map(s => ({ label: s.name })),
-				{ placeHolder: '基于 Spec 生成属性测试（可选）' },
+				{ placeHolder: l10n.t('Generate property-based tests from Spec (optional)') },
 			);
 			if (picked) {
 				const reqPath = path.join(specsDir, picked.label, 'requirements.md');
@@ -48,7 +52,7 @@ export async function generatePropertyTests(): Promise<void> {
 	}
 
 	const moduleName = await vscode.window.showInputBox({
-		prompt: '模块名称',
+		prompt: l10n.t('Module name'),
 		value: 'authService',
 	}) || 'module';
 
@@ -60,15 +64,15 @@ export async function generatePropertyTests(): Promise<void> {
 
 	if (!properties.length) {
 		properties.push(
-			'对于任意合法输入，输出应满足类型约束',
-			'对于任意非法输入，应抛出错误或返回错误码',
-			'同一输入多次调用应产生相同结果（幂等）',
+			l10n.t('For any valid input, the output should satisfy the type constraints'),
+			l10n.t('For any invalid input, an error should be thrown or an error code returned'),
+			l10n.t('Calling multiple times with the same input should produce the same result (idempotent)'),
 		);
 	}
 
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		vscode.window.showWarningMessage('请先打开工作区');
+		vscode.window.showWarningMessage(l10n.t('Please open a workspace first'));
 		return;
 	}
 
@@ -79,11 +83,12 @@ export async function generatePropertyTests(): Promise<void> {
 
 	const doc = await vscode.workspace.openTextDocument(outPath);
 	await vscode.window.showTextDocument(doc);
+	const refineWithAgent = l10n.t('Refine tests with Agent');
 	vscode.window.showInformationMessage(
-		`属性测试已生成：${outPath}`,
-		'Agent 完善测试',
+		l10n.t('Property tests generated: {0}', outPath),
+		refineWithAgent,
 	).then(c => {
-		if (c === 'Agent 完善测试') {
+		if (c === refineWithAgent) {
 			void vscode.commands.executeCommand('workbench.action.chat.open', {
 				mode: 'agent',
 				query: `请完善 ${outPath} 中的 fast-check 属性测试，基于 Spec 验收标准实现真实断言。`,
@@ -95,6 +100,13 @@ export async function generatePropertyTests(): Promise<void> {
 
 export function registerPropertyTests(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('kodrix.testing.generatePropertyTests', () => generatePropertyTests()),
+		vscode.commands.registerCommand('kodrix.testing.generatePropertyTests', async () => {
+			// 功能开关 kodrix.features.propertyTests（默认开）
+			if (!isKodrixFeatureEnabled(FEATURE_FLAGS.propertyTests)) {
+				void vscode.window.showWarningMessage(featureDisabledNotice(FEATURE_FLAGS.propertyTests));
+				return;
+			}
+			await generatePropertyTests();
+		}),
 	);
 }

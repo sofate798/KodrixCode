@@ -11,9 +11,16 @@
   "categories": [
     "Other"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "%capabilities.untrustedWorkspaces.description%"
+    }
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
+	"l10n": "./l10n",
   "main": "./out/extension",
   "contributes": {
     "localizations": [
@@ -106,16 +113,9 @@
       "properties": {
         "kodrix.skills.installDir": {
           "type": "string",
+          "scope": "machine",
           "default": "~/.agents/skills",
           "description": "%config.installDir.description%"
-        },
-        "kodrix.skills.registryUrls": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "%config.registryUrls.description%"
         }
       }
     }

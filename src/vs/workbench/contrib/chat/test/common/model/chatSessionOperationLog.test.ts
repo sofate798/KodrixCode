@@ -681,7 +681,7 @@ suite('ChatSessionOperationLog', () => {
 			const json = JSON.stringify(obj, Adapt.makeTruncatingReplacer(1024 * 1024, 10 * 1024 * 1024));
 			const parsed = JSON.parse(json);
 			assert.notStrictEqual(parsed.content, big);
-			assert.ok(parsed.content.startsWith('[VS Code:'));
+			assert.ok(parsed.content.startsWith(Adapt.TRUNCATION_MARKER_PREFIX));
 			assert.strictEqual(parsed.label, 'ok');
 		});
 
@@ -752,7 +752,7 @@ suite('ChatSessionOperationLog', () => {
 			const out = Adapt.stringifyEntryWithFallback(entry);
 			const parsed = JSON.parse(out);
 			assert.notStrictEqual(parsed.content, big);
-			assert.ok(parsed.content.startsWith('[VS Code:'), `unexpected: ${parsed.content.slice(0, 80)}`);
+			assert.ok(parsed.content.startsWith(Adapt.TRUNCATION_MARKER_PREFIX), `unexpected: ${parsed.content.slice(0, 80)}`);
 			assert.strictEqual(parsed.label, 'ok');
 		});
 
@@ -786,7 +786,7 @@ suite('ChatSessionOperationLog', () => {
 			assert.strictEqual(calls, 2, 'should have been called twice (initial + retry)');
 			assert.strictEqual(clone.label, 'ok');
 			assert.notStrictEqual(clone.huge, big);
-			assert.ok(clone.huge.startsWith('[VS Code:'), `unexpected: ${clone.huge.slice(0, 80)}`);
+			assert.ok(clone.huge.startsWith(Adapt.TRUNCATION_MARKER_PREFIX), `unexpected: ${clone.huge.slice(0, 80)}`);
 		});
 
 		test('value().extract recovers when the deep-clone throws RangeError', () => {
@@ -808,7 +808,7 @@ suite('ChatSessionOperationLog', () => {
 			const extracted = transform.extract(huge);
 			assert.strictEqual(calls, 2);
 			assert.strictEqual(extracted.kept, 'meta');
-			assert.ok(extracted.dump.startsWith('[VS Code:'));
+			assert.ok(extracted.dump.startsWith(Adapt.TRUNCATION_MARKER_PREFIX));
 		});
 	});
 });

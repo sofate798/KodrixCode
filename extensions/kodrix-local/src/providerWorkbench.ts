@@ -6,10 +6,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
-import { applyPreset, loadPresets } from './migrateConfig';
+import { loadPresets } from './migrateConfig';
+import { failureGuidance, reapplyStoredProvider, removeByokProviderGroup, resolveModelsForPreset } from './byokRegister';
 import { testOpenAICompatibleConnection, testOllamaConnection } from './modelDiscovery';
 import { anthropicMessagesUrl, parseModelNames } from './endpointUrls';
 import { notifyKodrixModelsChanged } from './languageModelProvider';
+import { describeRequestError, httpStatusHint } from './requestErrors';
 import { deleteProviderApiKey, readProviderApiKey, saveProviderApiKey } from './providerSecrets';
 import {
 	getActiveProviderId,
@@ -27,6 +29,8 @@ import { logWarn } from './logger';
 
 let activePanel: vscode.WebviewPanel | undefined;
 
+// httpStatusHint 与网络层错误描述统一由 requestErrors 提供，连接测试与真实请求共用同一口径
+
 /** 仅允许 http/https 外部链接，防止 Webview 触发任意 scheme（file://、命令注入等） */
 function isSafeExternalUrl(url: string): boolean {
 	try {
@@ -37,6 +41,45 @@ function isSafeExternalUrl(url: string): boolean {
 	}
 }
 
+/** `{{l10n:源文案}}` 占位（与 agent-os webviewHtml.ts 同一约定），文案里允许 {0}~{9} 运行时占位符 */
+const L10N_PLACEHOLDER_RE = /\{\{l10n:((?:[^{}]|\{\d+\})*)\}\}/g;
+
+function localizeWebviewText(source: string): string {
+	const text = source.trim();
+	if (!text) { return ''; }
+	try {
+		return l10n.t(text);
+	} catch {
+		return text;
+	}
+}
+
+/** webview 脚本侧动态文案字典：宿主侧本地化后经 `{{l10nDict}}` 注入（键名与 provider-workbench.html 的 L10N.* 对应） */
+function buildWebviewL10nDict(): Record<string, string> {
+	return {
+		emptyProviders: l10n.t('No providers configured yet. Switch to "Add Endpoint" or run the command Kodrix: Browse Model Provider Presets.'),
+		apiKeyPending: l10n.t('API Key pending'),
+		current: l10n.t('Current'),
+		local: l10n.t('Local'),
+		cloud: l10n.t('Cloud'),
+		models: l10n.t('Models'),
+		setActive: l10n.t('Set Active'),
+		edit: l10n.t('Edit'),
+		testConnection: l10n.t('Test Connection'),
+		remove: l10n.t('Remove'),
+		localModels: l10n.t('Local Models'),
+		cloudApis: l10n.t('Cloud APIs'),
+		website: l10n.t('Website'),
+		validatedModel: l10n.t('Verified "{0}"'),
+		validatedGeneric: l10n.t('Model verified'),
+		providerModelCount: l10n.t(' ({0} models from this provider)'),
+		connectOk: l10n.t('Connection successful ({0}ms)'),
+		connectFailed: l10n.t('Connection failed'),
+		unknownError: l10n.t('Unknown error'),
+		saved: l10n.t('Saved'),
+	};
+}
+
 function getHtml(webview: vscode.Webview, extensionPath: string): string {
 	const resourcesDir = path.join(extensionPath, 'resources');
 	const htmlPath = path.join(resourcesDir, 'provider-workbench.html');
@@ -45,14 +88,18 @@ function getHtml(webview: vscode.Webview, extensionPath: string): string {
 		const codiconsCssUri = webview.asWebviewUri(
 			vscode.Uri.file(path.join(resourcesDir, 'codicons', 'codicon.css')),
 		);
+		const l10nDictJson = JSON.stringify(buildWebviewL10nDict()).replace(/</g, '\\u003c');
 		return html
 			.replace(/\{\{cspSource\}\}/g, webview.cspSource)
-			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString());
+			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString())
+			.replace(/\{\{htmlLang\}\}/g, vscode.env.language)
+			.replace(/\{\{l10nDict\}\}/g, l10nDictJson)
+			.replace(L10N_PLACEHOLDER_RE, (_m, source: string) => localizeWebviewText(source));
 	} catch (err) {
 		logWarn('加载 Provider Workbench HTML 资源失败', err);
-		return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`
+		return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>`
 			+ `<body style="font-family:sans-serif;padding:24px">`
-			+ `<h2>${l10n.t('AI 供应商管理')}</h2><p>${l10n.t('资源加载失败，请重新编译扩展。')}</p></body></html>`;
+			+ `<h2>${l10n.t('AI Provider Management')}</h2><p>${l10n.t('Failed to load resources. Please rebuild the extension.')}</p></body></html>`;
 	}
 }
 
@@ -69,11 +116,17 @@ function pushState(
 	context: vscode.ExtensionContext,
 	presets: ProviderPreset[],
 ): void {
+	// 预设名称/hint 来自数据文件（英文源），经运行时 l10n.t 回填中文（键见 l10n/data-keys.json）
+	const localizedPresets = presets.map(p => ({
+		...p,
+		name: l10n.t(p.name),
+		hint: p.hint ? l10n.t(p.hint) : p.hint,
+	}));
 	webview.postMessage({
 		type: 'init',
 		providers: loadStoredProviders(context),
 		activeId: getActiveProviderId(context),
-		presets,
+		presets: localizedPresets,
 		routes: loadModelRoutes(),
 	});
 }
@@ -84,13 +137,24 @@ async function testProvider(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
 	const apiKey = await readProviderApiKey(context, provider.id);
+	if (provider.api_type === 'gemini') {
+		webview.postMessage({
+			type: 'testResult',
+			id: provider.id,
+			ok: false,
+			models: provider.models,
+			error: l10n.t('Kodrix Provider Management does not support the native Gemini API. Copilot BYOK in this project offers Gemini access; or switch to a compatible endpoint per the provider\'s docs.'),
+		});
+		return;
+	}
 	if (provider.api_type === 'ollama') {
-		const result = await testOllamaConnection(provider.base_url);
+		const result = await testOllamaConnection(provider.base_url, provider.models[0] || provider.model);
 		webview.postMessage({
 			type: 'testResult',
 			id: provider.id,
 			ok: result.ok,
 			models: result.models,
+			testedModel: result.testedModel,
 			latencyMs: result.latencyMs,
 			error: result.error,
 		});
@@ -99,6 +163,7 @@ async function testProvider(
 
 	if (provider.api_type === 'anthropic') {
 		const started = Date.now();
+		const model = provider.models[0] || provider.model;
 		try {
 			const headers: Record<string, string> = {
 				'Content-Type': 'application/json',
@@ -107,7 +172,6 @@ async function testProvider(
 			if (apiKey) {
 				headers['x-api-key'] = apiKey;
 			}
-			const model = provider.models[0] || provider.model;
 			const response = await fetch(anthropicMessagesUrl(provider.base_url), {
 				method: 'POST',
 				headers,
@@ -123,8 +187,9 @@ async function testProvider(
 				id: provider.id,
 				ok: response.ok,
 				models: provider.models,
+				testedModel: model,
 				latencyMs: Date.now() - started,
-				error: response.ok ? undefined : `HTTP ${response.status}`,
+				error: response.ok ? undefined : `HTTP ${response.status}，${httpStatusHint(response.status)}`,
 			});
 		} catch (err) {
 			webview.postMessage({
@@ -132,14 +197,19 @@ async function testProvider(
 				id: provider.id,
 				ok: false,
 				models: provider.models,
+				testedModel: model,
 				latencyMs: Date.now() - started,
-				error: err instanceof Error ? err.message : String(err),
+				error: describeRequestError(provider.name, provider.base_url, err),
 			});
 		}
 		return;
 	}
 
-	const result = await testOpenAICompatibleConnection(provider.base_url, apiKey);
+	const result = await testOpenAICompatibleConnection(
+		provider.base_url,
+		apiKey,
+		provider.models[0] || provider.model,
+	);
 	webview.postMessage({
 		type: 'testResult',
 		id: provider.id,
@@ -165,12 +235,29 @@ function setupMessageHandler(
 				case 'activate': {
 					const provider = loadStoredProviders(context).find(p => p.id === msg.id);
 					if (provider) {
-						await context.globalState.update('kodrix.activeProviderId', provider.id);
-						await syncFromStoredProvider(provider);
+						const apiKey = await readProviderApiKey(context, provider.id);
+						const res = await reapplyStoredProvider(context, provider, presets, apiKey);
 						notifyKodrixModelsChanged();
-						vscode.window.showInformationMessage(
-							l10n.t('已将「{0}」设为当前供应商。在 Chat 模型列表中选择 Kodrix。', provider.name),
-						);
+						if (res.usableViaKodrix && res.byokRegistered) {
+							vscode.window.showInformationMessage(
+								l10n.t('"{0}" is now the current provider. Pick Kodrix in the Chat model list.', provider.name),
+							);
+						} else if (res.usableViaKodrix) {
+							vscode.window.showInformationMessage(
+								l10n.t(
+									'"{0}" is now the current provider (Kodrix channel available). The Copilot-side model list was not synced; if you want to use it in Copilot, make sure Copilot is loaded.',
+									provider.name,
+								),
+							);
+						} else if (res.byokRegistered) {
+							vscode.window.showInformationMessage(
+								l10n.t('"{0}" is now the current provider (via Copilot BYOK).', provider.name),
+							);
+						} else {
+							vscode.window.showErrorMessage(
+								l10n.t('"{0}" could not be activated: neither channel is available. {1}', provider.name, failureGuidance(res.failureReason)),
+							);
+						}
 					}
 					pushState(webview, context, presets);
 					break;
@@ -178,13 +265,16 @@ function setupMessageHandler(
 				case 'remove': {
 					const provider = loadStoredProviders(context).find(p => p.id === msg.id);
 					const choice = await vscode.window.showWarningMessage(
-						l10n.t('移除「{0}」？', provider?.name || l10n.t('供应商')),
+						l10n.t('Remove "{0}"?', provider?.name || l10n.t('Providers')),
 						{ modal: true },
-						l10n.t('移除'),
+						l10n.t('Remove'),
 					);
-					if (choice === l10n.t('移除')) {
+					if (choice === l10n.t('Remove')) {
 						await removeStoredProvider(context, msg.id);
 						await deleteProviderApiKey(context, msg.id);
+						if (provider) {
+							await removeByokProviderGroup(provider);
+						}
 						notifyKodrixModelsChanged();
 					}
 					pushState(webview, context, presets);
@@ -193,6 +283,16 @@ function setupMessageHandler(
 				case 'test': {
 					const provider = loadStoredProviders(context).find(p => p.id === msg.id);
 					if (provider) {
+						if (provider.category === 'cloud') {
+							const proceed = await vscode.window.showWarningMessage(
+								l10n.t('The connection test sends a minimal model request to the cloud provider and may still incur costs. Continue?'),
+								{ modal: true },
+								l10n.t('Continue Testing'),
+							);
+							if (proceed !== l10n.t('Continue Testing')) {
+								break;
+							}
+						}
 						await testProvider(provider, webview, context);
 					}
 					break;
@@ -200,11 +300,10 @@ function setupMessageHandler(
 				case 'addCustom': {
 					const name = typeof msg.name === 'string' ? msg.name.trim() : '';
 					const baseUrl = typeof msg.baseUrl === 'string' ? msg.baseUrl.trim() : '';
-					const models = parseModelNames(typeof msg.modelsText === 'string' ? msg.modelsText : '');
 					const apiType = msg.apiType === 'anthropic' ? 'anthropic' : 'openai';
 					const category = msg.category === 'local' ? 'local' : 'cloud';
-					if (!name || !baseUrl || !models.length) {
-						vscode.window.showWarningMessage(l10n.t('请填写名称、base_url，以及至少一个模型名。'));
+					if (!name || !baseUrl) {
+						vscode.window.showWarningMessage(l10n.t('Fill in the name and base_url.'));
 						break;
 					}
 					const presetId = typeof msg.presetId === 'string' && msg.presetId ? msg.presetId : undefined;
@@ -212,13 +311,34 @@ function setupMessageHandler(
 						? msg.id
 						: (presetId ? `kodrix-${presetId}` : `kodrix-custom-${Date.now()}`);
 					const apiKey = typeof msg.apiKey === 'string' ? msg.apiKey : '';
+					let models = parseModelNames(typeof msg.modelsText === 'string' ? msg.modelsText : '');
+					let triedDiscovery = false;
+					if (!models.length && category === 'local' && apiType === 'openai') {
+						// 本地 OpenAI 兼容服务（llama.cpp / LM Studio / vLLM 等）通常不预置模型名：
+						// 与命令面板的预设流程共用同一探测逻辑，探测到多个模型时交给用户挑选。
+						triedDiscovery = true;
+						const discovered = await resolveModelsForPreset(
+							{ id: presetId || id, category, name, api_type: apiType, base_url: baseUrl, model: '', models: [] },
+							baseUrl,
+							apiKey.trim() || await readProviderApiKey(context, id),
+						);
+						if (discovered?.length) {
+							models = discovered;
+						}
+					}
+					if (!models.length) {
+						vscode.window.showWarningMessage(triedDiscovery
+							? l10n.t('Fill in at least one model name (auto-detection found none).')
+							: l10n.t('Fill in at least one model name.'));
+						break;
+					}
 					const needsKey = category === 'cloud';
 					if (apiKey.trim()) {
 						await saveProviderApiKey(context, id, apiKey);
 					}
 					const savedKey = await readProviderApiKey(context, id);
 					if (needsKey && !savedKey) {
-						vscode.window.showWarningMessage(l10n.t('云端供应商需要填写 API Key。'));
+						vscode.window.showWarningMessage(l10n.t('Cloud providers require an API Key.'));
 						break;
 					}
 					const existing = loadStoredProviders(context).find(p => p.id === id);
@@ -240,20 +360,22 @@ function setupMessageHandler(
 					notifyKodrixModelsChanged();
 					await syncFromStoredProvider(stored);
 					vscode.window.showInformationMessage(
-						l10n.t('已保存「{0}」（{1} 个模型）。Chat 中选择 Kodrix / {2}，无需登录 GitHub。', name, String(models.length), models[0]),
+						l10n.t('Saved "{0}" ({1} models). Pick Kodrix / {2} in Chat — no GitHub sign-in needed.', name, String(models.length), models[0]),
 					);
+					if (category === 'cloud') {
+						vscode.window.showInformationMessage(
+							l10n.t('Cloud models send request content to the provider; usage may incur costs. Review the provider\'s data and billing policies.'),
+						);
+					}
 					pushState(webview, context, presets);
 					break;
 				}
-				case 'openManageModels':
-					await vscode.commands.executeCommand('github.copilot.chat.openModelPicker');
-					break;
 				case 'openWebsite':
 					if (typeof msg.url === 'string' && isSafeExternalUrl(msg.url)) {
 						await vscode.env.openExternal(vscode.Uri.parse(msg.url));
 					} else if (msg.url) {
 						logWarn(`拒绝打开不安全的 URL: ${String(msg.url)}`);
-						vscode.window.showWarningMessage(l10n.t('已阻止打开不受信任的链接（仅允许 http/https）。'));
+						vscode.window.showWarningMessage(l10n.t('Blocked opening an untrusted link (only http/https are allowed).'));
 					}
 					break;
 				case 'fillRoutesFromActive': {
@@ -261,44 +383,34 @@ function setupMessageHandler(
 					const provider = loadStoredProviders(context).find(p => p.id === activeId);
 					const primary = provider ? primaryModelFromProvider(provider) : undefined;
 					if (!primary) {
-						vscode.window.showWarningMessage(l10n.t('请先配置并设为当前供应商。'));
+						vscode.window.showWarningMessage(l10n.t('Configure a provider and set it as current first.'));
 						break;
 					}
 					await syncFromStoredProvider(provider!);
 					await applyModelRoutes();
 					webview.postMessage({
 						type: 'routesSaved',
-						message: l10n.t('已用当前供应商主模型「{0}」填充全部路由', primary),
+						message: l10n.t('Filled all routes with the current provider\'s primary model "{0}"', primary),
 					});
 					pushState(webview, context, presets);
 					break;
 				}
-				case 'applyPreset': {
-					const preset = presets.find(p => p.id === msg.presetId);
-					if (preset) {
-						let apiKey: string | undefined;
-						if (preset.needs_api_key) {
-							apiKey = await vscode.window.showInputBox({
-								prompt: l10n.t('{0} API Key（可稍后在 Manage Models 中配置）', preset.name),
-								password: true,
-								ignoreFocusOut: true,
-							}) || undefined;
-						}
-						await applyPreset(preset, apiKey, context);
-						pushState(webview, context, presets);
-					}
-					break;
-				}
-			case 'saveRoutes': {
+				case 'saveRoutes': {
 				await saveModelRoutes(msg.routes || {});
 				await applyModelRoutes();
-				webview.postMessage({ type: 'routesSaved', message: l10n.t('多模型路由已保存并应用') });
+				webview.postMessage({ type: 'routesSaved', message: l10n.t('Multi-model routes saved and applied') });
 				break;
 			}
 			default:
 				logWarn(`Provider Workbench: 未知消息类型 "${(msg as { type?: string }).type}"`, msg);
 			}
-		})().catch(err => vscode.window.showErrorMessage(`Provider Workbench error: ${err instanceof Error ? err.message : String(err)}`));
+		})().catch(err => {
+			// 面板里的未预期异常：给用户一句能看懂的话，完整原因进日志，不把英文堆栈前缀丢给用户
+			logWarn('AI 供应商管理面板处理消息时出错', err);
+			void vscode.window.showErrorMessage(
+				l10n.t('AI Provider Management: the operation did not complete ({0}). Details were written to the Kodrix output log.', err instanceof Error ? err.message : String(err)),
+			);
+		});
 	});
 }
 
@@ -333,7 +445,7 @@ export function openProviderWorkbench(context: vscode.ExtensionContext): void {
 
 	const panel = vscode.window.createWebviewPanel(
 		'kodrixProviderWorkbench',
-		l10n.t('AI 供应商管理'),
+		l10n.t('AI Provider Management'),
 		column,
 		webviewOptions(context.extensionPath),
 	);

@@ -107,7 +107,7 @@ async function importCursorMcp(): Promise<string[]> {
 	}
 	const mcpPath = mergeMcpServers(servers);
 	if (mcpPath) {
-		applied.push(`MCP 服务器（${Object.keys(servers).length} 个）→ ${mcpPath}`);
+		applied.push(vscode.l10n.t('MCP servers ({0}) → {1}', String(Object.keys(servers).length), mcpPath));
 	}
 	return applied;
 }
@@ -119,7 +119,7 @@ async function importCursorLocations(): Promise<string[]> {
 		'~/.cursor/skills': true,
 	});
 	if (skillLocs.length) {
-		applied.push(`Skill 目录：${skillLocs.join('、')}`);
+		applied.push(vscode.l10n.t('Skill directories: {0}', skillLocs.join(', ')));
 	}
 
 	const instructionLocs = await mergeConfigLocations('instructionsFilesLocations', {
@@ -128,7 +128,7 @@ async function importCursorLocations(): Promise<string[]> {
 		'~/.kodrix/instructions': true,
 	});
 	if (instructionLocs.length) {
-		applied.push(`Rules 目录：${instructionLocs.join('、')}`);
+		applied.push(vscode.l10n.t('Rules directories: {0}', instructionLocs.join(', ')));
 	}
 	return applied;
 }
@@ -147,7 +147,7 @@ async function importWorkspaceCursorRules(): Promise<string[]> {
 		try {
 			fs.mkdirSync(path.dirname(dest), { recursive: true });
 			const content = [
-				'<!-- 由 Kodrix 从 .cursorrules 自动迁移 -->',
+				'<!-- Migrated from .cursorrules by Kodrix -->',
 				'',
 				fs.readFileSync(cursorRules, 'utf-8'),
 			].join('\n');
@@ -201,7 +201,7 @@ async function importCursorUserRulesFile(): Promise<string[]> {
 	}
 	if (count) {
 		await mergeConfigLocations('instructionsFilesLocations', { '~/.kodrix/instructions': true });
-		applied.push(`用户 Rules（${count} 个）→ ~/.kodrix/instructions`);
+		applied.push(vscode.l10n.t('User Rules ({0}) → ~/.kodrix/instructions', String(count)));
 	}
 	return applied;
 }
@@ -211,7 +211,7 @@ async function importCursorUserRulesFromDatabase(): Promise<string[]> {
 	const result = importCursorUserRulesFromSqlite();
 	if (result.imported && result.destPath) {
 		await mergeConfigLocations('instructionsFilesLocations', { '~/.kodrix/instructions': true });
-		applied.push(`SQLite User Rules（${result.source}）→ ~/.kodrix/instructions/cursor-user-rules.instructions.md`);
+		applied.push(vscode.l10n.t('SQLite User Rules ({0}) → ~/.kodrix/instructions/cursor-user-rules.instructions.md', result.source ?? ''));
 	}
 	return applied;
 }
@@ -271,7 +271,7 @@ async function importCursorSettingsHints(): Promise<string[]> {
 		const config = vscode.workspace.getConfiguration(section);
 		if (config.get(key) === undefined) {
 			await config.update(key, value, target);
-			applied.push(`设置：${section}.${key}`);
+			applied.push(vscode.l10n.t('Setting: {0}.{1}', section, key));
 		}
 	}
 	return applied;
@@ -296,22 +296,22 @@ export function detectCursorImportables(): { available: boolean; items: string[]
 
 	try {
 		if (fs.existsSync(rulesDir) && fs.readdirSync(rulesDir).length > 0) {
-			items.push('Rules（.cursor/rules）');
+			items.push(vscode.l10n.t('Rules (.cursor/rules)'));
 		}
 	} catch { /* ignore */ }
 	try {
 		if (fs.existsSync(skillsDir) && fs.readdirSync(skillsDir).length > 0) {
-			items.push('Skills（.cursor/skills）');
+			items.push(vscode.l10n.t('Skills (.cursor/skills)'));
 		}
 	} catch { /* ignore */ }
 	if (fs.existsSync(mcpFile)) {
-		items.push('MCP 服务器（mcp.json）');
+		items.push(vscode.l10n.t('MCP servers (mcp.json)'));
 	}
 	if (fs.existsSync(stateDb)) {
-		items.push('User Rules（state.vscdb）');
+		items.push(vscode.l10n.t('User Rules (state.vscdb)'));
 	}
 	if (userSettings) {
-		items.push('设置提示（Cursor settings.json）');
+		items.push(vscode.l10n.t('Settings hints (Cursor settings.json)'));
 	}
 
 	return { available: items.length > 0, items };
@@ -322,7 +322,7 @@ export async function importFromCursor(options?: { importSkills?: boolean }): Pr
 	if (!fs.existsSync(cursorHome) && !resolveCursorUserSettingsPath()) {
 		return {
 			imported: false,
-			message: '未检测到 Cursor 配置（~/.cursor 或 Cursor User/settings.json）',
+			message: vscode.l10n.t('No Cursor configuration detected (~/.cursor or Cursor User/settings.json)'),
 			itemsApplied: [],
 		};
 	}
@@ -338,21 +338,21 @@ export async function importFromCursor(options?: { importSkills?: boolean }): Pr
 	if (options?.importSkills !== false) {
 		const skillCount = await importCursorSkillsFromDisk();
 		if (skillCount > 0) {
-			applied.push(`Skills（${skillCount} 个）→ ~/.agents/skills`);
+			applied.push(vscode.l10n.t('Skills ({0}) → ~/.agents/skills', String(skillCount)));
 		}
 	}
 
 	if (!applied.length) {
 		return {
 			imported: false,
-			message: '已检查 Cursor 配置，未发现可导入的新项',
+			message: vscode.l10n.t('Checked Cursor configuration; nothing new to import'),
 			itemsApplied: [],
 		};
 	}
 
 	return {
 		imported: true,
-		message: '已从 Cursor 导入配置',
+		message: vscode.l10n.t('Configuration imported from Cursor'),
 		itemsApplied: applied,
 	};
 }

@@ -26,6 +26,9 @@ const MCP_INVALID_REQUEST = -32600;
 const MCP_METHOD_NOT_FOUND = -32601;
 const MCP_INVALID_PARAMS = -32602;
 
+/** 网关在 initialize 响应里上报的服务名（测试断言请引用本常量，避免品牌改名时测试漂移） */
+export const MCP_GATEWAY_SERVER_NAME = 'Kodrix Code MCP Gateway';
+
 export class McpGatewaySession extends Disposable {
 	private readonly _rpc: JsonRpcProtocol;
 	private readonly _sseClients = new Set<http.ServerResponse>();
@@ -209,7 +212,7 @@ export class McpGatewaySession extends Disposable {
 				},
 			},
 			serverInfo: {
-				name: 'Kodrix Code MCP Gateway',
+				name: MCP_GATEWAY_SERVER_NAME,
 				version: '1.0.0',
 			}
 		};

@@ -223,7 +223,10 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 
 		class ChatSetupTriggerAction extends Action2 {
 
-			static CHAT_SETUP_ACTION_LABEL = localize2('triggerChatSetup', "Use AI Features with Copilot for free...");
+			// Kodrix Code：本入口实际执行的是 Copilot 安装/登录流程，而 Kodrix 的主路径是
+			// 自带模型（AI 供应商管理，无需登录 GitHub）。文案如实标注「可选」，避免与首启向导
+			// 的「不需要登录 GitHub」互相矛盾。行为保持不变。
+			static CHAT_SETUP_ACTION_LABEL = localize2('triggerChatSetup', "Use GitHub Copilot (optional)...");
 
 			constructor() {
 				super({
@@ -326,7 +329,8 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			constructor() {
 				super({
 					id: 'workbench.action.chat.triggerSetupForceSignIn',
-					title: localize2('forceSignIn', "Sign in to use GitHub Copilot")
+					// Kodrix Code：登录不是使用 AI 能力的前提（可用自带模型），如实标注可选
+					title: localize2('forceSignIn', "Sign in to GitHub to use Copilot (optional)")
 				});
 			}
 
@@ -396,7 +400,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			constructor() {
 				super({
 					id: ChatSetupSignInTitleBarAction.ID,
-					title: localize('signInIndicatorTitleBarAction', 'Sign In'),
+					// Kodrix Code：标题栏按钮宽度有限，用「Copilot 登录」点明这是可选的 Copilot 通道，
+				// 而不是整个产品的登录入口
+				title: localize('signInIndicatorTitleBarAction', 'Copilot sign in'),
 					f1: false,
 					menu: [{
 						id: MenuId.TitleBarAdjacentCenter,

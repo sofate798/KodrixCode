@@ -47,15 +47,15 @@ const learningEngine_1 = require("../learning/learningEngine");
 const specHelpers_1 = require("./specHelpers");
 async function createSpec(openWorkbench = false) {
     const feature = await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('功能名称（将创建 Spec 三件套）'),
+        prompt: vscode_1.l10n.t('Feature name (a Spec trio will be created)'),
         placeHolder: 'user-authentication',
     });
     if (!feature) {
         return undefined;
     }
     const description = await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('简要描述需求'),
-        placeHolder: vscode_1.l10n.t('实现用户登录、注册与会话管理'),
+        prompt: vscode_1.l10n.t('Briefly describe your requirement'),
+        placeHolder: vscode_1.l10n.t('Implement user login, registration, and session management'),
     }) || '（待补充）';
     const specDir = await (0, specHelpers_1.createSpecFiles)(feature, description);
     if (!specDir) {
@@ -69,11 +69,11 @@ async function createSpec(openWorkbench = false) {
     else {
         const reqDoc = await vscode.workspace.openTextDocument(path.join(specDir, 'requirements.md'));
         await vscode.window.showTextDocument(reqDoc);
-        void vscode.window.showInformationMessage(vscode_1.l10n.t('Spec 已创建：.kodrix/specs/{0}/', slug), vscode_1.l10n.t('打开三栏工作台'), vscode_1.l10n.t('实施任务')).then(choice => {
-            if (choice === vscode_1.l10n.t('打开三栏工作台')) {
+        void vscode.window.showInformationMessage(vscode_1.l10n.t('Spec created: .kodrix/specs/{0}/', slug), vscode_1.l10n.t('Open the three-pane workbench'), vscode_1.l10n.t('Implement task')).then(choice => {
+            if (choice === vscode_1.l10n.t('Open the three-pane workbench')) {
                 void vscode.commands.executeCommand('kodrix.spec.openWorkbench', slug);
             }
-            else if (choice === vscode_1.l10n.t('实施任务')) {
+            else if (choice === vscode_1.l10n.t('Implement task')) {
                 void implementSpec(specDir);
             }
         }, () => { });
@@ -90,7 +90,7 @@ async function openSpec() {
 async function implementSpec(specDir) {
     let dir = specDir;
     if (!dir) {
-        const slug = await (0, specHelpers_1.pickSpecSlug)(vscode_1.l10n.t('选择要实施的 Spec'));
+        const slug = await (0, specHelpers_1.pickSpecSlug)(vscode_1.l10n.t('Select a Spec to implement'));
         if (!slug) {
             return;
         }

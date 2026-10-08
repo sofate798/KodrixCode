@@ -62,7 +62,6 @@ const paths_1 = require("../paths");
 const logger_1 = require("../logger");
 const constants_1 = require("../shared/constants");
 const fsSafe_1 = require("../utils/fsSafe");
-const constants_2 = require("../shared/constants");
 // ── 路径 ────────────────────────────────────────────────────────
 /** 规则源目录：.kodrix/rules（Cursor 风格 .mdc） */
 function getRulesDir() {
@@ -86,16 +85,20 @@ function parseRuleFile(content) {
     const meta = { description: '' };
     for (const line of metaText.split('\n')) {
         const m = line.match(/^(\w+):\s*(.*)$/);
-        if (!m)
+        if (!m) {
             continue;
+        }
         const key = m[1].trim();
         const value = m[2].trim();
-        if (key === 'description')
+        if (key === 'description') {
             meta.description = value.replace(/^["']|["']$/g, '');
-        else if (key === 'globs')
+        }
+        else if (key === 'globs') {
             meta.globs = value.replace(/^["']|["']$/g, '');
-        else if (key === 'alwaysApply')
+        }
+        else if (key === 'alwaysApply') {
             meta.alwaysApply = value.toLowerCase() === 'true';
+        }
     }
     return { meta, body };
 }
@@ -117,8 +120,9 @@ ${body}
 /** 扫描 rules 源目录中的规则文件（.mdc 与 .instructions.md） */
 function scanRuleFiles() {
     const dir = getRulesDir();
-    if (!dir || !fs.existsSync(dir))
+    if (!dir || !fs.existsSync(dir)) {
         return [];
+    }
     try {
         return fs.readdirSync(dir)
             .filter(f => f.endsWith('.mdc') || f.endsWith('.instructions.md'))
@@ -137,8 +141,9 @@ function scanRuleFiles() {
 function syncRulesToInstructions() {
     const srcDir = getRulesDir();
     const outDir = getRulesInstructionsDir();
-    if (!srcDir || !outDir)
+    if (!srcDir || !outDir) {
         return 0;
+    }
     if (!fs.existsSync(srcDir)) {
         // 无规则源：清理历史产物（幂等）
         if (fs.existsSync(outDir)) {
@@ -181,8 +186,9 @@ function syncRulesToInstructions() {
 /** 查询当前生效的规则清单（供 UI/状态展示） */
 function listActiveRules() {
     const outDir = getRulesInstructionsDir();
-    if (!outDir || !fs.existsSync(outDir))
+    if (!outDir || !fs.existsSync(outDir)) {
         return [];
+    }
     const rules = [];
     for (const f of fs.readdirSync(outDir).filter(x => x.endsWith('.instructions.md')).sort()) {
         try {
@@ -209,11 +215,12 @@ function slugify(input) {
 }
 async function selectRuleModel() {
     try {
-        for (const family of constants_2.IDEA_FLOW_MODEL_FAMILIES) {
+        for (const family of constants_1.IDEA_FLOW_MODEL_FAMILIES) {
             try {
                 const [found] = await vscode.lm.selectChatModels({ family });
-                if (found)
+                if (found) {
                     return found;
+                }
             }
             catch {
                 continue;
@@ -249,26 +256,28 @@ alwaysApply: <true 表示对所有文件生效；false 或省略表示仅按 glo
 async function createRule() {
     const rulesDir = getRulesDir();
     if (!rulesDir) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('请先打开工作区'));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('Please open a workspace first'));
         return;
     }
     const description = await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('规则描述（AI 将据此生成规则文件）'),
-        placeHolder: vscode_1.l10n.t('例如：React 组件文件必须使用函数组件并导出默认组件'),
+        prompt: vscode_1.l10n.t('Rule description (the AI will generate the rule file from this)'),
+        placeHolder: vscode_1.l10n.t('e.g., React component files must use function components and export a default component'),
     });
-    if (!description?.trim())
+    if (!description?.trim()) {
         return;
+    }
     (0, paths_1.ensureDir)(rulesDir);
     const model = await selectRuleModel();
     if (!model) {
         // 降级：手动创建模板
         const name = await vscode.window.showInputBox({
-            prompt: vscode_1.l10n.t('规则文件名（不含扩展名）'),
+            prompt: vscode_1.l10n.t('Rule file name (without extension)'),
             placeHolder: 'react-component-conventions',
             value: slugify(description),
         });
-        if (!name?.trim())
+        if (!name?.trim()) {
             return;
+        }
         const fileName = `${slugify(name)}.mdc`;
         const content = `---
 description: ${description.trim()}
@@ -281,10 +290,10 @@ globs: '**/*'
 `;
         (0, fsSafe_1.atomicWriteFileSync)(path.join(rulesDir, fileName), content);
         const count = syncRulesToInstructions();
-        vscode.window.showInformationMessage(vscode_1.l10n.t('规则已创建（手动模板）：{0}，同步 {1} 个指令文件', fileName, count));
+        vscode.window.showInformationMessage(vscode_1.l10n.t('Rule created (manual template): {0}; synced {1} instruction files', fileName, count));
         return;
     }
-    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode_1.l10n.t('AI 生成规则中…'), cancellable: false }, async () => {
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode_1.l10n.t('Generating rule with AI…'), cancellable: false }, async () => {
         const cts = new vscode.CancellationTokenSource();
         try {
             const messages = [vscode.LanguageModelChatMessage.User(`${RULE_GENERATION_PROMPT}\n\n用户规则描述：${description.trim()}`)];
@@ -297,7 +306,7 @@ globs: '**/*'
             }
             content = content.trim();
             if (!content) {
-                vscode.window.showErrorMessage(vscode_1.l10n.t('AI 未生成有效规则内容'));
+                vscode.window.showErrorMessage(vscode_1.l10n.t('AI did not generate valid rule content'));
                 return;
             }
             // 提取文件名：优先用生成内容中的 name，否则用描述 slug
@@ -305,11 +314,11 @@ globs: '**/*'
             const fileName = `${slugify(nameMatch?.[1]?.trim() || description)}.mdc`;
             (0, fsSafe_1.atomicWriteFileSync)(path.join(rulesDir, fileName), content);
             const count = syncRulesToInstructions();
-            vscode.window.showInformationMessage(vscode_1.l10n.t('规则已生成：{0}，同步 {1} 个指令文件', fileName, count));
+            vscode.window.showInformationMessage(vscode_1.l10n.t('Rule generated: {0}; synced {1} instruction files', fileName, count));
         }
         catch (err) {
             logger_1.logger.error('[Rules] createRule failed', err);
-            vscode.window.showErrorMessage(vscode_1.l10n.t('规则生成失败：{0}', err instanceof Error ? err.message : String(err)));
+            vscode.window.showErrorMessage(vscode_1.l10n.t('Rule generation failed: {0}', err instanceof Error ? err.message : String(err)));
         }
         finally {
             cts.dispose();
@@ -357,7 +366,7 @@ function registerRules(context) {
     context.subscriptions.push(vscode.commands.registerCommand(constants_1.COMMANDS.rulesList, () => {
         const rules = listActiveRules();
         if (!rules.length) {
-            void vscode.window.showInformationMessage(vscode_1.l10n.t('暂无生效规则。在 .kodrix/rules/ 下添加 .mdc 文件，或使用「Kodrix: 创建 Agent 规则」'));
+            void vscode.window.showInformationMessage(vscode_1.l10n.t('No active rules. Add .mdc files under .kodrix/rules/, or use "Kodrix: Create Agent Rule"'));
             return;
         }
         const lines = [

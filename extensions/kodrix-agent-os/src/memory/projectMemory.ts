@@ -8,7 +8,7 @@ import { l10n } from 'vscode';
 import { registerInstructionFolders } from '../context/instructionRegistry';
 import { notifyContextChanged } from '../context/contextEvents';
 import { recordLearning, syncProjectInstructionsFile } from '../learning/learningEngine';
-import { persistMemoryAppend, readMemoryContent, ensureMemoryFile } from './memoryHelpers';
+import { persistMemoryAppend, ensureMemoryFile } from './memoryHelpers';
 import { ensureDir, getMemoryPath, getKodrixDir } from '../paths';
 
 /** 跨平台路径规范化：Windows 大小写不敏感，统一小写比较 */
@@ -33,8 +33,8 @@ export async function captureMemoryFromSelection(): Promise<void> {
 	const editor = vscode.window.activeTextEditor;
 	const selection = editor?.document.getText(editor.selection);
 	const input = selection || await vscode.window.showInputBox({
-		prompt: l10n.t('输入要记住的项目知识（架构、约定、陷阱等）'),
-		placeHolder: l10n.t('此项目使用 pnpm，测试框架为 vitest'),
+		prompt: l10n.t('Enter project knowledge to remember (architecture, conventions, pitfalls, etc.)'),
+		placeHolder: l10n.t('This project uses pnpm; the test framework is vitest'),
 	});
 	if (!input?.trim()) {
 		return;
@@ -45,7 +45,7 @@ export async function captureMemoryFromSelection(): Promise<void> {
 		// 不强制 category，交由 recordLearning 按内容推断（inferLearningCategory）
 		recordLearning(input.trim(), { source: 'capture' });
 	}
-	vscode.window.showInformationMessage(l10n.t('已写入项目 Memory 并同步到 Agent 上下文'));
+	vscode.window.showInformationMessage(l10n.t('Written to Project Memory and synced to the Agent context'));
 }
 
 export async function injectMemoryIntoInstructions(): Promise<void> {
@@ -80,13 +80,5 @@ export function registerMemory(context: vscode.ExtensionContext): void {
 			void injectMemoryIntoInstructions();
 		}, 3000);
 		context.subscriptions.push({ dispose: () => clearTimeout(injectTimer) });
-	}
-}
-
-export function getMemoryContext(): string {
-	try {
-		return readMemoryContent().slice(0, 2000);
-	} catch {
-		return '';
 	}
 }

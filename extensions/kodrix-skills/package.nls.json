@@ -10,6 +10,6 @@
 	"command.openMarketplace.title": "Open Skill Market",
 	"viewContainer.skillMarket.title": "Skill Market",
 	"view.skillMarket.name": "Skill Market",
-	"config.installDir.description": "Skill installation directory (each skill is a subfolder containing SKILL.md)",
-	"config.registryUrls.description": "Additional remote skill directory URLs"
+	"config.installDir.description": "Skill installation directory (each skill is a subfolder containing SKILL.md); absolute path, cannot be a filesystem root or the home directory",
+	"capabilities.untrustedWorkspaces.description": "Installing or removing skills writes to your skills directory and feeds instructions to the AI, so it is disabled in untrusted workspaces."
 }

@@ -47,6 +47,7 @@ exports.registerVibeCoding = registerVibeCoding;
 const vscode = __importStar(require("vscode"));
 const vscode_1 = require("vscode");
 const agentRouter_1 = require("../router/agentRouter");
+const vibeIteration_1 = require("./vibeIteration");
 /**
  * Vibe Coding 3.0 入口：智能判断使用快捷路径还是完整 Idea Flow
  *
@@ -57,22 +58,23 @@ const agentRouter_1 = require("../router/agentRouter");
 async function vibeCode(prompt) {
     const enabled = vscode.workspace.getConfiguration('kodrix.features').get('vibeCoding', true);
     if (!enabled) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('Vibe Coding 已关闭。可在设置中启用 kodrix.features.vibeCoding'));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('Vibe Coding is off. Enable kodrix.features.vibeCoding in settings'));
         return;
     }
     const input = prompt || await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('描述你想要的应用，AI 全自动构建 — 复杂想法走 Idea Flow，简单需求走快捷路径'),
-        placeHolder: vscode_1.l10n.t('一个带暗色模式的个人博客，支持 Markdown / 一个 AI 知识管理工具 / 一个 Trello 看板'),
+        prompt: vscode_1.l10n.t('Describe the app you want, and AI builds it fully automatically — complex ideas go through Idea Flow, simple needs take the fast path'),
+        placeHolder: vscode_1.l10n.t('A personal blog with dark mode and Markdown / an AI knowledge management tool / a Trello board'),
         ignoreFocusOut: true,
     });
-    if (!input?.trim())
+    if (!input?.trim()) {
         return;
+    }
     // Check if Idea Flow should be used (complex/multi-feature descriptions)
     const shouldUseIdeaFlow = shouldUseFullPipeline(input);
     if (shouldUseIdeaFlow && vscode.workspace.getConfiguration('kodrix.features').get('ideaFlow', true)) {
         // Route to full Idea Flow pipeline — pass prompt directly to avoid double-input
         await vscode.commands.executeCommand('kodrix.idea.start', input);
-        vscode.window.showInformationMessage(vscode_1.l10n.t('Vibe Coding 检测到复杂项目需求，已切换到 Idea Flow 全自动流水线'));
+        vscode.window.showInformationMessage(vscode_1.l10n.t('Vibe Coding detected complex project requirements and switched to the fully automated Idea Flow pipeline'));
         return;
     }
     const route = (0, agentRouter_1.classifyIntent)(input);
@@ -91,15 +93,10 @@ async function vibeCode(prompt) {
 用户需求：${input}`;
     if (route.target === 'spec') {
         await vscode.commands.executeCommand('kodrix.spec.create');
-        vscode.window.showInformationMessage(vscode_1.l10n.t('Vibe Coding → 请在 Spec 中定义需求，完成后实施'));
+        vscode.window.showInformationMessage(vscode_1.l10n.t('Vibe Coding → define requirements in the Spec, then implement'));
     }
     else {
-        await vscode.commands.executeCommand('workbench.action.chat.open', {
-            mode: 'agent',
-            query: vibeContext,
-            isPartialQuery: false,
-        });
-        vscode.window.showInformationMessage(vscode_1.l10n.t('Vibe Coding → Agent 模式已就绪'));
+        await runAgentWithIterationLoop(input, vibeContext);
     }
 }
 /**
@@ -113,23 +110,123 @@ function shouldUseFullPipeline(input) {
     const isLongDescription = input.length > 60;
     const hasComplexKeywords = /系统|platform|管理|engine|full|complete|复杂|集成|enterprise|微服务|microservice|多用户|multi/i.test(lower);
     // 走完整流水线的条件
-    if (featureCount >= 3 && isLongDescription)
+    if (featureCount >= 3 && isLongDescription) {
         return true;
-    if (hasComplexKeywords && isLongDescription)
+    }
+    if (hasComplexKeywords && isLongDescription) {
         return true;
-    if (featureCount >= 4)
+    }
+    if (featureCount >= 4) {
         return true;
-    if (input.length > 120)
+    }
+    if (input.length > 120) {
         return true;
+    }
     return false;
+}
+/**
+ * Agent 模式 + Checkpoint 迭代循环。
+ *
+ * 流程：
+ *   1. 开启迭代会话 → 创建初始 Checkpoint → 发送 prompt 到 Agent
+ *   2. Agent 完成后展示 QuickPick：继续迭代 / 回退 / 完成
+ *   3. 循环直到用户选择「完成」或取消
+ */
+async function runAgentWithIterationLoop(originalInput, initialContext) {
+    const sessionId = (0, vibeIteration_1.startIterationSession)(originalInput);
+    // 初始 Checkpoint（Agent 执行前快照）
+    await (0, vibeIteration_1.recordIteration)(sessionId, vscode_1.l10n.t('Initial version'));
+    // 首次发送到 Agent
+    await vscode.commands.executeCommand('workbench.action.chat.open', {
+        mode: 'agent',
+        query: initialContext,
+        isPartialQuery: false,
+    });
+    vscode.window.showInformationMessage(vscode_1.l10n.t('Vibe Coding → Agent mode ready'));
+    // 迭代循环
+    let iterating = true;
+    while (iterating) {
+        const action = await vscode.window.showQuickPick([
+            { label: '$(edit) ' + vscode_1.l10n.t('Continue Iterating'), description: vscode_1.l10n.t('Provide feedback to continue revising'), value: 'continue' },
+            { label: '$(history) ' + vscode_1.l10n.t('Revert to Previous Version'), description: vscode_1.l10n.t('Restore to Previous Checkpoint'), value: 'rollback' },
+            { label: '$(check) ' + vscode_1.l10n.t('Done'), description: vscode_1.l10n.t('Satisfied with the results; end the iteration'), value: 'done' },
+        ], { placeHolder: vscode_1.l10n.t('Vibe Coding iteration'), ignoreFocusOut: true });
+        if (!action) {
+            // 用户按 Esc 取消 → 视为完成
+            iterating = false;
+            break;
+        }
+        const value = action.value;
+        if (value === 'continue') {
+            const feedback = await vscode.window.showInputBox({
+                prompt: vscode_1.l10n.t('Describe what you want to change'),
+                placeHolder: vscode_1.l10n.t('e.g., change the navbar to a sidebar / add a search box'),
+                ignoreFocusOut: true,
+            });
+            if (!feedback?.trim()) {
+                continue;
+            }
+            // 记录迭代（自动创建 Checkpoint）
+            await (0, vibeIteration_1.recordIteration)(sessionId, feedback, feedback);
+            // 构建迭代上下文并发送到 Agent
+            const iterContext = `[Vibe Coding 迭代 #${(0, vibeIteration_1.getIterationCount)(sessionId)}]
+原始需求：${originalInput}
+本轮反馈：${feedback}
+
+请根据反馈继续修改，保持已有功能不被破坏。`;
+            await vscode.commands.executeCommand('workbench.action.chat.open', {
+                mode: 'agent',
+                query: iterContext,
+                isPartialQuery: false,
+            });
+        }
+        else if (value === 'rollback') {
+            const count = (0, vibeIteration_1.getIterationCount)(sessionId);
+            if (count <= 1) {
+                vscode.window.showInformationMessage(vscode_1.l10n.t('Only the initial version exists; cannot roll back'));
+                continue;
+            }
+            const summary = (0, vibeIteration_1.getIterationSummary)(sessionId);
+            const target = await vscode.window.showQuickPick(Array.from({ length: count }, (_, i) => {
+                const num = count - i; // 从新到旧
+                return {
+                    label: `#${num}`,
+                    description: num === 1 ? vscode_1.l10n.t('Initial version') : vscode_1.l10n.t('Iteration #{0}', num),
+                    value: num,
+                };
+            }), {
+                placeHolder: vscode_1.l10n.t('Select the version to roll back to'),
+                title: vscode_1.l10n.t('Iteration history\n{0}', summary ?? ''),
+            });
+            if (!target) {
+                continue;
+            }
+            const targetNum = target.value;
+            const ok = await (0, vibeIteration_1.rollbackToIteration)(sessionId, targetNum);
+            if (ok) {
+                vscode.window.showInformationMessage(vscode_1.l10n.t('Rolled back to iteration #{0}', targetNum));
+            }
+            else {
+                vscode.window.showErrorMessage(vscode_1.l10n.t('Revert failed, please check checkpoint integrity'));
+            }
+        }
+        else {
+            // done
+            iterating = false;
+        }
+    }
+    const totalIterations = (0, vibeIteration_1.getIterationCount)(sessionId);
+    (0, vibeIteration_1.endIterationSession)(sessionId);
+    vscode.window.showInformationMessage(vscode_1.l10n.t('Vibe Coding session ended, {0} iterations in total', totalIterations));
 }
 function countFeatures(text) {
     const indicators = [/支持|support|with|and/, /功能|feature|ability/, /可以|able to|allow/, /管理|manage|track/, /创建|create|generate/];
     let count = 0;
     for (const re of indicators) {
         const matches = text.match(re);
-        if (matches)
+        if (matches) {
             count += matches.length;
+        }
     }
     return Math.ceil(count / 2);
 }
@@ -138,15 +235,16 @@ function countFeatures(text) {
  */
 async function quickVibe() {
     const lastPrompt = await vscode.window.showQuickPick([
-        { label: '个人网站/博客', description: 'React + Vite + Tailwind', prompt: '一个带暗色模式的个人博客网站，支持 Markdown 文章' },
-        { label: '任务看板', description: 'React + DnD + 拖拽', prompt: '一个 Trello 风格的任务看板，支持拖拽和状态切换' },
-        { label: 'AI 聊天界面', description: 'React + 流式响应', prompt: '一个 ChatGPT 风格的 AI 聊天界面，支持流式输出和会话管理' },
-        { label: '电商产品页', description: 'React + 购物车', prompt: '一个精美的电商产品展示页，带购物车和搜索过滤' },
-        { label: '数据仪表盘', description: 'React + Recharts', prompt: '一个数据分析仪表盘，包含折线图、饼图和统计卡片' },
-        { label: '$(edit) 自定义...', description: '输入你自己的描述', prompt: '' },
-    ], { placeHolder: vscode_1.l10n.t('选择一个 Vibe 模板，或自定义描述…') });
-    if (!lastPrompt)
+        { label: vscode_1.l10n.t('Personal website/blog'), description: 'React + Vite + Tailwind', prompt: vscode_1.l10n.t('A personal blog site with dark mode, supporting Markdown posts') },
+        { label: vscode_1.l10n.t('Task board'), description: vscode_1.l10n.t('React + DnD + drag-and-drop'), prompt: vscode_1.l10n.t('A Trello-style task board with drag-and-drop and status switching') },
+        { label: vscode_1.l10n.t('AI chat interface'), description: vscode_1.l10n.t('React + streaming responses'), prompt: vscode_1.l10n.t('A ChatGPT-style AI chat interface with streaming output and session management') },
+        { label: vscode_1.l10n.t('E-commerce product page'), description: vscode_1.l10n.t('React + shopping cart'), prompt: vscode_1.l10n.t('A polished e-commerce product page with shopping cart and search filters') },
+        { label: vscode_1.l10n.t('Data dashboard'), description: 'React + Recharts', prompt: vscode_1.l10n.t('A data analytics dashboard with line charts, pie charts, and stat cards') },
+        { label: '$(edit) ' + vscode_1.l10n.t('Custom...'), description: vscode_1.l10n.t('Enter your own description'), prompt: '' },
+    ], { placeHolder: vscode_1.l10n.t('Choose a Vibe template, or enter a custom description…') });
+    if (!lastPrompt) {
         return;
+    }
     if (lastPrompt.prompt) {
         await vibeCode(lastPrompt.prompt);
     }

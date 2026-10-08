@@ -129,30 +129,34 @@ function updateStatusBar() {
     brandStatusItem.text = `$(${brandState.icon}) ${dotGlyph} Kodrix`;
     brandStatusItem.color = brandState.dotColor;
     const statusParts = [];
-    if (status.wikiOk)
-        statusParts.push('Wiki 就绪');
-    if (status.memoryCount > 0)
-        statusParts.push(`Memory ${status.memoryCount}条`);
-    if (status.learningCount > 0)
-        statusParts.push(`Learning ${status.learningCount}条`);
-    if (status.semanticVectors > 0)
-        statusParts.push(`语义索引 ${status.semanticVectors}向量`);
-    brandStatusItem.tooltip = new vscode.MarkdownString(`### $(hubot) Kodrix Agent OS 指挥中心\n\n`
+    if (status.wikiOk) {
+        statusParts.push(vscode_1.l10n.t('Wiki ready'));
+    }
+    if (status.memoryCount > 0) {
+        statusParts.push(vscode_1.l10n.t('Memory: {0} entries', status.memoryCount));
+    }
+    if (status.learningCount > 0) {
+        statusParts.push(vscode_1.l10n.t('Learning: {0} entries', status.learningCount));
+    }
+    if (status.semanticVectors > 0) {
+        statusParts.push(vscode_1.l10n.t('Semantic index {0} vectors', status.semanticVectors));
+    }
+    brandStatusItem.tooltip = new vscode.MarkdownString(vscode_1.l10n.t('### $(hubot) Kodrix Agent OS Command Center') + '\n\n'
         + (statusParts.length
             ? statusParts.map(p => `- ${p}`).join('\n') + '\n\n'
-            : '*(未初始化)* 运行 **Kodrix: 生成 Repo Wiki** 以开始。\n\n')
-        + `[打开 Hub](command:kodrix.hub.open) · \`Ctrl+Shift+H\``
-        + `  \n[刷新上下文](command:kodrix.context.refresh)`);
+            : vscode_1.l10n.t('*(Not initialized)* Run **Kodrix: Generate Repo Wiki** to get started.') + '\n\n')
+        + vscode_1.l10n.t('[Open Hub](command:kodrix.hub.open) · `Ctrl+Shift+H`')
+        + vscode_1.l10n.t('  \n[Refresh Context](command:kodrix.context.refresh)'));
     brandStatusItem.backgroundColor = brandState.level === 'ready'
         ? new vscode.ThemeColor('statusBarItem.prominentBackground')
         : undefined;
     brandStatusItem.show();
     // ── Context + proactive hint ──
     const level = brandState.level;
-    const levelLabel = level === 'ready' ? '上下文就绪'
-        : level === 'partial' ? '上下文部分'
-            : level === 'error' ? '上下文错误'
-                : '待预热';
+    const levelLabel = level === 'ready' ? vscode_1.l10n.t('Context ready')
+        : level === 'partial' ? vscode_1.l10n.t('Context section')
+            : level === 'error' ? vscode_1.l10n.t('Context error')
+                : vscode_1.l10n.t('Pending warm-up');
     const levelIcon = level === 'ready' ? '$(pass-filled)'
         : level === 'partial' ? '$(circle-outline)'
             : level === 'error' ? '$(error)'
@@ -163,18 +167,18 @@ function updateStatusBar() {
     }
     contextStatusItem.text = contextText;
     const tooltipLines = [
-        '**Agent 上下文 Intelligence**',
+        vscode_1.l10n.t('**Agent Context Intelligence**'),
         '',
-        `${levelLabel} — Wiki + Memory + Learning + Semantic`,
+        vscode_1.l10n.t('{0} — Wiki + Memory + Learning + Semantic', levelLabel),
     ];
     if (fileHint?.relevantCount) {
-        tooltipLines.push('', `**当前文件相关记忆** (${fileHint.fileName})`);
-        tooltipLines.push(`- ${fileHint.relevantCount} 条匹配`);
+        tooltipLines.push('', vscode_1.l10n.t('**Memories related to the current file** ({0})', fileHint.fileName));
+        tooltipLines.push(vscode_1.l10n.t('- {0} matches', fileHint.relevantCount));
         if (fileHint.topMatch) {
             tooltipLines.push(`- ${fileHint.topMatch}…`);
         }
     }
-    tooltipLines.push('', '刷新: `Kodrix: 刷新 Agent 上下文`');
+    tooltipLines.push('', vscode_1.l10n.t('Refresh: `Kodrix: Refresh Agent Context`'));
     contextStatusItem.tooltip = new vscode.MarkdownString(tooltipLines.join('\n'));
     contextStatusItem.show();
     // ── Last route ──
@@ -182,11 +186,11 @@ function updateStatusBar() {
         if (lastRoute) {
             const label = TARGET_LABEL[lastRoute.target] ?? lastRoute.target;
             routeStatusItem.text = `$(arrow-swap) ${label}`;
-            routeStatusItem.tooltip = new vscode.MarkdownString(`**上次智能路由**\n\n`
-                + `- 模式: **${label}**\n`
-                + `- 原因: ${lastRoute.reason}\n`
-                + `- 输入: ${lastRoute.prompt.slice(0, 80)}…\n\n`
-                + `点击重复上次路由 · \`Kodrix: 重复上次路由\``);
+            routeStatusItem.tooltip = new vscode.MarkdownString(vscode_1.l10n.t('**Last Smart Routing**') + '\n\n'
+                + vscode_1.l10n.t('- Mode: **{0}**', label) + '\n'
+                + vscode_1.l10n.t('- Reason: {0}', lastRoute.reason) + '\n'
+                + vscode_1.l10n.t('- Input: {0}…', lastRoute.prompt.slice(0, 80)) + '\n\n'
+                + vscode_1.l10n.t('Click to repeat the last routing · `Kodrix: Repeat Last Routing`'));
             routeStatusItem.show();
         }
         else {
@@ -206,21 +210,21 @@ function registerStatusBar(context) {
     brandStatusItem.name = 'Kodrix';
     brandStatusItem.command = 'kodrix.hub.open';
     brandStatusItem.accessibilityInformation = {
-        label: vscode_1.l10n.t('Kodrix — 打开 Agent 指挥中心'),
+        label: vscode_1.l10n.t('Kodrix — Open Agent Command Center'),
     };
     // Context readiness — second from left.
     contextStatusItem = vscode.window.createStatusBarItem('kodrix.context', vscode.StatusBarAlignment.Left, 49);
     contextStatusItem.name = 'Kodrix Agent Context';
     contextStatusItem.command = 'kodrix.context.status';
     contextStatusItem.accessibilityInformation = {
-        label: vscode_1.l10n.t('Agent 上下文状态'),
+        label: vscode_1.l10n.t('Agent Context Status'),
     };
     // Last route — third from left.
     routeStatusItem = vscode.window.createStatusBarItem('kodrix.route', vscode.StatusBarAlignment.Left, 48);
     routeStatusItem.name = 'Kodrix Last Route';
     routeStatusItem.command = 'kodrix.router.repeatLast';
     routeStatusItem.accessibilityInformation = {
-        label: vscode_1.l10n.t('上次智能路由'),
+        label: vscode_1.l10n.t('Last smart route'),
     };
     context.subscriptions.push(brandStatusItem, contextStatusItem, routeStatusItem, (0, contextEvents_1.onContextChanged)(() => updateStatusBar()), (0, kodrixEventBus_1.onKodrixEvent)(e => {
         if (e.type === 'router.executed'

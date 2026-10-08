@@ -13,6 +13,7 @@ import {
 	registerNativeVendor,
 	registerOllamaEndpoint,
 	registerPendingNativeVendor,
+	ProviderRegistrationResult,
 } from './byokRegister';
 import { resolveModelsForSilentRegistration } from './modelResolve';
 import { syncFromStoredProvider } from './providerSync';
@@ -207,11 +208,36 @@ async function applyIfUnset(key: string, value: unknown, target: vscode.Configur
 	return safeUpdateConfiguration(key, value, target);
 }
 
+/**
+ * config.json 是否真的带有供应商字段。
+ * 空的 `{}`（或只有无关字段）不应被当成一次迁移，否则会报出「已迁移供应商（缺少 API 地址）」这种假成功。
+ */
+function hasLegacyProviderFields(config: LegacyConfig): boolean {
+	return Boolean(
+		config.api_type
+		|| config.base_url
+		|| config.model
+		|| config.api_key
+		|| config.active_provider_id,
+	);
+}
+
 function storageKeyForLegacy(legacy: LegacyProvider): string {
 	const slug = (legacy.preset_id || legacy.id || legacy.name || 'custom')
 		.toLowerCase()
 		.replace(/\s+/g, '-');
 	return `kodrix-${slug}`;
+}
+
+/**
+ * 迁移结果里对注册状态的如实标注。
+ * Kodrix 直连通道与 Copilot BYOK 镜像是两条独立通道，只有两者都不通才算失败；
+ * 仅镜像未同步时模型在 Chat 的 Kodrix 分组下仍然可用，不应标注为失败。
+ */
+function registrationLabel(res: ProviderRegistrationResult): string {
+	if (!res.usableViaKodrix && !res.byokRegistered) { return vscode.l10n.t(' (registration failed)'); }
+	if (res.usableViaKodrix && !res.byokRegistered) { return vscode.l10n.t(' (Copilot BYOK not synced)'); }
+	return '';
 }
 
 async function migrateLegacyProviderEntry(
@@ -232,8 +258,8 @@ async function migrateLegacyProviderEntry(
 			base_url: baseUrl || 'http://127.0.0.1:11434',
 			model: model || 'qwen2.5-coder:7b',
 		};
-		const ok = await registerOllamaEndpoint(baseUrl || preset.base_url, preset, context);
-		return `${preset.name}${ok ? '' : '（BYOK 待完成）'}`;
+		const res = await registerOllamaEndpoint(baseUrl || preset.base_url, preset, context);
+		return `${preset.name}${registrationLabel(res)}`;
 	}
 
 	if (apiType === 'anthropic' || apiType === 'gemini') {
@@ -242,13 +268,16 @@ async function migrateLegacyProviderEntry(
 			|| { id: apiType, category: 'cloud', name: legacy.name || apiType, api_type: apiType, base_url: '', model };
 		const groupName = apiType === 'anthropic' ? 'Anthropic' : 'Google';
 		if (apiKey && context) {
-			const ok = await registerNativeVendor(apiType, groupName, apiKey, key, preset, context);
-			return `${preset.name}${ok ? '（含 API Key）' : '（注册失败）'}`;
+			const res = await registerNativeVendor(apiType, groupName, apiKey, key, preset, context);
+			if (!res.usableViaKodrix && !res.byokRegistered) {
+				return vscode.l10n.t('{0} (registration failed)', preset.name);
+			}
+			return vscode.l10n.t('{0} (with API Key{1})', preset.name, res.byokRegistered ? '' : vscode.l10n.t(', Copilot BYOK not synced'));
 		}
 		if (context) {
 			await registerPendingNativeVendor(apiType, groupName, key, preset, context);
 		}
-		return `${preset.name}（待配置 API Key）`;
+		return vscode.l10n.t('{0} (API Key pending)', preset.name);
 	}
 
 	const preset = presets.find(p => p.id === (legacy.preset_id || ''));
@@ -260,18 +289,18 @@ async function migrateLegacyProviderEntry(
 		base_url: normalizedUrl, model,
 	};
 
-	if (!normalizedUrl) { return `${providerName}（缺少 API 地址）`; }
+	if (!normalizedUrl) { return vscode.l10n.t('{0} (missing API URL)', providerName); }
 
 	const modelIds = await resolveModelsForSilentRegistration(
 		fallbackPreset, normalizedUrl, model || undefined, apiKey || undefined,
 	);
-	if (!modelIds.length) { return `${providerName}（未解析到模型 ID）`; }
+	if (!modelIds.length) { return vscode.l10n.t('{0} (no model ID resolved)', providerName); }
 
-	const ok = await registerCustomEndpointModels(
+	const res = await registerCustomEndpointModels(
 		key, providerName, normalizedUrl, modelIds,
 		apiKey || undefined, context, fallbackPreset,
 	);
-	return `${providerName}（${modelIds.length} 模型）${ok ? (apiKey ? ' + Key' : '') : ' 注册失败'}`;
+	return vscode.l10n.t('{0} ({1} models)', providerName, String(modelIds.length)) + (apiKey ? ' + Key' : '') + registrationLabel(res);
 }
 
 export async function migrateFromLegacy(
@@ -288,7 +317,7 @@ export async function migrateFromLegacy(
 	if (!config && !providersStore && !hasPlugins) {
 		return {
 			migrated: false,
-			message: `未找到可迁移配置（已检查 ~/.kodrix 与 ~/.cursormini）`,
+			message: vscode.l10n.t('No migratable configuration found (checked ~/.kodrix and ~/.cursormini)'),
 			settingsApplied: [],
 		};
 	}
@@ -301,7 +330,7 @@ export async function migrateFromLegacy(
 	if (providersStore?.providers?.length) {
 		for (const legacy of providersStore.providers) {
 			const line = await migrateLegacyProviderEntry(legacy, presets, context);
-			applied.push(`供应商：${line}`);
+			applied.push(vscode.l10n.t('Provider: {0}', line));
 		}
 		if (activeId && context) {
 			const match = providersStore.providers.find(p => p.id === activeId);
@@ -313,7 +342,7 @@ export async function migrateFromLegacy(
 				}
 			}
 		}
-	} else if (config) {
+	} else if (config && hasLegacyProviderFields(config)) {
 		const legacy: LegacyProvider = {
 			id: 'default',
 			api_type: config.api_type,
@@ -323,33 +352,33 @@ export async function migrateFromLegacy(
 			preset_id: config.active_provider_id,
 		};
 		const line = await migrateLegacyProviderEntry(legacy, presets, context);
-		applied.push(`供应商：${line}`);
+		applied.push(vscode.l10n.t('Provider: {0}', line));
 	}
 
 	const routes = config?.model_routes || {};
 	if (Object.keys(routes).length > 0) {
 		await vscode.workspace.getConfiguration('kodrix').update('modelRoutes', routes, configTarget);
-		applied.push('多模型路由');
+		applied.push(vscode.l10n.t('Multi-model routes'));
 
 		const planRoute = routes.plan as { model?: string } | undefined;
 		const agentRoute = routes.agent as { model?: string } | undefined;
 		if (planRoute?.model) {
 			await safeUpdateConfiguration('chat.planAgent.defaultModel', planRoute.model, configTarget);
-			applied.push(`Plan 模型：${planRoute.model}`);
+			applied.push(vscode.l10n.t('Plan model: {0}', planRoute.model));
 		}
 		if (agentRoute?.model) {
 			await safeUpdateConfiguration('github.copilot.chat.implementAgent.model', agentRoute.model, configTarget);
-			applied.push(`Agent 模型：${agentRoute.model}`);
+			applied.push(vscode.l10n.t('Agent model: {0}', agentRoute.model));
 		}
 		const codeRoute = routes.code as { model?: string } | undefined;
 		const fastRoute = routes.fast as { model?: string } | undefined;
 		if (codeRoute?.model) {
 			await safeUpdateConfiguration('chat.exploreAgent.defaultModel', codeRoute.model, configTarget);
-			applied.push(`Code 模型：${codeRoute.model}`);
+			applied.push(vscode.l10n.t('Code model: {0}', codeRoute.model));
 		}
 		if (fastRoute?.model) {
 			await safeUpdateConfiguration('chat.utilitySmallModel', fastRoute.model, configTarget);
-			applied.push(`Fast 模型：${fastRoute.model}`);
+			applied.push(vscode.l10n.t('Fast model: {0}', fastRoute.model));
 		}
 	} else if (context) {
 		const activeProviderId = getActiveProviderId(context);
@@ -362,7 +391,7 @@ export async function migrateFromLegacy(
 	const planMode = config?.agent_plan_mode;
 	if (planMode === 'review') {
 		await safeUpdateConfiguration('github.copilot.chat.switchAgent.enabled', true, configTarget);
-		applied.push('Plan 审阅模式');
+		applied.push(vscode.l10n.t('Plan review mode'));
 	}
 
 	if (config?.agent_native_tools === true) {
@@ -370,7 +399,7 @@ export async function migrateFromLegacy(
 		if (await applyIfUnset('github.copilot.chat.skillTool.enabled', true, configTarget)) { n++; }
 		if (await applyIfUnset('chat.useAgentSkills', true, configTarget)) { n++; }
 		if (n > 0) {
-			applied.push(`原生工具 / Skills（${n} 项）`);
+			applied.push(vscode.l10n.t('Native tools / Skills ({0} items)', String(n)));
 		}
 	}
 
@@ -379,7 +408,7 @@ export async function migrateFromLegacy(
 		if (await applyIfUnset('chat.repoInfo.enabled', true, configTarget)) { n++; }
 		if (await applyIfUnset('kodrix.features.codebaseIndex', true, configTarget)) { n++; }
 		if (n > 0) {
-			applied.push(`自动 RAG / @Codebase（${n} 项）`);
+			applied.push(vscode.l10n.t('Auto RAG / @Codebase ({0} items)', String(n)));
 		}
 	}
 
@@ -392,13 +421,13 @@ export async function migrateFromLegacy(
 		const written = mergeMcpConfig(mcpPath, record);
 		// 仅在实际写入成功且有有效条目时报告，避免误导用户「已迁移」
 		if (written && Object.keys(record).length > 0) {
-			applied.push(`MCP 服务器（${Object.keys(record).length} 个）→ ${mcpPath}`);
+			applied.push(vscode.l10n.t('MCP servers ({0}) → {1}', String(Object.keys(record).length), mcpPath));
 		}
 	}
 
 	const pluginCount = migratePluginsFromDir(dir);
 	if (pluginCount > 0) {
-		applied.push(`Plugins（${pluginCount} 个）→ ~/.agents/skills`);
+		applied.push(vscode.l10n.t('Plugins ({0}) → ~/.agents/skills', String(pluginCount)));
 		await mergeConfigLocationsForSkills();
 	}
 
@@ -424,21 +453,21 @@ export async function migrateFromLegacy(
 			}
 		}
 		if (appliedCount > 0) {
-			applied.push(`Agent / Skill 默认开关（${appliedCount} 项，仅未设置键）`);
+			applied.push(vscode.l10n.t('Agent / Skill default toggles ({0} keys, unset only)', String(appliedCount)));
 		}
 	}
 
 	if (applied.length === 0) {
 		return {
 			migrated: false,
-			message: `未找到可迁移配置（已检查 ${dir}）`,
+			message: vscode.l10n.t('No migratable configuration found (checked {0})', dir),
 			settingsApplied: [],
 		};
 	}
 
 	return {
 		migrated: true,
-		message: `Kodrix：已从 ${dir} 迁移配置`,
+		message: vscode.l10n.t('Kodrix: configuration migrated from {0}', dir),
 		settingsApplied: applied,
 	};
 }
@@ -459,7 +488,26 @@ async function mergeConfigLocationsForSkills(): Promise<void> {
 export function loadPresets(extensionPath: string): ProviderPreset[] {
 	const presetsPath = path.join(extensionPath, 'resources', 'presets.json');
 	const data = readJson<{ presets: ProviderPreset[] }>(presetsPath);
-	return data?.presets || [];
+	const presets = data?.presets || [];
+	// presets.json 已内置 llama.cpp（id=llamacpp）。这里只在资源缺失/被裁剪导致一个都没有时兜底，
+	// 判据必须覆盖两个历史 id，否则本地模型区会出现「llama.cpp」和「llama.cpp Server」两个入口。
+	if (presets.some(preset => preset.id === 'llamacpp' || preset.id === 'llama-cpp-local')) {
+		return presets;
+	}
+	return [...presets, {
+		id: 'llama-cpp-local',
+		category: 'local',
+		name: 'llama.cpp',
+		icon: 'terminal',
+		featured: true,
+		api_type: 'openai',
+		base_url: 'http://127.0.0.1:8080/v1',
+		model: '',
+		models: [],
+		needs_api_key: false,
+		hint: 'Start llama-server first (default port 8080); requires an OpenAI-compatible /v1/chat/completions service',
+		website: 'https://github.com/ggml-org/llama.cpp',
+	}];
 }
 
 export async function applyPreset(
@@ -468,4 +516,9 @@ export async function applyPreset(
 	context?: vscode.ExtensionContext,
 ): Promise<void> {
 	await applyPresetWithByok(preset, apiKey, context);
+	if (preset.category === 'cloud') {
+		vscode.window.showInformationMessage(
+			vscode.l10n.t('Cloud models send request content to the provider; usage may incur costs. Review the provider\'s data and billing policies.'),
+		);
+	}
 }

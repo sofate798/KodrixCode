@@ -19,6 +19,8 @@ import * as path from 'path';
 import { getModelCandidates, routeModel, recordModelCall } from '../model/modelRouter';
 import { runCommandInTerminal } from '../terminal/terminalAi';
 import { logger } from '../logger';
+import { assertWorkspaceWriteAllowed } from '../utils/fsSafe';
+import { getGrepIndexFiles, ensureGrepIndex } from '../codebase/projectIndexer';
 import { loadRuns, pickRun } from './threads';
 import type { ApplyProposal, FileChange } from '../apply/applyManager';
 import {
@@ -28,6 +30,8 @@ import {
 	AGENT_LOOP_DEFAULT_MAX_ITERATIONS,
 	AGENT_LOOP_DEFAULT_TIMEOUT_MS,
 	AGENT_LOOP_DEFAULT_CHECKPOINT,
+	clampAgentIterations,
+	clampAgentTimeoutMs,
 	AGENT_RUNS_DIR,
 	TOOL_RESULT_MAX_CHARS,
 	WORKSPACE_KODRIX_DIR,
@@ -62,6 +66,10 @@ export interface AgentLoopSession {
 	allowCommands: boolean;
 	iterations: number;
 	onUpdate?: (phase: string, detail: string) => void;
+	/** 取消令牌：贯通到终端命令执行（否则取消只能在"轮次边界"生效，长命令跑完才停） */
+	token?: vscode.CancellationToken;
+	/** 运行前创建的检查点 id：写文件前把原内容补进该检查点，让"可回滚"名副其实 */
+	checkpointId?: string;
 }
 
 /** 轨迹步骤 */
@@ -153,6 +161,20 @@ export function resolveInWorkspace(relPath: string, workspace: string): string |
 	return undefined;
 }
 
+/**
+ * Agent 写入前的统一闸门：
+ *  1) `.git/**` 一律拒绝——改写 git hook/config 等于向用户仓库注入任意代码执行；
+ *  2) 不受信任工作区拒绝写工作区文件（复用 fsSafe 的统一闸门，与 wiki/索引/记忆链路一致）。
+ * 通过 `resolveInWorkspace` 的路径检查之后调用。
+ */
+export function assertAgentCanWrite(target: string, workspace: string): void {
+	const rel = path.relative(workspace, target).replace(/\\/g, '/');
+	if (rel === '.git' || rel.startsWith('.git/')) {
+		throw new Error('拒绝写入 .git 目录（改写 git hook/config 会导致任意代码执行）');
+	}
+	assertWorkspaceWriteAllowed(target);
+}
+
 // ── 工具调用解析 ─────────────────────────────────────────────────
 
 const TOOL_CALL_RE = /<tool_call>([\s\S]*?)<\/tool_call>/g;
@@ -195,6 +217,8 @@ export function stripToolCalls(text: string): string {
 // ── 内置工具 ─────────────────────────────────────────────────────
 
 const READ_DEFAULT_LINES = 200;
+/** 单次 read_file 的大小上限：防止误读产物/日志（几十 MB）阻塞扩展宿主并灌爆上下文 */
+const READ_MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 /** read_file：读取文件（带行号，截断） */
 const readFileTool: AgentTool = {
@@ -202,12 +226,26 @@ const readFileTool: AgentTool = {
 	description: '读取文件（带行号）',
 	async execute(args, session) {
 		const p = resolveInWorkspace(String(args.path ?? ''), session.workspace);
-		if (!p) return { ok: false, output: '路径越界：仅允许工作区内文件' };
-		if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) return { ok: false, output: `文件不存在或为目录：${args.path}` };
+		if (!p) {return { ok: false, output: '路径越界：仅允许工作区内文件' };}
+		if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) {return { ok: false, output: `文件不存在或为目录：${args.path}` };}
 		try {
+			// 大小闸门：此前无条件同步整读，Agent 误读产物/日志（几十 MB）会直接卡住扩展宿主
+			const size = fs.statSync(p).size;
+			if (size > READ_MAX_FILE_BYTES) {
+				return {
+					ok: false,
+					output: `文件过大（${(size / 1024 / 1024).toFixed(1)} MB，上限 ${(READ_MAX_FILE_BYTES / 1024 / 1024).toFixed(0)} MB）。请改用 search 定位，或对目标文件指定 startLine/maxLines 分段读取。`,
+				};
+			}
+			const buf = fs.readFileSync(p);
+			// 二进制检测：把二进制当文本喂给模型既无意义又浪费上下文
+			const probeLen = Math.min(buf.length, 8000);
+			if (buf.subarray(0, probeLen).includes(0)) {
+				return { ok: false, output: `疑似二进制文件（含 NUL 字节），已拒绝按文本读取：${args.path}` };
+			}
 			const startLine = Math.max(1, Number(args.startLine) || 1);
 			const maxLines = Math.max(1, Number(args.maxLines) || READ_DEFAULT_LINES);
-			const content = fs.readFileSync(p, 'utf-8').split(/\r?\n/);
+			const content = buf.toString('utf-8').split(/\r?\n/);
 			const slice = content.slice(startLine - 1, startLine - 1 + maxLines);
 			const numbered = slice.map((l, i) => `${String(startLine + i).padStart(4, ' ')} | ${l}`).join('\n');
 			const total = content.length;
@@ -219,18 +257,88 @@ const readFileTool: AgentTool = {
 	},
 };
 
+/**
+ * 写入前把原文件补进检查点。
+ * 检查点创建时只快照"已打开的文档"，Agent 新建/修改的文件不在其中 —— 不补这一步，
+ * 用户点"回滚"时会发现 Agent 改过的文件没被还原（承诺与能力不符）。
+ */
+async function snapshotBeforeAgentWrite(session: AgentLoopSession, absPath: string): Promise<void> {
+	if (!session.checkpointId) {return;}
+	try {
+		const { snapshotFilesIntoCheckpoint } = require('../checkpoint/checkpointManager') as typeof import('../checkpoint/checkpointManager');
+		await snapshotFilesIntoCheckpoint(session.checkpointId, [absPath]);
+	} catch (err) {
+		logger.warn('[AgentLoop] 补检查点快照失败（继续写入）', err);
+	}
+}
+
+/**
+ * 同一文件的写入串行化。
+ * Subagent 会并行跑多个 Agent 循环，它们可能同时改同一个文件（后写覆盖先写、编辑基于过期内容）；
+ * 这里以文件路径为粒度加进程内写锁，保证"读-改-写"整体串行。
+ */
+const _fileWriteLocks = new Map<string, Promise<void>>();
+
+async function withFileWriteLock<T>(filePath: string, fn: () => T | Promise<T>): Promise<T> {
+	const key = filePath.toLowerCase();
+	const prev = _fileWriteLocks.get(key) ?? Promise.resolve();
+	let release!: () => void;
+	const gate = new Promise<void>(resolve => { release = resolve; });
+	const chained = prev.then(() => gate);
+	_fileWriteLocks.set(key, chained);
+	await prev;
+	try {
+		return await fn();
+	} finally {
+		release();
+		// 只清理自己那一环，避免把后来者的锁删掉
+		if (_fileWriteLocks.get(key) === chained) {_fileWriteLocks.delete(key);}
+	}
+}
+
+/**
+ * 截断工具输出并**显式标注**。
+ * 静默截断会让模型把"看到的部分"当成全部（例如把被截断的测试输出误判为通过），
+ * 所以必须把"原文多少字符、只给了多少"写进结果里。
+ */
+export function truncateToolResult(text: string, max: number = TOOL_RESULT_MAX_CHARS): string {
+	if (text.length <= max) {return text;}
+	return `${text.slice(0, max)}\n…[结果已截断：原文 ${text.length} 字符，仅提供前 ${max} 字符。如需更多请缩小范围或用 startLine/maxLines 分段读取]`;
+}
+
+/**
+ * 按"本次实际可用的工具"过滤系统提示里的工具说明行。
+ * plan 模式下工具集被裁剪为只读，但提示词仍会列出 write_file/run_command，
+ * 模型于是反复尝试被禁用的工具（浪费轮次，还会输出与事实相反的措辞）。
+ * 规则：`- <ascii 工具名> …` 形式且不在可用集合里的行被移除；协议/规则行原样保留。
+ */
+export function filterToolDocsForActiveTools(prompt: string, activeToolNames: Iterable<string>): string {
+	const allowed = new Set(activeToolNames);
+	return prompt
+		.split('\n')
+		.filter(line => {
+			const m = /^-\s+([a-z_]+)\s/.exec(line);
+			return !m || allowed.has(m[1]);
+		})
+		.join('\n');
+}
+
 /** write_file：写入/覆盖文件 */
 const writeFileTool: AgentTool = {
 	name: 'write_file',
 	description: '写入/覆盖文件',
 	async execute(args, session) {
 		const p = resolveInWorkspace(String(args.path ?? ''), session.workspace);
-		if (!p) return { ok: false, output: '路径越界：仅允许工作区内文件' };
+		if (!p) {return { ok: false, output: '路径越界：仅允许工作区内文件' };}
 		const content = String(args.content ?? '');
 		try {
-			fs.mkdirSync(path.dirname(p), { recursive: true });
-			fs.writeFileSync(p, content, 'utf-8');
-			return { ok: true, output: `已写入 ${args.path}（${content.length} 字符）` };
+			assertAgentCanWrite(p, session.workspace);
+			return await withFileWriteLock(p, async () => {
+				await snapshotBeforeAgentWrite(session, p);
+				fs.mkdirSync(path.dirname(p), { recursive: true });
+				fs.writeFileSync(p, content, 'utf-8');
+				return { ok: true, output: `已写入 ${args.path}（${content.length} 字符）` };
+			});
 		} catch (err) {
 			return { ok: false, output: `写入失败：${err instanceof Error ? err.message : String(err)}` };
 		}
@@ -243,36 +351,62 @@ const editFileTool: AgentTool = {
 	description: '精确替换文件内容',
 	async execute(args, session) {
 		const p = resolveInWorkspace(String(args.path ?? ''), session.workspace);
-		if (!p) return { ok: false, output: '路径越界：仅允许工作区内文件' };
+		if (!p) {return { ok: false, output: '路径越界：仅允许工作区内文件' };}
 		const oldText = String(args.old ?? '');
 		const newText = String(args.new ?? '');
-		if (!oldText) return { ok: false, output: 'old 不能为空' };
-		if (!fs.existsSync(p)) return { ok: false, output: `文件不存在：${args.path}` };
+		if (!oldText) {return { ok: false, output: 'old 不能为空' };}
+		if (!fs.existsSync(p)) {return { ok: false, output: `文件不存在：${args.path}` };}
 		try {
-			const content = fs.readFileSync(p, 'utf-8');
-			const count = content.split(oldText).length - 1;
-			if (count === 0) return { ok: false, output: `未找到匹配文本（${args.path}）。请先 read_file 核对内容。` };
-			if (count > 1) return { ok: false, output: `匹配 ${count} 处，old 必须唯一。请扩大上下文。` };
-			fs.writeFileSync(p, content.replace(oldText, newText), 'utf-8');
-			return { ok: true, output: `已编辑 ${args.path}：替换 1 处（${oldText.length} → ${newText.length} 字符）` };
+			// 读-改-写整体加锁：并行子 Agent 同时编辑同一文件时，
+			// 不加锁会出现"基于过期内容做替换 → 覆盖对方的修改"
+			return await withFileWriteLock(p, async () => {
+				const content = fs.readFileSync(p, 'utf-8');
+				const count = content.split(oldText).length - 1;
+				if (count === 0) {return { ok: false, output: `未找到匹配文本（${args.path}）。请先 read_file 核对内容。` };}
+				if (count > 1) {return { ok: false, output: `匹配 ${count} 处，old 必须唯一。请扩大上下文。` };}
+				assertAgentCanWrite(p, session.workspace);
+				await snapshotBeforeAgentWrite(session, p);
+				fs.writeFileSync(p, content.replace(oldText, newText), 'utf-8');
+				return { ok: true, output: `已编辑 ${args.path}：替换 1 处（${oldText.length} → ${newText.length} 字符）` };
+			});
 		} catch (err) {
 			return { ok: false, output: `编辑失败：${err instanceof Error ? err.message : String(err)}` };
 		}
 	},
 };
 
+/**
+ * glob → 正则（支持 `*`、`**`、`?`）。导出以便单测。
+ * `**\/` 匹配零层或多层目录，因此 `src/**\/*.ts` 能匹配 `src/a.ts` 与 `src/x/y.ts`。
+ *
+ * 注意：必须先替换 `**`/`**\/` 为占位符，最后再还原 —— 否则后续的 `*` → `[^/]*`
+ * 会把刚引入的 `.*`、`(?:` 等元字符一并改写掉（实测会得到 `([^/]:.[^/]*)` 这种废正则）。
+ */
+export function compileSearchGlob(glob: string): RegExp {
+	const DS_SLASH = '\u0001DSS\u0001';
+	const DS = '\u0001DS\u0001';
+	const escaped = glob
+		.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+		.replace(/\*\*\//g, DS_SLASH)
+		.replace(/\*\*/g, DS)
+		.replace(/\*/g, '[^/]*')
+		.replace(/\?/g, '[^/]')
+		.replace(new RegExp(DS_SLASH, 'g'), '(?:.*/)?')
+		.replace(new RegExp(DS, 'g'), '.*');
+	return new RegExp(`^${escaped}$`, 'i');
+}
+
 /** list_dir：列目录 */
-const listDirTool: AgentTool = {
-	name: 'list_dir',
+const listDirTool: AgentTool = {	name: 'list_dir',
 	description: '列出目录内容',
 	async execute(args, session) {
 		const p = resolveInWorkspace(String(args.path ?? '.'), session.workspace);
-		if (!p) return { ok: false, output: '路径越界' };
-		if (!fs.existsSync(p) || !fs.statSync(p).isDirectory()) return { ok: false, output: `目录不存在：${args.path ?? '.'}` };
+		if (!p) {return { ok: false, output: '路径越界' };}
+		if (!fs.existsSync(p) || !fs.statSync(p).isDirectory()) {return { ok: false, output: `目录不存在：${args.path ?? '.'}` };}
 		try {
 			const entries = fs.readdirSync(p, { withFileTypes: true });
 			const lines = entries.map(e => `${e.isDirectory() ? '[dir] ' : '      '}${e.name}`).slice(0, 200);
-			if (entries.length > 200) lines.push(`…（共 ${entries.length} 项）`);
+			if (entries.length > 200) {lines.push(`…（共 ${entries.length} 项）`);}
 			return { ok: true, output: `${args.path ?? '.'}（${entries.length} 项）\n${lines.join('\n')}` };
 		} catch (err) {
 			return { ok: false, output: `列目录失败：${err instanceof Error ? err.message : String(err)}` };
@@ -286,57 +420,106 @@ const searchTool: AgentTool = {
 	description: '正则搜索文件内容',
 	async execute(args, session) {
 		const query = String(args.query ?? '');
-		if (!query) return { ok: false, output: 'query 不能为空' };
+		if (!query) {return { ok: false, output: 'query 不能为空' };}
 		const startPath = args.path ? resolveInWorkspace(String(args.path), session.workspace) : session.workspace;
-		if (!startPath) return { ok: false, output: '路径越界' };
+		if (!startPath) {return { ok: false, output: '路径越界' };}
 		const glob = String(args.glob ?? '').replace(/\\/g, '/');
-		// 支持 *.ts / **/*.ts / *ext 等常见写法（勿用块注释：**/ 会提前结束 /* */）
+		// 用真正的 glob → 正则转换（此前手写的 endsWith 分支对 `src/**/*.ts` 永不命中，
+		// 模型据此误判"代码里没有该实现"）
+		const globRe = glob ? compileSearchGlob(glob) : undefined;
 		const matchGlob = (fileName: string, relPosix: string): boolean => {
-			if (!glob) return true;
-			const extFromStar = (p: string) => p.startsWith('*') && !p.includes('/') ? p.slice(1) : undefined;
-			if (glob.startsWith('**/')) {
-				const rest = glob.slice(3);
-				const ext = extFromStar(rest);
-				if (ext !== undefined) return fileName.endsWith(ext);
-				return relPosix.endsWith(rest) || fileName === rest;
-			}
-			const ext = extFromStar(glob);
-			if (ext !== undefined) return fileName.endsWith(ext);
-			if (glob.includes('/')) {
-				return relPosix === glob || relPosix.endsWith('/' + glob.split('/').pop()!);
-			}
-			return fileName === glob || fileName.endsWith(glob);
+			if (!globRe) {return true;}
+			if (globRe.test(relPosix)) {return true;}
+			// 不带路径分隔符的模式（如 `*.ts`）允许只匹配文件名
+			return !glob.includes('/') && globRe.test(fileName);
 		};
 		try {
 			const re = new RegExp(query, 'i');
 			const hits: string[] = [];
-			const SKIP = new Set(['node_modules', '.git', 'out', 'out-build', '.build', '.kodrix']);
-			const walk = (dir: string, depth: number) => {
-				if (depth > 6 || hits.length >= 50) return;
-				let entries;
-				try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-				for (const e of entries) {
-					if (SKIP.has(e.name)) continue;
-					const full = path.join(dir, e.name);
-					if (e.isDirectory()) walk(full, depth + 1);
-					else if (e.isFile()) {
-						const rel = path.relative(session.workspace, full).replace(/\\/g, '/');
-						if (!matchGlob(e.name, rel)) continue;
-						try {
-							const lines = fs.readFileSync(full, 'utf-8').split(/\r?\n/);
-							lines.forEach((l, i) => {
-								if (re.test(l) && hits.length < 50) {
-									hits.push(`${rel}:${i + 1}: ${l.trim().slice(0, 120)}`);
-								}
-							});
-						} catch { /* skip unreadable */ }
+			const MAX_HITS = 50;
+			const MAX_FILES_SCANNED = 5000;
+			const MAX_FILE_BYTES = 2 * 1024 * 1024;
+
+			// 候选文件：优先用「即时 Grep 索引」的落盘清单（这就是该功能的真实消费者），
+			// 没有索引时按需构建一次；构建失败再退回目录遍历。
+			let candidates: string[] = [];
+			let usedIndex = false;
+			try {
+				const indexed = getGrepIndexFiles();
+				if (indexed.length) {
+					candidates = indexed;
+					usedIndex = true;
+				} else {
+					const built = await ensureGrepIndex();
+					if (built.length) {
+						candidates = built;
+						usedIndex = true;
 					}
 				}
-			};
-			walk(startPath, 0);
-			return hits.length
-				? { ok: true, output: `命中 ${hits.length} 处：\n${hits.join('\n')}` }
-				: { ok: true, output: '无命中' };
+			} catch (err) {
+				logger.warn(`[AgentLoop] grep 索引不可用，退回目录遍历：${err instanceof Error ? err.message : String(err)}`);
+			}
+
+			if (candidates.length) {
+				const rootRel = path.relative(session.workspace, startPath).replace(/\\/g, '/');
+				let scanned = 0;
+				for (const rel of candidates) {
+					if (hits.length >= MAX_HITS || scanned >= MAX_FILES_SCANNED) {break;}
+					if (session.token?.isCancellationRequested) {break;}
+					const relPosix = rel.replace(/\\/g, '/');
+					if (rootRel && rootRel !== '.' && !relPosix.startsWith(rootRel + '/')) {continue;}
+					const fileName = relPosix.split('/').pop() ?? relPosix;
+					if (!matchGlob(fileName, relPosix)) {continue;}
+					const full = path.join(session.workspace, rel);
+					try {
+						const stat = fs.statSync(full);
+						if (!stat.isFile() || stat.size > MAX_FILE_BYTES) {continue;}
+						scanned++;
+						const lines = fs.readFileSync(full, 'utf-8').split(/\r?\n/);
+						for (let i = 0; i < lines.length && hits.length < MAX_HITS; i++) {
+							if (re.test(lines[i])) {
+								hits.push(`${relPosix}:${i + 1}: ${lines[i].trim().slice(0, 120)}`);
+							}
+						}
+					} catch { /* 文件已删除或不可读：跳过 */ }
+					// 每 200 个文件让出一次事件循环，避免长搜索阻塞扩展宿主
+					if (scanned % 200 === 0) {
+						await new Promise<void>(resolve => setImmediate(resolve));
+					}
+				}
+			} else {
+				const SKIP = new Set(['node_modules', '.git', 'out', 'out-build', '.build', '.kodrix']);
+				const walk = (dir: string, depth: number) => {
+					if (depth > 6 || hits.length >= MAX_HITS) {return;}
+					let entries;
+					try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+					for (const e of entries) {
+						if (SKIP.has(e.name)) {continue;}
+						const full = path.join(dir, e.name);
+						if (e.isDirectory()) {walk(full, depth + 1);}
+						else if (e.isFile()) {
+							const rel = path.relative(session.workspace, full).replace(/\\/g, '/');
+							if (!matchGlob(e.name, rel)) {continue;}
+							try {
+								const stat = fs.statSync(full);
+								if (stat.size > MAX_FILE_BYTES) {continue;}
+								const lines = fs.readFileSync(full, 'utf-8').split(/\r?\n/);
+								lines.forEach((l, i) => {
+									if (re.test(l) && hits.length < MAX_HITS) {
+										hits.push(`${rel}:${i + 1}: ${l.trim().slice(0, 120)}`);
+									}
+								});
+							} catch { /* skip unreadable */ }
+						}
+					}
+				};
+				walk(startPath, 0);
+			}
+
+			if (!hits.length) {
+				return { ok: true, output: `无命中${usedIndex ? '（已用仓库文本索引扫描，可先运行「Kodrix: 重建索引」刷新清单）' : ''}` };
+			}
+			return { ok: true, output: `命中 ${hits.length} 处${usedIndex ? '（基于仓库文本索引）' : ''}：\n${hits.join('\n')}` };
 		} catch (err) {
 			return { ok: false, output: `搜索失败：${err instanceof Error ? err.message : String(err)}` };
 		}
@@ -349,7 +532,7 @@ const codebaseSearchTool: AgentTool = {
 	description: '语义检索代码库（需先构建索引）',
 	async execute(args, session) {
 		const query = String(args.query ?? '');
-		if (!query) return { ok: false, output: 'query 不能为空' };
+		if (!query) {return { ok: false, output: 'query 不能为空' };}
 		try {
 			const { searchSymbolsAsync, searchFilesAsync } = require('../codebase/semanticIndex') as typeof import('../codebase/semanticIndex');
 			const { getProjectIndex, ensureProjectIndex } = require('../codebase/projectIndexer') as typeof import('../codebase/projectIndexer');
@@ -369,14 +552,14 @@ const codebaseSearchTool: AgentTool = {
 			for (const s of syms) {
 				const fp = s.symbol.filePath;
 				const key = `${fp}::${s.symbol.name}`;
-				if (seen.has(key)) continue;
+				if (seen.has(key)) {continue;}
 				seen.add(key);
 				lines.push(`  ${path.relative(session.workspace, fp)} :: ${s.symbol.name} (score ${s.score.toFixed(3)})`);
-				if (lines.length >= limit) break;
+				if (lines.length >= limit) {break;}
 			}
 			for (const f of files) {
-				if (lines.length >= limit) break;
-				if (seen.has(f.filePath)) continue;
+				if (lines.length >= limit) {break;}
+				if (seen.has(f.filePath)) {continue;}
 				seen.add(f.filePath);
 				lines.push(`  ${path.relative(session.workspace, f.filePath)} (文件命中 ${f.score.toFixed(3)})`);
 			}
@@ -395,14 +578,18 @@ const runCommandTool: AgentTool = {
 	name: 'run_command',
 	description: '执行终端命令',
 	async execute(args, session) {
-		if (!session.allowCommands) return { ok: false, output: '命令执行已禁用（kodrix.agentLoop.allowCommands=false）' };
+		if (!session.allowCommands) {return { ok: false, output: '命令执行已禁用（kodrix.agentLoop.allowCommands=false）' };}
 		const command = String(args.command ?? '');
-		if (!command.trim()) return { ok: false, output: 'command 不能为空' };
+		if (!command.trim()) {return { ok: false, output: 'command 不能为空' };}
 		try {
-			const res = await runCommandInTerminal(command, { timeoutMs: 60000 });
-			const out = (res.output || '').slice(0, TOOL_RESULT_MAX_CHARS);
+			// 传入取消令牌：用户在运行中取消时，命令会被 Ctrl+C 中断（否则会继续跑完）
+			const res = await runCommandInTerminal(command, { timeoutMs: 60000, token: session.token });
+			const out = truncateToolResult(res.output || '');
+			if (res.cancelled) {
+				return { ok: false, output: `命令已取消（已向终端发送 Ctrl+C）\n${out}` };
+			}
 			if (res.timedOut) {
-				return { ok: false, output: `命令超时（60s）\n${out}` };
+				return { ok: false, output: `命令超时（60s，已向终端发送 Ctrl+C）\n${out}` };
 			}
 			// 无 shell integration：退出码不可靠，按「尽力捕获」返回，勿判失败
 			if (res.incomplete || res.exitCode === undefined) {
@@ -421,7 +608,7 @@ const proposeChangesTool: AgentTool = {
 	description: '提出多文件变更提案（不实际修改）',
 	async execute(args, session) {
 		const rawChanges = Array.isArray(args.changes) ? args.changes : [];
-		if (!rawChanges.length) return { ok: false, output: 'changes 不能为空数组' };
+		if (!rawChanges.length) {return { ok: false, output: 'changes 不能为空数组' };}
 		const changes: FileChange[] = rawChanges
 			.map(c => {
 				const r = c as Record<string, unknown>;
@@ -434,7 +621,7 @@ const proposeChangesTool: AgentTool = {
 				};
 			})
 			.filter(c => c.filePath.trim().length > 0);
-		if (!changes.length) return { ok: false, output: '未解析到有效变更（每项需 filePath）' };
+		if (!changes.length) {return { ok: false, output: '未解析到有效变更（每项需 filePath）' };}
 		// 校验全部变更
 		const { validateChange } = require('../apply/applyManager') as typeof import('../apply/applyManager');
 		const bad = changes.filter(c => !validateChange(c, session.workspace).ok);
@@ -486,38 +673,49 @@ export const DEFAULT_TOOLS: AgentTool[] = [
  */
 export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopResult> {
 	const start = Date.now();
-	const maxIterations = opts.maxIterations
-		?? vscode.workspace.getConfiguration(AGENT_LOOP_CONFIG).get<number>(AGENT_LOOP_CONFIG_KEYS.maxIterations, AGENT_LOOP_DEFAULT_MAX_ITERATIONS);
-	const timeoutMs = opts.timeoutMs
-		?? vscode.workspace.getConfiguration(AGENT_LOOP_CONFIG).get<number>(AGENT_LOOP_CONFIG_KEYS.timeoutMs, AGENT_LOOP_DEFAULT_TIMEOUT_MS);
+	const maxIterations = clampAgentIterations(opts.maxIterations
+		?? vscode.workspace.getConfiguration(AGENT_LOOP_CONFIG).get<number>(AGENT_LOOP_CONFIG_KEYS.maxIterations, AGENT_LOOP_DEFAULT_MAX_ITERATIONS));
+	const timeoutMs = clampAgentTimeoutMs(opts.timeoutMs
+		?? vscode.workspace.getConfiguration(AGENT_LOOP_CONFIG).get<number>(AGENT_LOOP_CONFIG_KEYS.timeoutMs, AGENT_LOOP_DEFAULT_TIMEOUT_MS));
 	const allowCommands = vscode.workspace.getConfiguration(AGENT_LOOP_CONFIG)
 		.get<boolean>(AGENT_LOOP_CONFIG_KEYS.allowCommands, true);
 
 	// planOnly：只读工具集（read/list_dir/search/codebase_search）+ complete，禁止写/改/执行/提案
 	const READONLY_TOOLS = new Set(['read_file', 'list_dir', 'search', 'codebase_search']);
+	// 不受信任工作区：与 planOnly 同样降级为只读（写文件/改文件/执行命令/提案全部移除），
+	// 与 package.json 的 untrustedWorkspaces=limited 声明一致；写工具内部还有 assertAgentCanWrite 兜底。
+	const untrustedWorkspace = vscode.workspace.isTrusted === false;
 	const tools = (opts.tools?.length
 		? DEFAULT_TOOLS.filter(t => opts.tools!.includes(t.name))
 		: DEFAULT_TOOLS)
-		.filter(t => !opts.planOnly || READONLY_TOOLS.has(t.name) || t.name === 'complete');
+		.filter(t => !opts.planOnly || READONLY_TOOLS.has(t.name) || t.name === 'complete')
+		.filter(t => !untrustedWorkspace || READONLY_TOOLS.has(t.name) || t.name === 'complete');
+	if (untrustedWorkspace) {
+		logger.warn('[AgentLoop] 工作区未受信任：本次运行降级为只读工具集');
+	}
 	const session: AgentLoopSession = {
 		workspace: opts.workspace,
 		allowCommands,
 		iterations: 0,
 		onUpdate: opts.onUpdate,
+		// 让工具层也能感知取消（终端命令执行会据此发 Ctrl+C）
+		token: opts.cancellationToken,
 	};
 
 	const trace: AgentTraceStep[] = [];
 	let finalText = '';
 	let status: AgentLoopResult['status'] = 'completed';
+	/** 是否成功执行过至少一个工具：用于区分「模型给完答案收尾」与「模型根本没按协议调用工具」 */
+	let usedAnyTool = false;
 
 	const routed = await routeModel({ preferred: opts.model, taskType: 'coding' });
 	if (!routed) {
-		return { status: 'failed', output: '无可用语言模型（请在 Manage Models 中配置 BYOK 模型）', trace, iterations: 0, durationMs: Date.now() - start };
+		return { status: 'failed', output: l10n.t('No language model available (configure a BYOK model in Manage Models)'), trace, iterations: 0, durationMs: Date.now() - start };
 	}
 	// 模型候选列表（故障转移：失败自动降级下一个可用模型）
 	const candidates = await getModelCandidates({ preferred: opts.model, taskType: 'coding' });
 	if (!candidates.length) {
-		return { status: 'failed', output: '无可用语言模型（请在 Manage Models 中配置 BYOK 模型）', trace, iterations: 0, durationMs: Date.now() - start };
+		return { status: 'failed', output: l10n.t('No language model available (configure a BYOK model in Manage Models)'), trace, iterations: 0, durationMs: Date.now() - start };
 	}
 	const routedIdx = candidates.findIndex(c => c.model.id === routed.model.id);
 	if (routedIdx > 0) {
@@ -533,6 +731,8 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
 		try {
 			const { createCheckpoint } = require('../checkpoint/checkpointManager') as typeof import('../checkpoint/checkpointManager');
 			checkpointId = await createCheckpoint(`Agent: ${opts.task.slice(0, 60)}`);
+			// 交给工具层：写文件前把原内容补进检查点（否则"可回滚全部改动"只覆盖已打开的文档）
+			session.checkpointId = checkpointId;
 		} catch (err) {
 			logger.warn('[AgentLoop] 创建检查点失败（继续运行）', err);
 		}
@@ -545,14 +745,16 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
 	const modeNote = opts.planOnly
 		? '【模式】计划模式（Plan）：只读分析代码库，禁止修改文件、执行命令或提出变更提案；输出详细、可执行的实施计划后用 complete 结束。\n\n'
 		: '';
-	messages.push(vscode.LanguageModelChatMessage.User(`${AGENT_LOOP_SYSTEM_PROMPT}\n\n${modeNote}【任务】${opts.task}`));
+	// 只列出**本次实际可用**的工具（plan 模式裁剪后不再宣传写/执行工具）
+	const toolDocs = filterToolDocsForActiveTools(AGENT_LOOP_SYSTEM_PROMPT, tools.map(t => t.name));
+	messages.push(vscode.LanguageModelChatMessage.User(`${toolDocs}\n\n${modeNote}【任务】${opts.task}`));
 
 	const isCancelled = () => opts.cancellationToken?.isCancellationRequested === true;
 	const elapsed = () => Date.now() - start;
 
 	outer: for (let i = 1; i <= maxIterations; i++) {
 		session.iterations = i;
-		opts.onUpdate?.('thinking', `第 ${i} 轮推理`);
+		opts.onUpdate?.('thinking', l10n.t('Reasoning round {0}', i));
 
 		if (isCancelled()) {
 			status = 'cancelled';
@@ -560,7 +762,7 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
 		}
 		if (elapsed() > timeoutMs) {
 			status = 'failed';
-			trace.push({ iteration: i, phase: 'final', content: `总超时（${timeoutMs}ms）` });
+			trace.push({ iteration: i, phase: 'final', content: l10n.t('Total timeout ({0}ms)', String(timeoutMs)) });
 			break;
 		}
 
@@ -574,28 +776,30 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
 			const requestTimeoutMs = Math.max(5_000, timeoutMs - elapsed());
 			const reqTimer = setTimeout(() => cts.cancel(), requestTimeoutMs);
 			const parentCancel = opts.cancellationToken?.onCancellationRequested(() => cts.cancel());
+			// 单次调用的真实耗时：此前传入循环起始时间，导致"平均耗时"随轮次线性膨胀（统计错位）
+			const callStart = Date.now();
 			try {
 				const resp = await m.model.sendRequest(messages, {}, cts.token);
 				text = '';
 				for await (const chunk of resp.stream) {
 					if (cts.token.isCancellationRequested || isCancelled()) {
-						throw new Error(`模型请求超时或已取消（>${requestTimeoutMs}ms）`);
+						throw new Error(l10n.t('Model request timed out or was canceled (>{0}ms)', String(requestTimeoutMs)));
 					}
 					if (chunk instanceof vscode.LanguageModelTextPart) {
 						text += chunk.value;
 					}
 				}
 				llmOk = true;
-				recordModelCall(m.model.name, m.tier, true, Date.now() - start);
+				recordModelCall(m.model.name, m.tier, true, Date.now() - callStart);
 				break;
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : String(err);
-				recordModelCall(m.model.name, m.tier, false, Date.now() - start, msg);
+				recordModelCall(m.model.name, m.tier, false, Date.now() - callStart, msg);
 				if (ai + 1 < candidates.length) {
-					trace.push({ iteration: i, phase: 'thought', content: `模型 ${m.model.name} 调用失败（${msg.slice(0, 120)}），降级到 ${candidates[ai + 1].model.name}` });
-					opts.onUpdate?.('thinking', `模型降级 → ${candidates[ai + 1].model.name}`);
+					trace.push({ iteration: i, phase: 'thought', content: l10n.t('Model {0} call failed ({1}); falling back to {2}', m.model.name, msg.slice(0, 120), candidates[ai + 1].model.name) });
+					opts.onUpdate?.('thinking', l10n.t('Falling back to model {0}', candidates[ai + 1].model.name));
 				} else {
-					trace.push({ iteration: i, phase: 'final', content: `模型调用失败：${msg}` });
+					trace.push({ iteration: i, phase: 'final', content: l10n.t('Model call failed: {0}', msg) });
 					status = 'failed';
 					break outer;
 				}
@@ -605,15 +809,35 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
 				cts.dispose();
 			}
 		}
-		if (!llmOk) break;
+		if (!llmOk) {break;}
 		trace.push({ iteration: i, phase: 'thought', content: text.slice(0, 3000) });
 		messages.push(vscode.LanguageModelChatMessage.Assistant(text));
 
 		// 2) 解析工具调用
 		const calls = parseToolCalls(text);
 		if (!calls.length) {
-			// 无工具调用 → 视为最终答案
-			finalText = stripToolCalls(text) || text;
+			const stripped = stripToolCalls(text) || text;
+			// 模型没产出 <tool_call> 时不能一律当成「完成」：
+			// 若整轮都没成功执行过任何工具，且文本也不像收尾总结，基本可判定为「模型不遵循工具协议」
+			// （OpenAI/Claude 原生 function-call 或纯 JSON 输出的模型会走到这里）。
+			// 静默判完成会让用户以为任务做完了，实际一个文件都没动 —— 必须报失败并给出可操作提示。
+			const looksLikeCompletion = /(完成|已全部|全部完成|done|completed|finished|no further (changes|action))/i.test(stripped);
+			if (!usedAnyTool && !looksLikeCompletion) {
+				status = 'failed';
+				finalText = [
+					l10n.t('The model did not output per the tool-calling protocol (no <tool_call> block in the response), so the task performed no actions.'),
+					'',
+					l10n.t('Possible cause: the current model does not support the tool-calling protocol used by this extension (e.g., it only supports native function calling), or the response was truncated.'),
+					l10n.t('Suggestion: switch to a model that supports the text tool-calling protocol in "Manage Models" and retry; if the model can complete the task on its own, switch to Plan mode to view its analysis.'),
+					'',
+					l10n.t('Raw model response (excerpt):'),
+					stripped.slice(0, 500),
+				].join('\n');
+				trace.push({ iteration: i, phase: 'final', content: l10n.t('[Protocol mismatch] {0}', stripped.slice(0, 500)) });
+				logger.warn('[AgentLoop] 模型未产出任何工具调用，判定为协议不兼容（未执行任何操作）');
+				break;
+			}
+			finalText = stripped;
 			status = 'completed';
 			trace.push({ iteration: i, phase: 'final', content: finalText.slice(0, 2000) });
 			break;
@@ -643,14 +867,15 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
 					result = { ok: false, output: `工具执行异常：${err instanceof Error ? err.message : String(err)}` };
 				}
 			}
-			const resultText = (result.error ? `${result.output}\n[错误] ${result.error}` : result.output).slice(0, TOOL_RESULT_MAX_CHARS);
+			const resultText = truncateToolResult(result.error ? `${result.output}\n[错误] ${result.error}` : result.output);
+			if (result.ok) { usedAnyTool = true; }
 			trace.push({ iteration: i, phase: 'tool_result', content: `${call.name} → ${resultText.slice(0, 1000)}` });
 			messages.push(vscode.LanguageModelChatMessage.User(`<tool_result name="${call.name}">\n${resultText}\n</tool_result>`));
 			logger.info(`[AgentLoop] iter ${i} ${call.name} ok=${result.ok}`);
 		}
 		if (i >= maxIterations) {
 			status = 'max_iterations';
-			trace.push({ iteration: i, phase: 'final', content: `达到最大迭代次数 ${maxIterations}` });
+			trace.push({ iteration: i, phase: 'final', content: l10n.t('Reached the maximum number of iterations ({0})', String(maxIterations)) });
 		}
 	}
 
@@ -681,29 +906,29 @@ export function buildHistoryContext(prev: AgentLoopResult): string {
 /** 渲染轨迹为 Markdown 文档 */
 export function renderTraceMarkdown(task: string, result: AgentLoopResult): string {
 	const lines = [
-		`# Agent 运行记录`,
+		l10n.t('# Agent Run Record'),
 		'',
-		`- 任务：${task}`,
-		`- 状态：${result.status}`,
-		`- 迭代：${result.iterations} 轮 · 耗时 ${(result.durationMs / 1000).toFixed(1)}s`,
+		`- ${l10n.t('Task')}: ${task}`,
+		`- ${l10n.t('Status')}: ${result.status}`,
+		`- ${l10n.t('Iterations')}: ${l10n.t('{0} turns', String(result.iterations))} · ${l10n.t('Duration')}: ${(result.durationMs / 1000).toFixed(1)}s`,
 		'',
-		'## 轨迹',
+		`## ${l10n.t('Trace')}`,
 		'',
 	];
 	for (const step of result.trace) {
 		if (step.phase === 'thought') {
-			lines.push(`### 第 ${step.iteration} 轮 · 模型输出`);
+			lines.push(l10n.t('### Round {0} · Model Output', String(step.iteration)));
 			lines.push('```text');
 			lines.push(step.content.slice(0, 1500));
 			lines.push('```');
 		} else if (step.phase === 'tool_result') {
 			lines.push(`> ${step.content.slice(0, 600)}`);
 		} else if (step.phase === 'final') {
-			lines.push(`**最终：** ${step.content.slice(0, 1500)}`);
+			lines.push(`**${l10n.t('Final')}:** ${step.content.slice(0, 1500)}`);
 		}
 		lines.push('');
 	}
-	lines.push('## 最终成果', '', result.output.slice(0, 4000), '');
+	lines.push(`## ${l10n.t('Final Output')}`, '', result.output.slice(0, 4000), '');
 	return lines.join('\n');
 }
 
@@ -711,12 +936,18 @@ export function renderTraceMarkdown(task: string, result: AgentLoopResult): stri
 /** 落盘一次运行（会话节点）：name/parentId/createdAt/status/mode 齐备 → 支撑 Threads 树/分支/命名/搜索 */
 function persistRun(runDir: string, task: string, result: AgentLoopResult, parentId?: string, mode?: 'act' | 'plan'): string {
 	const id = `run-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-	fs.writeFileSync(path.join(runDir, `${id}.md`), renderTraceMarkdown(task, result), 'utf-8');
-	const record = {
-		id, name: task.slice(0, 40), task, parentId, mode,
-		createdAt: new Date().toISOString(), status: result.status, result,
-	};
-	fs.writeFileSync(path.join(runDir, `${id}.json`), JSON.stringify(record, null, 2), 'utf-8');
+	// 运行记录写在工作区内：不受信任工作区会被闸门拒绝 —— 记录不落盘可以接受，但不能让整次运行失败
+	try {
+		assertWorkspaceWriteAllowed(path.join(runDir, `${id}.md`));
+		fs.writeFileSync(path.join(runDir, `${id}.md`), renderTraceMarkdown(task, result), 'utf-8');
+		const record = {
+			id, name: task.slice(0, 40), task, parentId, mode,
+			createdAt: new Date().toISOString(), status: result.status, result,
+		};
+		fs.writeFileSync(path.join(runDir, `${id}.json`), JSON.stringify(record, null, 2), 'utf-8');
+	} catch (err) {
+		logger.warn(`[AgentLoop] 运行记录未落盘（不受信任工作区或磁盘错误）：${err instanceof Error ? err.message : String(err)}`);
+	}
 	return id;
 }
 
@@ -724,17 +955,26 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('kodrix.agent.plan', async () => {
 			const task = await vscode.window.showInputBox({
-				prompt: l10n.t('描述任务（计划模式：只读分析代码库，输出实施计划，不修改任何文件）'),
-				placeHolder: l10n.t('例如：为 src/router 增加并发限流的实施方案'),
+				prompt: l10n.t('Describe the task (Plan mode: read-only analysis of the codebase that produces an implementation plan without modifying any files)'),
+				placeHolder: l10n.t('e.g., an implementation plan for adding concurrency rate limiting to src/router'),
 			});
-			if (!task) return;
+			if (!task) {return;}
 			const folder = vscode.workspace.workspaceFolders?.[0];
-			if (!folder) return;
+			if (!folder) { void vscode.window.showWarningMessage(l10n.t('Please open a workspace first')); return; }
 			const ws = folder.uri.fsPath;
 			const runDir = path.join(ws, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			fs.mkdirSync(runDir, { recursive: true });
-			void vscode.window.showInformationMessage(l10n.t('Plan 模式分析中：{0}…', task.slice(0, 40)));
-			const result = await runAgentLoop({ task, workspace: ws, planOnly: true });
+			// 可取消进度：长任务期间用户能看到进展，并能真正中断（含终端命令）
+			const result = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: l10n.t('Kodrix Agent: {0}…', task.slice(0, 40)), cancellable: true },
+				async (progress, token) => runAgentLoop({
+					task,
+					workspace: ws,
+					planOnly: true,
+					cancellationToken: token,
+					onUpdate: (phase, detail) => progress.report({ message: `${phase} · ${detail}` }),
+				}),
+			);
 			const pid = persistRun(runDir, task, result, undefined, 'plan');
 			const doc = await vscode.workspace.openTextDocument(path.join(runDir, `${pid}.md`));
 			await vscode.window.showTextDocument(doc, { preview: false });
@@ -742,73 +982,83 @@ export function registerAgentLoop(context: vscode.ExtensionContext): void {
 
 		vscode.commands.registerCommand('kodrix.agent.run', async () => {
 			const task = await vscode.window.showInputBox({
-				prompt: l10n.t('描述 Agent 任务（Agent 将自主读/写/搜索/执行并迭代完成）'),
-				placeHolder: l10n.t('例如：读取 src/utils.ts 中的 TODO，整理并写入 docs/todos.md'),
+				prompt: l10n.t('Describe the Agent task (the Agent will autonomously read/write/search/execute and iterate to completion)'),
+				placeHolder: l10n.t('e.g., read the TODOs in src/utils.ts, organize them, and write to docs/todos.md'),
 			});
-			if (!task) return;
+			if (!task) {return;}
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (!folder) {
-				await vscode.window.showErrorMessage(l10n.t('请先打开工作区'));
+				await vscode.window.showErrorMessage(l10n.t('Please open a workspace first'));
 				return;
 			}
 			const ws = folder.uri.fsPath;
 			const runDir = path.join(ws, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			fs.mkdirSync(runDir, { recursive: true });
-			await vscode.window.showInformationMessage(l10n.t('Agent 任务已启动：{0}…（完成后自动打开记录）', task.slice(0, 40)));
-			const result = await runAgentLoop({ task, workspace: ws });
+			// 可取消进度：长任务（分钟级）必须有进展与中断入口
+			const result = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: l10n.t('Kodrix Agent: {0}…', task.slice(0, 40)), cancellable: true },
+				async (progress, token) => runAgentLoop({
+					task,
+					workspace: ws,
+					cancellationToken: token,
+					onUpdate: (phase, detail) => progress.report({ message: `${phase} · ${detail}` }),
+				}),
+			);
 			const id = persistRun(runDir, task, result);
 			const doc = await vscode.workspace.openTextDocument(path.join(runDir, `${id}.md`));
 			await vscode.window.showTextDocument(doc, { preview: true });
 			if (result.checkpointId) {
-				await vscode.window.showInformationMessage(l10n.t('已创建检查点 {0}（可运行「Kodrix: 恢复检查点」回滚 Agent 改动）', result.checkpointId));
+				await vscode.window.showInformationMessage(l10n.t('Checkpoint {0} created (run "Kodrix: Restore Checkpoint" to roll back files the Agent wrote via tools; side effects from terminal commands are not covered by the rollback)', result.checkpointId));
 			}
 			if (result.status === 'completed') {
-				await vscode.window.showInformationMessage(l10n.t('Agent 任务完成（{0} 轮，{1}s）', result.iterations, (result.durationMs / 1000).toFixed(1)));
+				await vscode.window.showInformationMessage(l10n.t('Agent task completed ({0} turns, {1}s)', result.iterations, (result.durationMs / 1000).toFixed(1)));
+			} else if (result.status === 'cancelled') {
+				await vscode.window.showWarningMessage(l10n.t('Agent task canceled ({0}s)', (result.durationMs / 1000).toFixed(1)));
 			} else {
-				await vscode.window.showWarningMessage(l10n.t('Agent 任务未完成：{0}（{1}s）', result.status, (result.durationMs / 1000).toFixed(1)));
+				await vscode.window.showWarningMessage(l10n.t('Agent task incomplete: {0} ({1}s)', result.status, (result.durationMs / 1000).toFixed(1)));
 			}
 		}),
 
 		vscode.commands.registerCommand(COMMANDS.agentResume, async () => {
 			const folder = vscode.workspace.workspaceFolders?.[0];
-			if (!folder) return;
+			if (!folder) { void vscode.window.showWarningMessage(l10n.t('Please open a workspace first')); return; }
 			const runDir = path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			const runs = loadRuns(runDir);
 			if (!runs.length) {
-				await vscode.window.showInformationMessage(l10n.t('暂无会话记录（先运行 Agent 任务）'));
+				await vscode.window.showInformationMessage(l10n.t('No sessions yet (run an Agent task first)'));
 				return;
 			}
-			const picked = await pickRun(runs, l10n.t('选择要续聊的会话（同一节点多次续聊即分支）'));
-			if (!picked) return;
-			const task = await vscode.window.showInputBox({ prompt: l10n.t('续聊任务（将作为该会话的子分支继续）'), value: `继续：${picked.task}` });
-			if (!task) return;
-			await vscode.window.showInformationMessage(l10n.t('Agent 续聊已启动：{0}…', task.slice(0, 40)));
+			const picked = await pickRun(runs, l10n.t('Select a session to continue (continuing the same node multiple times creates branches)'));
+			if (!picked) {return;}
+			const task = await vscode.window.showInputBox({ prompt: l10n.t('Continue task (continues as a child branch of this session)'), value: l10n.t('Continue: {0}', picked.task) });
+			if (!task) {return;}
+			await vscode.window.showInformationMessage(l10n.t('Agent follow-up started: {0}…', task.slice(0, 40)));
 			const result = await runAgentLoop({ task, workspace: folder.uri.fsPath, resumeFrom: picked.result as AgentLoopResult });
 			const id2 = persistRun(runDir, task, result, picked.id);
 			const doc2 = await vscode.workspace.openTextDocument(path.join(runDir, `${id2}.md`));
 			await vscode.window.showTextDocument(doc2, { preview: true });
 			if (result.status === 'completed') {
-				await vscode.window.showInformationMessage(l10n.t('Agent 续聊完成（{0} 轮）', result.iterations));
+				await vscode.window.showInformationMessage(l10n.t('Agent follow-up completed ({0} turns)', result.iterations));
 			} else {
-				await vscode.window.showWarningMessage(l10n.t('Agent 续聊未完成：{0}', result.status));
+				await vscode.window.showWarningMessage(l10n.t('Agent follow-up incomplete: {0}', result.status));
 			}
 		}),
 
 		vscode.commands.registerCommand('kodrix.agent.list', async () => {
 			const folder = vscode.workspace.workspaceFolders?.[0];
-			if (!folder) return;
+			if (!folder) { void vscode.window.showWarningMessage(l10n.t('Please open a workspace first')); return; }
 			const runDir = path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, AGENT_RUNS_DIR);
 			if (!fs.existsSync(runDir)) {
-				await vscode.window.showInformationMessage(l10n.t('暂无 Agent 运行记录'));
+				await vscode.window.showInformationMessage(l10n.t('No Agent runs yet'));
 				return;
 			}
 			const files = fs.readdirSync(runDir).filter(f => f.endsWith('.md')).sort().reverse();
 			if (!files.length) {
-				await vscode.window.showInformationMessage(l10n.t('暂无 Agent 运行记录'));
+				await vscode.window.showInformationMessage(l10n.t('No Agent runs yet'));
 				return;
 			}
-			const picked = await vscode.window.showQuickPick(files, { placeHolder: l10n.t('选择 Agent 运行记录') });
-			if (!picked) return;
+			const picked = await vscode.window.showQuickPick(files, { placeHolder: l10n.t('Select an Agent run') });
+			if (!picked) {return;}
 			const doc = await vscode.workspace.openTextDocument(path.join(runDir, picked));
 			await vscode.window.showTextDocument(doc, { preview: true });
 		}),

@@ -200,58 +200,78 @@ async function warmupEmbedding(): Promise<void> {
 	const state = _embedding;
 	state.building = (async () => {
 		try {
-			if (state.provider.embedBatch) {
-				const syms = Object.values(idx.symbols);
-				const vecs = await state.provider.embedBatch(syms.map(sym => buildSymbolDoc(sym)));
-				syms.forEach((sym, i) => {
-					const vec = vecs[i];
-					if (vec) {state.symbolVecs.set(sym.id, vec);}
-				});
-			} else {
-				for (const sym of Object.values(idx.symbols)) {
-					const vec = await state.provider.embed(buildSymbolDoc(sym));
-					if (vec) {state.symbolVecs.set(sym.id, vec);}
+			/**
+			 * 分块嵌入：此前把**全仓**符号/文件/块塞进单个 embedBatch 请求，
+			 * 大仓必然触发服务端体积/条数限制 → 整场预热失败 → 整会话静默回退 BM25。
+			 * 现在按批切分，单批失败只影响该批（其余向量照常可用）。
+			 */
+			const EMBED_BATCH_SIZE = 64;
+			const embedChunked = async <T>(
+				items: T[],
+				toText: (item: T) => string,
+				onVec: (item: T, vec: number[]) => void,
+				label: string,
+			): Promise<void> => {
+				for (let i = 0; i < items.length; i += EMBED_BATCH_SIZE) {
+					const chunk = items.slice(i, i + EMBED_BATCH_SIZE);
+					try {
+						if (state.provider.embedBatch) {
+							const vecs = await state.provider.embedBatch(chunk.map(toText));
+							chunk.forEach((item, k) => {
+								const vec = vecs[k];
+								if (vec) {onVec(item, vec);}
+							});
+						} else {
+							for (const item of chunk) {
+								const vec = await state.provider.embed(toText(item));
+								if (vec) {onVec(item, vec);}
+							}
+						}
+					} catch (err) {
+						logger.warn(`[SemanticIndex] ${label} 第 ${i}–${i + chunk.length} 条嵌入失败（该批回退 BM25）：${err instanceof Error ? err.message : String(err)}`);
+					}
+					// 让出事件循环：分块调用依旧可能连续触发大量网络/CPU 工作
+					await new Promise<void>(resolve => setImmediate(resolve));
 				}
-			}
+			};
+
+			const allSymbols = Object.values(idx.symbols);
+			await embedChunked(
+				allSymbols,
+				sym => buildSymbolDoc(sym),
+				(sym, vec) => {state.symbolVecs.set(sym.id, vec);},
+				'符号向量',
+			);
+
 			const byFile = new Map<string, CodeSymbol[]>();
-			for (const sym of Object.values(idx.symbols)) {
+			for (const sym of allSymbols) {
 				const list = byFile.get(sym.filePath) || [];
 				list.push(sym);
 				byFile.set(sym.filePath, list);
 			}
-			if (state.provider.embedBatch) {
-				const entries = [...byFile.entries()];
-				const vecs = await state.provider.embedBatch(entries.map(([fp, syms]) => buildFileDoc(idx, fp, syms)));
-				entries.forEach(([fp], i) => {
-					const vec = vecs[i];
-					if (vec) {state.fileVecs.set(fp, vec);}
-				});
-			} else {
-				for (const [filePath, syms] of byFile) {
-					const vec = await state.provider.embed(buildFileDoc(idx, filePath, syms));
-					if (vec) {state.fileVecs.set(filePath, vec);}
-				}
-			}
+			const fileEntries = [...byFile.entries()];
+			await embedChunked(
+				fileEntries,
+				([fp, syms]) => buildFileDoc(idx, fp, syms),
+				([fp], vec) => {state.fileVecs.set(fp, vec);},
+				'文件向量',
+			);
+
 			// ── 块级向量预热 ──
 			const blockTexts: Array<{ blockId: string; text: string }> = [];
-			for (const sym of Object.values(idx.symbols)) {
+			for (const sym of allSymbols) {
 				const text = buildBlockDoc(sym);
 				if (text) {blockTexts.push({ blockId: `block:${sym.id}`, text });}
 			}
-			if (state.provider.embedBatch) {
-				const vecs = await state.provider.embedBatch(blockTexts.map(b => b.text));
-				blockTexts.forEach((b, i) => {
-					const vec = vecs[i];
-					if (vec) {state.blockVecs.set(b.blockId, vec);}
-				});
-			} else {
-				for (const b of blockTexts) {
-					const vec = await state.provider.embed(b.text);
-					if (vec) {state.blockVecs.set(b.blockId, vec);}
-				}
-			}
+			await embedChunked(
+				blockTexts,
+				b => b.text,
+				(b, vec) => {state.blockVecs.set(b.blockId, vec);},
+				'块向量',
+			);
+
 			state.ready = true;
-			logger.info(`[SemanticIndex] Embedding warmup done: ${state.symbolVecs.size} symbols + ${state.fileVecs.size} files + ${state.blockVecs.size} blocks`);
+			logger.info(`[SemanticIndex] Embedding warmup done: ${state.symbolVecs.size}/${allSymbols.length} symbols + ${state.fileVecs.size}/${fileEntries.length} files + ${state.blockVecs.size}/${blockTexts.length} blocks`);
 		} catch (err) {
 			logger.warn(`[SemanticIndex] Embedding warmup failed（回退 BM25）: ${err instanceof Error ? err.message : String(err)}`);
 			state.ready = true; // 空向量 → 检索回退 BM25
@@ -287,6 +307,37 @@ export function buildFileDoc(index: ProjectIndex, filePath: string, symbols: Cod
 }
 
 /**
+ * 文件行缓存（按 mtime 失效）。
+ * `buildBlockDoc` 对**同一文件的每个符号**都会被调用（块向量预热 + 每次检索命中），
+ * 此前每次都整文件读盘：预热阶段等于把整个仓库重复读 N 遍。这里按 mtime 复用。
+ */
+const FILE_LINE_CACHE_MAX = 200;
+const _fileLineCache = new Map<string, { mtimeMs: number; lines: string[] }>();
+
+function getCachedFileLines(filePath: string): string[] | null {
+	try {
+		const stat = fs.statSync(filePath);
+		const cached = _fileLineCache.get(filePath);
+		if (cached && cached.mtimeMs === stat.mtimeMs) {
+			return cached.lines;
+		}
+		const lines = fs.readFileSync(filePath, 'utf-8').split(/\r?\n/);
+		if (_fileLineCache.size >= FILE_LINE_CACHE_MAX) {
+			_fileLineCache.clear();
+		}
+		_fileLineCache.set(filePath, { mtimeMs: stat.mtimeMs, lines });
+		return lines;
+	} catch {
+		return null;
+	}
+}
+
+/** 清空文件行缓存（索引重建 / 需要强一致时调用） */
+export function clearSemanticFileCache(): void {
+	_fileLineCache.clear();
+}
+
+/**
  * 块级语义文档：提取符号对应的完整源代码文本。
  * 用于语法块级 embedding 检索（对标 Cursor syntax-block embedding）。
  *
@@ -297,9 +348,8 @@ export function buildFileDoc(index: ProjectIndex, filePath: string, symbols: Cod
  */
 export function buildBlockDoc(sym: CodeSymbol): string | null {
 	try {
-		if (!fs.existsSync(sym.filePath)) {return null;}
-		const content = fs.readFileSync(sym.filePath, 'utf-8');
-		const lines = content.split(/\r?\n/);
+		const lines = getCachedFileLines(sym.filePath);
+		if (!lines) {return null;}
 
 		const startIdx = Math.max(0, sym.line - 1);
 		let endIdx: number;

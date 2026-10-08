@@ -127,19 +127,19 @@ export function generateConflictReport(
 ): string[] {
 	if (conflicts.length === 0) {
 		return [
-			'## ' + l10n.t('文件冲突检测'),
+			'## ' + l10n.t('File conflict detection'),
 			'',
-			l10n.t('✅ 无冲突 — {0} 个 Task 修改了 {1} 个文件，无重叠。', String(tracker.totalModifications), String(tracker.totalFiles)),
+			l10n.t('✅ No conflicts — {0} Tasks modified {1} files with no overlap.', String(tracker.totalModifications), String(tracker.totalFiles)),
 			'',
 		];
 	}
 
 	const lines: string[] = [
-		'## ' + l10n.t('文件冲突检测'),
+		'## ' + l10n.t('File conflict detection'),
 		'',
-		l10n.t('⚠️ 检测到 {0} 个文件冲突（共 {1} 个修改声明，涉及 {2} 个文件）：', String(conflicts.length), String(tracker.totalModifications), String(tracker.totalFiles)),
+		l10n.t('⚠️ Detected {0} file conflicts ({1} total modification claims across {2} files):', String(conflicts.length), String(tracker.totalModifications), String(tracker.totalFiles)),
 		'',
-		'| ' + l10n.t('冲突文件') + ' | ' + l10n.t('涉及 Task') + ' |',
+		'| ' + l10n.t('Conflicting files') + ' | ' + l10n.t('Related Task') + ' |',
 		'|------|------|',
 	];
 
@@ -149,7 +149,7 @@ export function generateConflictReport(
 	}
 
 	lines.push('');
-	lines.push('> ' + l10n.t('注：当前版本仅检测并报告冲突，不自动执行文件修改。请手动合并冲突文件的修改内容。'));
+	lines.push('> ' + l10n.t('Note: This version only detects and reports conflicts; it does not modify files automatically. Please merge changes in conflicting files manually.'));
 	lines.push('');
 
 	return lines;

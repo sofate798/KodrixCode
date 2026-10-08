@@ -43,6 +43,9 @@
 **/node_modules/**
 **/out/**
 **/out-*/**
+**/*-out/**
+**/.qoder/**
+**/extensions/kodrix-agent-os/resources/hooks/**
 **/src/**/dompurify.js
 **/src/**/marked.js
 **/src/**/semver.js
@@ -54,6 +57,7 @@
 **/test/automation/out/**
 **/typings/**
 **/.build/**
+**/.bench/**
 **/.vscode-test/**
 !.vscode
 

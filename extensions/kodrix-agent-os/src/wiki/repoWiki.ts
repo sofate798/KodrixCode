@@ -14,6 +14,8 @@ import { logger } from '../logger';
 import { ensureProjectIndex } from '../codebase/projectIndexer';
 import type { ProjectIndex } from '../codebase/types';
 import { detectCodeSmells, renderCodeSmellsReport } from './codeSmellDetector';
+import { atomicWriteFileSync } from '../utils/fsSafe';
+import { readUserTextFileSync } from '../utils/textFile';
 
 interface ProjectManifest {
 	type: string;
@@ -395,7 +397,21 @@ ${agents ? '- [../../AGENTS.md](../../AGENTS.md) — Agent 说明' : ''}
 `;
 }
 
-export async function generateRepoWiki(options?: { recordLearning?: boolean }): Promise<string | undefined> {
+/** 生成单飞：冷启动时 bootstrap 与 wiki 各自的定时器、以及手动命令可能同时触发（实测 2–3 次重复生成） */
+let _generateInFlight: Promise<string | undefined> | undefined;
+
+/**
+ * 生成 Repo Wiki。
+ * - 并发调用共享同一次生成（单飞）
+ * - 支持外部取消（`options.token`）：命令层用 withProgress(cancellable) 传入
+ */
+export async function generateRepoWiki(options?: { recordLearning?: boolean; token?: vscode.CancellationToken }): Promise<string | undefined> {
+	if (_generateInFlight) {return _generateInFlight;}
+	_generateInFlight = doGenerateRepoWiki(options).finally(() => { _generateInFlight = undefined; });
+	return _generateInFlight;
+}
+
+async function doGenerateRepoWiki(options?: { recordLearning?: boolean; token?: vscode.CancellationToken }): Promise<string | undefined> {
 	const wikiEnabled = vscode.workspace.getConfiguration('kodrix.features').get<boolean>('wiki', true);
 	if (!wikiEnabled) {
 		return undefined;
@@ -403,7 +419,11 @@ export async function generateRepoWiki(options?: { recordLearning?: boolean }): 
 
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		vscode.window.showWarningMessage(l10n.t('请先打开工作区文件夹'));
+		vscode.window.showWarningMessage(l10n.t('Please open a workspace folder first'));
+		return undefined;
+	}
+	if (options?.token?.isCancellationRequested) {
+		logger.info('[RepoWiki] 生成已取消');
 		return undefined;
 	}
 
@@ -425,10 +445,12 @@ export async function generateRepoWiki(options?: { recordLearning?: boolean }): 
 		logger.warn(`[RepoWiki] Failed to get project index: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
-	if (projectIndex) {
+	if (projectIndex && !options?.token?.isCancellationRequested) {
 		// LLM 增强 MODULES.md（带降级策略）
 		const cts = new vscode.CancellationTokenSource();
 		const llmTimeout = setTimeout(() => cts.cancel(), 60_000);
+		// 外部取消 → 一并取消 LLM 增强（此前点了取消仍会跑满 60s）
+		const externalSub = options?.token?.onCancellationRequested(() => cts.cancel());
 		try {
 			llmDescriptions = await enhanceModulesWithLLM(root, projectIndex, cts.token);
 			if (llmDescriptions) {
@@ -438,21 +460,28 @@ export async function generateRepoWiki(options?: { recordLearning?: boolean }): 
 			logger.warn(`[RepoWiki] LLM enhancement failed, falling back to static: ${err instanceof Error ? err.message : String(err)}`);
 		} finally {
 			clearTimeout(llmTimeout);
+			externalSub?.dispose();
 		}
+	}
+
+	if (options?.token?.isCancellationRequested) {
+		logger.info('[RepoWiki] 生成已取消（写入前）');
+		return undefined;
 	}
 
 	try {
 		ensureDir(wikiDir);
-		fs.writeFileSync(path.join(wikiDir, 'ARCHITECTURE.md'), buildArchitectureMd(root, manifest), 'utf-8');
-		fs.writeFileSync(path.join(wikiDir, 'MODULES.md'), buildModulesMd(root, llmDescriptions), 'utf-8');
-		fs.writeFileSync(path.join(wikiDir, 'INDEX.md'), buildIndexMd(root, manifest), 'utf-8');
+		// 统一走原子写入：同时受"不受信任工作区禁止写工作区文件"闸门约束（此前是裸 fs.writeFileSync，可绕过）
+		atomicWriteFileSync(path.join(wikiDir, 'ARCHITECTURE.md'), buildArchitectureMd(root, manifest));
+		atomicWriteFileSync(path.join(wikiDir, 'MODULES.md'), buildModulesMd(root, llmDescriptions));
+		atomicWriteFileSync(path.join(wikiDir, 'INDEX.md'), buildIndexMd(root, manifest));
 
 		// Code Smell 检测与报告生成
-		if (projectIndex) {
+		if (projectIndex && !options?.token?.isCancellationRequested) {
 			try {
 				const smells = await detectCodeSmells(root, async () => projectIndex);
 				const smellReport = renderCodeSmellsReport(smells, root);
-				fs.writeFileSync(path.join(wikiDir, 'CODE_SMELLS.md'), smellReport, 'utf-8');
+				atomicWriteFileSync(path.join(wikiDir, 'CODE_SMELLS.md'), smellReport);
 				logger.info(`[RepoWiki] Code Smells report generated: ${smells.length} issues found`);
 			} catch (err) {
 				logger.warn(`[RepoWiki] Code smell detection failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -460,7 +489,7 @@ export async function generateRepoWiki(options?: { recordLearning?: boolean }): 
 		}
 	} catch (err) {
 		logger.error('生成 Repo Wiki 写入失败', err);
-		vscode.window.showErrorMessage(l10n.t('生成 Repo Wiki 失败：{0}', err instanceof Error ? err.message : String(err)));
+		vscode.window.showErrorMessage(l10n.t('Failed to generate Repo Wiki: {0}', err instanceof Error ? err.message : String(err)));
 		return undefined;
 	}
 
@@ -484,12 +513,12 @@ export async function openRepoWiki(): Promise<void> {
 		wikiDir = getWikiDir();
 	}
 	if (!wikiDir) {
-		vscode.window.showWarningMessage(l10n.t('无法定位 Wiki 目录，请先打开工作区'));
+		vscode.window.showWarningMessage(l10n.t('Cannot locate the Wiki directory. Open a workspace first.'));
 		return;
 	}
 	const indexPath = path.join(wikiDir, 'INDEX.md');
 	if (!fs.existsSync(indexPath)) {
-		vscode.window.showWarningMessage(l10n.t('Wiki 尚未生成，请运行「Kodrix: 生成 Repo Wiki」'));
+		vscode.window.showWarningMessage(l10n.t('Wiki has not been generated yet. Run "Kodrix: Generate Repo Wiki"'));
 		return;
 	}
 	const doc = await vscode.workspace.openTextDocument(indexPath);
@@ -504,24 +533,23 @@ export function registerWiki(context: vscode.ExtensionContext): void {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('kodrix.wiki.generate', async () => {
-			const dir = await generateRepoWiki();
+			// 进度 + 可取消：大仓上 LLM 增强可能跑几十秒，此前只有"开始/结束"两条提示，界面像卡死
+			const dir = await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: l10n.t('Kodrix: Generating Repo Wiki…'),
+					cancellable: true,
+				},
+				async (_progress, token) => generateRepoWiki({ token }),
+			);
 			if (dir) {
-				vscode.window.showInformationMessage(l10n.t('Repo Wiki 已生成：{0}', dir));
+				vscode.window.showInformationMessage(l10n.t('Repo Wiki generated: {0}', dir));
 			}
 		}),
 		vscode.commands.registerCommand('kodrix.wiki.open', () => openRepoWiki()),
 	);
-
-	const autoBuild = vscode.workspace.getConfiguration('kodrix.features').get<boolean>('wikiAutoBuild', true);
-	if (autoBuild && vscode.workspace.workspaceFolders?.length) {
-		const autoBuildTimer = setTimeout(() => {
-			const wikiDir = getWikiDir();
-			if (wikiDir && !fs.existsSync(path.join(wikiDir, 'INDEX.md'))) {
-				void generateRepoWiki({ recordLearning: false });
-			}
-		}, 5000);
-		context.subscriptions.push({ dispose: () => clearTimeout(autoBuildTimer) });
-	}
+	// 自动生成统一由 workspaceBootstrap 负责（它带"不受信任工作区不预热"的闸门）。
+	// 此处曾另有一个 5s 定时器，与 bootstrap 的 4s 定时器在冷启动时并发触发 2 次重复生成。
 }
 
 export function getWikiContextForAgent(): string {
@@ -533,7 +561,9 @@ export function getWikiContextForAgent(): string {
 	for (const file of ['ARCHITECTURE.md', 'MODULES.md', 'CODE_SMELLS.md']) {
 		const p = path.join(wikiDir, file);
 		if (fs.existsSync(p)) {
-			const content = fs.readFileSync(p, 'utf-8').slice(0, 4000);
+			// 用户可编辑文档：容错 BOM/UTF-16/GBK，单个文件读失败不影响其余 wiki 内容注入
+			const content = (readUserTextFileSync(p) ?? '').slice(0, 4000);
+			if (!content.trim()) {continue;}
 			parts.push(`## ${file}\n${content}`);
 		}
 	}

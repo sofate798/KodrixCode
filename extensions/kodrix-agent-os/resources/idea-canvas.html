@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<style>
 		.codicon { vertical-align: -0.15em; }
@@ -481,21 +481,21 @@
 <div class="app">
 	<div class="hero">
 		<h1><span class="gradient">Idea Canvas</span></h1>
-		<p class="subtitle">描述你的想法，AI 全自动将其变为现实。让软件开发回归想法本身。</p>
+		<p class="subtitle">{{l10n:Describe your idea, and AI turns it into reality fully automatically. Bring software development back to the idea itself.}}</p>
 		<div class="ideas-bar">
-			<textarea id="ideaInput" placeholder="输入你的想法...&#10;例如：一个 AI 驱动的个人知识管理工具，支持 Markdown 笔记和双向链接"></textarea>
-			<button class="voice-btn" id="voiceBtn" title="语音输入"><i class="codicon codicon-mic" aria-hidden="true"></i></button>
+			<textarea id="ideaInput" placeholder="{{l10n:Type your idea...&#10;For example: an AI-powered personal knowledge management tool with Markdown notes and bidirectional links}}"></textarea>
+			<button class="voice-btn" id="voiceBtn" title="{{l10n:Voice input}}"><i class="codicon codicon-mic" aria-hidden="true"></i></button>
 		</div>
 		<div class="idea-actions">
-			<button class="btn-primary" id="btnAnalyze"><i class="codicon codicon-rocket" aria-hidden="true"></i> 深度分析并构建</button>
-			<button class="btn-secondary" id="btnQuickPlan"><i class="codicon codicon-flame" aria-hidden="true"></i> 快速构建 (跳过分析)</button>
+			<button class="btn-primary" id="btnAnalyze"><i class="codicon codicon-rocket" aria-hidden="true"></i> {{l10n:Deep Analyze and Build}}</button>
+			<button class="btn-secondary" id="btnQuickPlan"><i class="codicon codicon-flame" aria-hidden="true"></i> {{l10n:Fast Build (skip analysis)}}</button>
 		</div>
 		<div class="quick-templates" id="quickTemplates">
-			<span class="qt-chip" data-idea="一个带暗色模式的个人博客，支持 Markdown 文章和标签分类"><i class="codicon codicon-file-text" aria-hidden="true"></i> 个人博客</span>
-			<span class="qt-chip" data-idea="一个 Trello 风格的任务看板，支持拖拽、多列表和团队协作"><i class="codicon codicon-notebook" aria-hidden="true"></i> 任务看板</span>
-			<span class="qt-chip" data-idea="一个 AI 聊天界面，支持流式响应、会话管理和 Markdown 渲染"><i class="codicon codicon-comment-discussion" aria-hidden="true"></i> AI 聊天</span>
-			<span class="qt-chip" data-idea="一个数据可视化仪表盘，包含多种图表类型、筛选器和导出功能"><i class="codicon codicon-graph" aria-hidden="true"></i> 仪表盘</span>
-			<span class="qt-chip" data-idea="一个电商平台，含商品展示、购物车、用户认证和订单管理"><i class="codicon codicon-package" aria-hidden="true"></i> 电商平台</span>
+			<span class="qt-chip" data-idea="{{l10n:A personal blog with dark mode, supporting Markdown posts and tag-based categories}}"><i class="codicon codicon-file-text" aria-hidden="true"></i> {{l10n:Personal blog}}</span>
+			<span class="qt-chip" data-idea="{{l10n:A Trello-style task board with drag-and-drop, multiple lists, and team collaboration}}"><i class="codicon codicon-notebook" aria-hidden="true"></i> {{l10n:Task board}}</span>
+			<span class="qt-chip" data-idea="{{l10n:An AI chat interface with streaming responses, session management, and Markdown rendering}}"><i class="codicon codicon-comment-discussion" aria-hidden="true"></i> {{l10n:AI Chat}}</span>
+			<span class="qt-chip" data-idea="{{l10n:A data visualization dashboard with multiple chart types, filters, and export}}"><i class="codicon codicon-graph" aria-hidden="true"></i> {{l10n:Dashboard}}</span>
+			<span class="qt-chip" data-idea="{{l10n:An e-commerce platform with product showcase, shopping cart, user authentication, and order management}}"><i class="codicon codicon-package" aria-hidden="true"></i> {{l10n:E-commerce platform}}</span>
 		</div>
 		<div class="idea-preview" id="ideaPreview"></div>
 	</div>
@@ -503,35 +503,35 @@
 	<div class="content" id="mainContent">
 		<div class="empty-state" id="emptyState">
 			<div class="es-icon"><i class="codicon codicon-lightbulb" aria-hidden="true"></i></div>
-			<div class="es-title">你的下一个想法，从这里开始</div>
-			<div class="es-desc">在上方输入你的项目想法，或选择一个模板快速开始。AI 将自动完成需求分析、架构设计、任务拆解、多 Agent 协同开发和部署预览。</div>
+			<div class="es-title">{{l10n:Your next idea starts here}}</div>
+			<div class="es-desc">{{l10n:Enter your project idea above, or pick a template to get started quickly. AI will automatically handle requirements analysis, architecture design, task breakdown, multi-Agent collaborative development, and deployment preview.}}</div>
 			<div class="es-tips">
-				<span><i class="codicon codicon-target" aria-hidden="true"></i> 只需描述「做什么」，AI 负责「怎么做」</span>
-				<span><i class="codicon codicon-hubot" aria-hidden="true"></i> 多智能体协作：架构师 → 开发者 → 测试者</span>
-				<span><i class="codicon codicon-beaker" aria-hidden="true"></i> 越用越聪明：每个项目自动沉淀知识</span>
-				<span><i class="codicon codicon-globe" aria-hidden="true"></i> 自动构建预览：从想法到可运行应用</span>
+				<span><i class="codicon codicon-target" aria-hidden="true"></i> {{l10n:Just describe "what" to do — the AI handles "how"}}</span>
+				<span><i class="codicon codicon-hubot" aria-hidden="true"></i> {{l10n:Multi-agent collaboration: Architect → Developer → Tester}}</span>
+				<span><i class="codicon codicon-beaker" aria-hidden="true"></i> {{l10n:Gets smarter with use: knowledge is captured automatically for every project}}</span>
+				<span><i class="codicon codicon-globe" aria-hidden="true"></i> {{l10n:Auto-build preview: from idea to running app}}</span>
 			</div>
 		</div>
 
 		<div id="phasePanel" style="display:none;">
 			<div class="phase-indicator stagger" id="phaseSteps">
-				<span class="phase-step" data-phase="idea-analysis"><span class="step-icon"><i class="codicon codicon-search" aria-hidden="true"></i></span> 分析</span>
+				<span class="phase-step" data-phase="idea-analysis"><span class="step-icon"><i class="codicon codicon-search" aria-hidden="true"></i></span> {{l10n:Analyze}}</span>
 				<span class="phase-connector"></span>
-				<span class="phase-step" data-phase="auto-planning"><span class="step-icon"><i class="codicon codicon-symbol-ruler" aria-hidden="true"></i></span> 规划</span>
+				<span class="phase-step" data-phase="auto-planning"><span class="step-icon"><i class="codicon codicon-symbol-ruler" aria-hidden="true"></i></span> {{l10n:Plan}}</span>
 				<span class="phase-connector"></span>
-				<span class="phase-step" data-phase="crew-building"><span class="step-icon"><i class="codicon codicon-organization" aria-hidden="true"></i></span> 团队</span>
+				<span class="phase-step" data-phase="crew-building"><span class="step-icon"><i class="codicon codicon-organization" aria-hidden="true"></i></span> {{l10n:Team}}</span>
 				<span class="phase-connector"></span>
-				<span class="phase-step" data-phase="build-in-progress"><span class="step-icon"><i class="codicon codicon-flame" aria-hidden="true"></i></span> 构建</span>
+				<span class="phase-step" data-phase="build-in-progress"><span class="step-icon"><i class="codicon codicon-flame" aria-hidden="true"></i></span> {{l10n:Build}}</span>
 				<span class="phase-connector"></span>
-				<span class="phase-step" data-phase="preview-ready"><span class="step-icon"><i class="codicon codicon-globe" aria-hidden="true"></i></span> 预览</span>
+				<span class="phase-step" data-phase="preview-ready"><span class="step-icon"><i class="codicon codicon-globe" aria-hidden="true"></i></span> {{l10n:Preview}}</span>
 				<span class="phase-connector"></span>
-				<span class="phase-step" data-phase="product-intelligence"><span class="step-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span> 智能</span>
+				<span class="phase-step" data-phase="product-intelligence"><span class="step-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span> {{l10n:Smart}}</span>
 			</div>
 		</div>
 
 		<div id="analysisPanel" style="display:none;">
 			<div class="card fade-in">
-				<h3><i class="codicon codicon-search" aria-hidden="true"></i> 深度分析</h3>
+				<h3><i class="codicon codicon-search" aria-hidden="true"></i> {{l10n:Deep Analysis}}</h3>
 				<div class="analysis-grid" id="analysisGrid"></div>
 				<div class="tech-badges" id="techBadges"></div>
 			</div>
@@ -539,44 +539,46 @@
 
 		<div id="featuresPanel" style="display:none;">
 			<div class="card fade-in">
-				<h3><i class="codicon codicon-target" aria-hidden="true"></i> 核心功能</h3>
+				<h3><i class="codicon codicon-target" aria-hidden="true"></i> {{l10n:Core features}}</h3>
 				<div class="feature-list" id="featureList"></div>
 			</div>
 		</div>
 
 		<div id="buildPanel" style="display:none;">
 			<div class="card fade-in">
-				<h3><i class="codicon codicon-settings-gear" aria-hidden="true"></i> 构建日志</h3>
-				<div class="build-log" id="buildLog"><div class="empty-note">等待构建开始…</div></div>
+				<h3><i class="codicon codicon-settings-gear" aria-hidden="true"></i> {{l10n:Build Log}}</h3>
+				<div class="build-log" id="buildLog"><div class="empty-note">{{l10n:Waiting for the build to start…}}</div></div>
 			</div>
 		</div>
 
 		<div id="previewPanel" style="display:none;">
 			<div class="card fade-in">
-				<h3><i class="codicon codicon-globe" aria-hidden="true"></i> 产品预览</h3>
+				<h3><i class="codicon codicon-globe" aria-hidden="true"></i> {{l10n:Product preview}}</h3>
 				<div id="previewContent">
-					<div class="empty-note">构建完成后将自动加载预览</div>
+					<div class="empty-note">{{l10n:The preview will load automatically once the build finishes}}</div>
 				</div>
 			</div>
 		</div>
 
 		<div id="intelPanel" style="display:none;">
 			<div class="card fade-in">
-				<h3><i class="codicon codicon-beaker" aria-hidden="true"></i> 产品智能</h3>
+				<h3><i class="codicon codicon-beaker" aria-hidden="true"></i> {{l10n:Product intelligence}}</h3>
 				<div class="intel-content" id="intelContent">
-					<div class="empty-note">知识将从构建过程中自动沉淀</div>
+					<div class="empty-note">{{l10n:Knowledge is captured automatically during builds}}</div>
 				</div>
 			</div>
 		</div>
 	</div>
 
-	<div class="footer">Idea Flow — 让软件开发回归想法本身 · <a href="#" onclick="post('openStatus',{});return false;">查看状态</a></div>
+	<div class="footer">Idea Flow — {{l10n:Bring software development back to the idea itself}} · <a href="#" onclick="post('openStatus',{});return false;">{{l10n:View Status}}</a></div>
 </div>
 
-<script>
+<script nonce="{{nonce}}">
 	const vscode = acquireVsCodeApi();
 	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
 	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
+	/** 本地化后的动态文案：`{{l10n:…}}` 里的 {0}/{1} 保留到运行时再替换 */
+	const fmt = (template, ...args) => String(template).replace(/\{(\d+)\}/g, (m, i) => (args[i] === undefined ? m : String(args[i])));
 
 	const ideaInput = document.getElementById('ideaInput');
 	const ideaPreview = document.getElementById('ideaPreview');
@@ -604,7 +606,7 @@
 		}
 	} catch {}
 	voiceBtn.onclick = () => {
-		if (!recognition) { post('notify', { msg: '当前浏览器不支持语音输入' }); return; }
+		if (!recognition) { post('notify', { msg: '{{l10n:The current browser does not support voice input}}' }); return; }
 		if (voiceBtn.classList.contains('recording')) { recognition.stop(); voiceBtn.classList.remove('recording'); }
 		else { recognition.start(); voiceBtn.classList.add('recording'); }
 	};
@@ -663,7 +665,7 @@
 
 		// Idea detection
 		if (msg.type === 'ideaLikely') {
-			ideaPreview.innerHTML = ki('location') + ' 检测到: ' + msg.label;
+			ideaPreview.innerHTML = ki('location') + ' ' + fmt('{{l10n:Detected: {0}}}', escapeHtml(msg.label));
 			ideaPreview.classList.add('visible');
 		}
 
@@ -699,8 +701,9 @@
 		if (isError) {
 			const buildLog = document.getElementById('buildLog');
 			if (buildLog) {
-				buildLog.innerHTML = '<div class="log-line error" style="font-weight:600;color:var(--danger)"><i class="codicon codicon-error" aria-hidden="true"></i> 流程出错 — 请使用「重置 Idea Flow」重新开始</div>';
+				buildLog.innerHTML = '<div class="log-line error" style="font-weight:600;color:var(--danger)"><i class="codicon codicon-error" aria-hidden="true"></i> {{l10n:Flow error — use "Reset Idea Flow" to start over}}</div>';
 			}
+		}
 
 		// ── Analysis ──
 		if (s.analysis) {
@@ -708,10 +711,10 @@
 			const a = s.analysis;
 			const grid = document.getElementById('analysisGrid');
 			grid.innerHTML = [
-				{ label: '应用名称', value: escapeHtml(a.appName) },
-				{ label: '复杂度', value: a.complexity === 'high' ? '<i class="codicon codicon-circle-filled ki-warn" aria-hidden="true"></i> 高' : a.complexity === 'medium' ? '<i class="codicon codicon-circle-filled ki-mid" aria-hidden="true"></i> 中' : '<i class="codicon codicon-circle-filled ki-ok" aria-hidden="true"></i> 低' },
-				{ label: '架构', value: escapeHtml(a.architecture) },
-				{ label: '预估文件', value: a.estimatedFiles + ' 个' },
+				{ label: '{{l10n:Application name}}', value: escapeHtml(a.appName) },
+				{ label: '{{l10n:Complexity}}', value: a.complexity === 'high' ? '<i class="codicon codicon-circle-filled ki-warn" aria-hidden="true"></i> {{l10n:High}}' : a.complexity === 'medium' ? '<i class="codicon codicon-circle-filled ki-mid" aria-hidden="true"></i> {{l10n:Medium}}' : '<i class="codicon codicon-circle-filled ki-ok" aria-hidden="true"></i> {{l10n:Low}}' },
+				{ label: '{{l10n:Architecture}}', value: escapeHtml(a.architecture) },
+				{ label: '{{l10n:Estimated files}}', value: fmt('{{l10n:{0} items}}', a.estimatedFiles) },
 			].map(item => '<div class="analysis-item"><div class="ai-label">' + item.label + '</div><div class="ai-value">' + item.value + '</div></div>').join('');
 
 			// Tech badges
@@ -733,11 +736,14 @@
 			document.getElementById('buildPanel').style.display = 'block';
 			const logEl = document.getElementById('buildLog');
 			logEl.innerHTML = s.buildLogs.map((log, i) => {
+				// l10n-ignore-start：这些中文是**匹配日志内容的关键词**（旧数据/中文语言包日志），不是界面文案，必须保持原样；
+				// 英文关键词对应宿主侧 l10n.t() 之后的英文日志，保证着色不回退
 				const cls = /error|fail|exception|错误|失败/i.test(log) ? 'error'
-					: /success|完成|就绪|ready|done/i.test(log) ? 'success'
-					: /agent|building|构建|执行|分析|规划|团队/i.test(log) ? 'agent'
-					: /idea|captur|启动|收到想法/i.test(log) ? 'highlight'
+					: /success|complete|done|ready|完成|就绪/i.test(log) ? 'success'
+					: /agent|building|analyz|plan|crew|task|构建|执行|分析|规划|团队/i.test(log) ? 'agent'
+					: /idea|captur|start|启动|收到想法/i.test(log) ? 'highlight'
 					: 'info';
+				// l10n-ignore-end
 				return '<div class="log-line ' + cls + '" style="animation-delay:' + Math.min(i * 20, 500) + 'ms">' + escapeHtml(log) + '</div>';
 			}).join('');
 			logEl.scrollTop = logEl.scrollHeight;
@@ -747,14 +753,14 @@
 		if (s.previewUrl) {
 			document.getElementById('previewPanel').style.display = 'block';
 			document.getElementById('previewContent').innerHTML =
-				'<div class="preview-content"><span class="preview-url" onclick="post(\'openPreview\',{});return false;"><i class="codicon codicon-link" aria-hidden="true"></i> ' + escapeHtml(s.previewUrl) + '</span><button class="preview-open-btn" onclick="post(\'openPreview\',{});">打开预览</button></div>';
+				'<div class="preview-content"><span class="preview-url" onclick="post(\'openPreview\',{});return false;"><i class="codicon codicon-link" aria-hidden="true"></i> ' + escapeHtml(s.previewUrl) + '</span><button class="preview-open-btn" onclick="post(\'openPreview\',{});">{{l10n:Open Preview}}</button></div>';
 		} else if (s.phase === 'build-in-progress' || s.phase === 'preview-ready' || s.phase === 'product-intelligence') {
 			document.getElementById('previewPanel').style.display = 'block';
 		}
 	}
 
 	function escapeHtml(str) {
-		return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+		return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 
 	// Signal ready

@@ -68,14 +68,14 @@ function setupSpecWatcher(panel: vscode.WebviewPanel, _context: vscode.Extension
 
 async function createSpecFromWorkbench(): Promise<string | undefined> {
 	const feature = await vscode.window.showInputBox({
-		prompt: l10n.t('功能名称'),
+		prompt: l10n.t('Feature name'),
 		placeHolder: 'user-authentication',
 	});
 	if (!feature) {
 		return undefined;
 	}
 	const description = await vscode.window.showInputBox({
-		prompt: l10n.t('简要描述'),
+		prompt: l10n.t('Short description'),
 	}) || '（待补充）';
 	const specDir = await createSpecFiles(feature, description);
 	if (specDir) {
@@ -123,7 +123,7 @@ async function handleMessage(
 		}
 		case 'implement': {
 			if (!currentSlug) {
-				vscode.window.showWarningMessage(l10n.t('请先选择 Spec'));
+				vscode.window.showWarningMessage(l10n.t('Select a spec first'));
 				break;
 			}
 			const dir = getSpecDir(currentSlug);

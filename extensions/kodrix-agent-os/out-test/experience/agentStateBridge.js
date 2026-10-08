@@ -64,8 +64,7 @@ let activeSessionId;
 /** Cleanup handles for agent state timeouts */
 const _stateTimers = new Set();
 function pushTimer(fn, ms) {
-    let handle;
-    handle = setTimeout(() => {
+    const handle = setTimeout(() => {
         _stateTimers.delete(handle);
         fn();
     }, ms);
@@ -82,11 +81,13 @@ function setWorkbenchAgentClass(state) {
         // DOM is only available in the renderer process; tsconfig excludes the DOM lib,
         // so we use a minimal structural type and access via globalThis.
         const doc = globalThis.document;
-        if (!doc)
-            return; // server-side / headless — skip DOM manipulation
-        const workbench = doc.querySelector('.monaco-workbench');
-        if (!workbench)
+        if (!doc) {
             return;
+        } // server-side / headless — skip DOM manipulation
+        const workbench = doc.querySelector('.monaco-workbench');
+        if (!workbench) {
+            return;
+        }
         // Remove all existing agent-state classes first
         for (const c of [...workbench.classList]) {
             if (c.startsWith('agent-state-')) {

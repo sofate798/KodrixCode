@@ -15,11 +15,12 @@ import { customizationId, type ClientPluginCustomization } from '../../common/st
 import { CustomizationType, type URI as ProtocolURI } from '../../common/state/protocol/state.js';
 import { DiscoveredType, type IDiscoveredDirectory } from '../copilot/sessionCustomizationDiscovery.js';
 
-const DISPLAY_NAME = 'Kodrix Code Synced Data';
+/** 合成插件树对外显示的名字（测试断言请引用本常量，避免品牌改名时测试漂移） */
+export const SESSION_PLUGIN_BUNDLE_DISPLAY_NAME = 'Kodrix Code Synced Data';
 const HOST_DISCOVERY_DIR = 'host-discovery';
 
 const MANIFEST_CONTENT = JSON.stringify({
-	name: DISPLAY_NAME,
+	name: SESSION_PLUGIN_BUNDLE_DISPLAY_NAME,
 	description: 'Customization data discovered from this workspace and your home directory',
 }, null, '\t');
 
@@ -138,7 +139,7 @@ export class SessionPluginBundler extends Disposable {
 				type: CustomizationType.Plugin,
 				id: customizationId(rootUriString),
 				uri: rootUriString,
-				name: DISPLAY_NAME,
+				name: SESSION_PLUGIN_BUNDLE_DISPLAY_NAME,
 				enabled: true,
 				nonce,
 			},

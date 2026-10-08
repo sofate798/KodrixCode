@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import { safeUpdateConfiguration } from './safeConfigUpdate';
+import { logWarn } from './logger';
 
 const DEFAULTS_APPLIED_KEY = 'kodrix.cursorDefaultsApplied';
 const DEFAULTS_VERSION = 5;
@@ -89,7 +90,7 @@ export async function applyCursorLikeDefaults(
 				await config.update(key, value, target);
 			} catch (err) {
 				// 个别键在特定版本未注册/被拒时跳过，不阻断其余键写入
-				console.warn(`[kodrix-local] 跳过配置写入 ${section}.${key}:`, err instanceof Error ? err.message : err);
+				logWarn(`跳过配置写入 ${section}.${key}`, err);
 			}
 		}
 	}

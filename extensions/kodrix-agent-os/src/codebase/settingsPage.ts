@@ -33,6 +33,7 @@ import {
 	IndexBuildState,
 } from './projectIndexer';
 import { logger } from '../logger';
+import { createNonce, webviewCsp, jsJson } from '../shared/webviewHtml';
 import { setFimApiKey, setEmbeddingApiKey, getFimApiKey, getEmbeddingApiKey, FIM_API_KEY_SECRET, EMBEDDING_API_KEY_SECRET } from '../secretStorage';
 
 const VIEW_TYPE = 'kodrix.settings';
@@ -53,7 +54,7 @@ export function registerSettingsPage(context: vscode.ExtensionContext): void {
 				return;
 			}
 			_webviews.add(webview.webview);
-			webview.webview.html = getWebviewHtml();
+			webview.webview.html = buildSettingsPageHtml(webview.webview);
 			webview.webview.onDidReceiveMessage(msg => {
 				void handleMessage(webview.webview, msg);
 			});
@@ -128,7 +129,7 @@ async function handleMessage(webview: vscode.Webview, msg: any): Promise<void> {
 				} else if (secretKey === EMBEDDING_API_KEY_SECRET) {
 					await setEmbeddingApiKey(sctx, secretValue);
 				} else {
-					console.warn(`[Settings] Unknown secret key: ${secretKey}`);
+					logger.warn(`[Settings] Unknown secret key: ${secretKey}`);
 					break;
 				}
 				await webview.postMessage({
@@ -150,19 +151,19 @@ async function handleCodebaseToggle(key: string, value: boolean): Promise<void> 
 		if (value) {
 			const n = (await ensureGrepIndex()).length;
 			_grepFileCount = n;
-			void vscode.window.setStatusBarMessage(l10n.t('Grep 索引已构建：{0} 个文件', n), 4000);
+			void vscode.window.setStatusBarMessage(l10n.t('Grep index built: {0} files', n), 4000);
 		} else {
 			clearGrepIndex();
 			_grepFileCount = 0;
 		}
 	} else if (key === 'autoIndexNewFolders') {
 		// 即时生效：关闭时停用文件监听，打开时重新启用
-		if (value) startIndexWatcher(getSettingsContext());
-		else disposeIndexWatcher();
+		if (value) {startIndexWatcher(getSettingsContext());}
+		else {disposeIndexWatcher();}
 	} else if (key === 'ignoreCursorignore') {
 		// 忽略规则变更后需重建，否则仍用旧的排除结果
-		void ensureProjectIndex(true).catch(err => {
-			void vscode.window.showErrorMessage(l10n.t('索引重建失败：{0}', err instanceof Error ? err.message : String(err)));
+		void ensureProjectIndex(true, { manual: true }).catch(err => {
+			void vscode.window.showErrorMessage(l10n.t('Index rebuild failed: {0}', err instanceof Error ? err.message : String(err)));
 		});
 	}
 }
@@ -179,8 +180,8 @@ async function handleIndexAction(action: string): Promise<void> {
 			await deleteProjectIndex();
 			break;
 		case 'rebuild':
-			void ensureProjectIndex(true).catch(err => {
-				void vscode.window.showErrorMessage(l10n.t('索引重建失败：{0}', err instanceof Error ? err.message : String(err)));
+			void ensureProjectIndex(true, { manual: true }).catch(err => {
+				void vscode.window.showErrorMessage(l10n.t('Index rebuild failed: {0}', err instanceof Error ? err.message : String(err)));
 			});
 			break;
 	}
@@ -214,31 +215,141 @@ function buildIndexPayload() {
 async function openCursorignoreFile(): Promise<void> {
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		void vscode.window.showErrorMessage(l10n.t('当前没有打开的工作区文件夹'));
+		void vscode.window.showErrorMessage(l10n.t('No workspace folder is currently open'));
 		return;
 	}
 	const file = path.join(folder.uri.fsPath, '.cursorignore');
 	try {
 		if (!fs.existsSync(file)) {
-			fs.writeFileSync(file, '# 在此文件中添加要从代码库索引中排除的文件/目录（glob 规则）\n', 'utf-8');
+			fs.writeFileSync(file, l10n.t('# Add files/directories (glob patterns) to exclude from the codebase index in this file') + '\n', 'utf-8');
 		}
 		const doc = await vscode.workspace.openTextDocument(file);
 		await vscode.window.showTextDocument(doc);
 	} catch (err) {
-		void vscode.window.showErrorMessage(l10n.t('打开 .cursorignore 失败：{0}', err instanceof Error ? err.message : String(err)));
+		void vscode.window.showErrorMessage(l10n.t('Failed to open .cursorignore: {0}', err instanceof Error ? err.message : String(err)));
 	}
 }
 
+// ── 页面数据表 ────────────────────────────────────────────────
+//
+// 这些表是 webview 的**数据源**，必须在宿主侧本地化后再注入：`<script>` 里的代码跑在
+// webview 里，那里没有 `l10n`（此前把 `l10n.t(...)` 直接写进脚本，会让整个设置页脚本
+// 在第一行 `ReferenceError: l10n is not defined` 处整体失效）。
+
+/** 侧栏页面 → [标题, 副标题] */
+const PAGE_META: Record<string, [string, string]> = {
+	general: [l10n.t('General'), l10n.t('Kodrix master feature switch')],
+	codebase: [l10n.t('Codebase'), l10n.t('Indexing & docs management — workspace-wide semantic index · Grep index · ignore rules')],
+	ai: [l10n.t('AI Provider'), l10n.t('Model routing and completion channel')],
+	fim: [l10n.t('FIM Configuration'), l10n.t('Dedicated FIM channel for Tab completion (comparable to Cursor Tab)')],
+	embedding: [l10n.t('Embedding Configuration'), l10n.t('True vector semantic search (Embedding)')],
+};
+
+/** 常规页功能开关分组：[配置键, 标题, 说明] */
+const FEATURE_GROUPS: Array<{ title: string; items: Array<[string, string, string]> }> = [
+	{
+		title: l10n.t('Development Workflow'),
+		items: [
+			['kodrix.features.wiki', l10n.t('Repo Wiki'), l10n.t('Automatically generate the project Wiki when a workspace is opened')],
+			['kodrix.features.spec', l10n.t('Spec-driven'), l10n.t('Requirements→design→tasks three-pane workflow')],
+			['kodrix.features.memory', l10n.t('Cross-session Memory'), l10n.t('Remember project context')],
+			['kodrix.features.kanban', l10n.t('Agent Kanban'), l10n.t('Visual task board')],
+			['kodrix.features.agentRouter', l10n.t('Smart Routing'), l10n.t('Automatically select a flow by task type')],
+			['kodrix.features.ideaFlow', l10n.t('Idea Flow'), l10n.t('A fully automated idea-to-product pipeline')],
+			['kodrix.features.vibeCoding', l10n.t('Vibe Coding'), l10n.t('Generate a project from one sentence')],
+			['kodrix.features.agentCrew', l10n.t('Agent Crew'), l10n.t('Orchestrate multi-agent parallel collaboration')],
+			['kodrix.features.terminalAI', l10n.t('Terminal AI'), l10n.t('Cmd+K to generate a command, Cmd+Enter to run it')],
+		],
+	},
+	{
+		title: l10n.t('Intelligence & Context'),
+		items: [
+			['kodrix.features.codebaseIntelligence', l10n.t('Codebase intelligence'), l10n.t('Whole-project semantic index (AST symbols/dependencies/call graph)')],
+			['kodrix.features.predictiveCompletion', l10n.t('Predictive completion'), l10n.t('Whole-project indexed "next edit" prediction')],
+			['kodrix.features.codebaseQuery', l10n.t('Codebase Q&A'), l10n.t('@codebase natural language queries for definitions, references, and architecture')],
+			['kodrix.features.semanticMemory', l10n.t('Semantic memory'), l10n.t('TF-IDF vector search, zero external dependencies')],
+			['kodrix.features.proactiveContext', l10n.t('Proactive Context'), l10n.t('Automatically associate related memories when a file is opened')],
+			['kodrix.features.contextIntelligence', l10n.t('Context Intelligence'), l10n.t('Wiki + Memory + Learning auto-injection')],
+			['kodrix.features.learning', l10n.t('Learning Engine'), l10n.t('Cross-session knowledge that gets smarter the more you use it')],
+			['kodrix.features.sessionLearning', l10n.t('Session Learning'), l10n.t('Distill knowledge automatically when an Agent session ends')],
+		],
+	},
+	{
+		title: l10n.t('Collaboration & Tools'),
+		items: [
+			['kodrix.features.arena', l10n.t('Arena Compare'), l10n.t('Two-model output comparison')],
+			['kodrix.features.hooks', l10n.t('Hooks presets'), l10n.t('GitHub Action-style automation hooks')],
+			['kodrix.features.acp', l10n.t('ACP External Agent'), l10n.t('Connect third-party Agents')],
+			['kodrix.features.propertyTests', l10n.t('Property tests'), l10n.t('Spec / Kiro style property test generation')],
+		],
+	},
+];
+
+/** 表单字段（AI / FIM / Embedding 页） */
+interface SettingsFormField {
+	key: string;
+	label: string;
+	hint?: string;
+	type: 'switch' | 'select' | 'text' | 'password';
+	options?: Array<[string, string]>;
+	secretKey?: string;
+	showIf?: string;
+}
+
+const AI_FIELDS: SettingsFormField[] = [
+	{ key: 'kodrix.modelRouter.enabled', label: l10n.t('Model Auto Routing'), hint: l10n.t('Automatically select a model by task type (smart/balanced/fast)'), type: 'switch' },
+	{ key: 'kodrix.tabCompletion.enabled', label: l10n.t('Tab completion channel'), hint: l10n.t('Enable Kodrix Tab completion (off by default to avoid conflicts with the upstream Copilot)'), type: 'switch' },
+	{ key: 'kodrix.arena.modelA', label: l10n.t('Arena Compare Model A'), hint: l10n.t('Leave empty to use the current default model'), type: 'text' },
+	{ key: 'kodrix.arena.modelB', label: l10n.t('Arena Compare Model B'), hint: '', type: 'text' },
+];
+
+const FIM_FIELDS: SettingsFormField[] = [
+	{ key: 'kodrix.tabCompletion.mode', label: l10n.t('Completion mode'), type: 'select', options: [['fim', l10n.t('Dedicated FIM channel')], ['fast', l10n.t('Generic model channel')]] },
+	{ key: 'kodrix.tabCompletion.fimEnabled', label: l10n.t('Enable dedicated FIM channel'), type: 'switch', hint: l10n.t('When disabled, Tab completion only goes through the general model channel (on by default)') },
+	{ key: 'kodrix.tabCompletion.fimEndpoint', label: l10n.t('FIM Endpoint'), type: 'text', hint: l10n.t('Default DeepSeek FIM endpoint; change this if the endpoint is retired or you switch to another OpenAI-compatible completions service') },
+	{ key: 'kodrix.tabCompletion.fimApiKey', label: l10n.t('FIM API Key'), type: 'password', secretKey: 'kodrix.agent-os.tabCompletion.fimApiKey' },
+	{ key: 'kodrix.tabCompletion.fimModel', label: l10n.t('FIM Model'), type: 'text', hint: l10n.t('DeepSeek defaults to deepseek-chat') },
+];
+
+const EMBEDDING_FIELDS: SettingsFormField[] = [
+	{ key: 'kodrix.semanticEmbedding.enabled', label: l10n.t('Enable true vector semantic retrieval'), hint: l10n.t('An API Key is also required. It will be enabled automatically after saving.'), type: 'switch' },
+	{ key: 'kodrix.semanticEmbedding.apiKey', label: l10n.t('Zhipu (BigModel) API Key'), hint: 'https://open.bigmodel.cn', type: 'password', secretKey: 'kodrix.agent-os.semanticEmbedding.apiKey' },
+	{ key: 'kodrix.semanticEmbedding.endpoint', label: l10n.t('Embedding Endpoint'), type: 'text' },
+	{ key: 'kodrix.semanticEmbedding.model', label: l10n.t('Embedding Model'), hint: l10n.t('Defaults to embedding-3'), type: 'text' },
+];
+
+/** webview 脚本里用到的静态文案（同样必须在宿主侧本地化） */
+const WEBVIEW_TEXT = {
+	secretConfigured: l10n.t('✓ Configured'),
+	secretMissing: l10n.t('Not configured, please enter a value'),
+	saved: l10n.t('Saved'),
+	notIndexed: l10n.t('Not indexed'),
+	paused: l10n.t('Paused'),
+	syncing: l10n.t('Syncing {0}/{1}'),
+	fileCount: l10n.t('{0} files'),
+	indexEmpty: l10n.t('Index is empty — no indexable source files found. Click "Rebuild Index" to retry'),
+	indexDone: l10n.t('Indexing complete'),
+	indexDoneDetail: l10n.t('Indexing complete · {0} symbols · {1}s'),
+	noIndexFiles: l10n.t('No indexed files yet'),
+	noIndexFilesDone: l10n.t('No indexed files yet. Make sure a workspace is open and contains source files such as .ts/.js/.py (node_modules / out etc. are excluded).'),
+	grepFileCount: l10n.t('({0} files indexed)'),
+	confirmDeleteIndex: l10n.t('Delete the codebase index? You will need to rebuild it afterwards.'),
+	resume: l10n.t('Resume'),
+	pauseIndexing: l10n.t('Pause Indexing'),
+};
+
 // ── Webview HTML ──────────────────────────────────────────────
 
-function getWebviewHtml(): string {
-	const nonce = 'kodrixSettingsPageN1';
+/** 设置页 HTML（导出供测试断言：脚本可解析 + 文案全部走 l10n） */
+export function buildSettingsPageHtml(webview: vscode.Webview): string {
+	// 一次性 nonce（此前是硬编码常量，等于没有防护）
+	const nonce = createNonce();
 	return /* html */ `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="${webviewCsp(webview, nonce)}">
 <style>
 :root {
 	--bg: #ffffff;
@@ -405,15 +516,15 @@ button[hidden] { display: none; }
 <div class="layout">
 	<nav class="sidebar">
 		<div class="logo">Kodrix Settings</div>
-		<a class="item active" data-page="general">常规</a>
-		<a class="item" data-page="codebase">代码库</a>
-		<a class="item" data-page="ai">AI 供应商</a>
-		<a class="item" data-page="fim">FIM 配置</a>
-		<a class="item" data-page="embedding">Embedding 配置</a>
+		<a class="item active" data-page="general">${l10n.t('General')}</a>
+		<a class="item" data-page="codebase">${l10n.t('Codebase')}</a>
+		<a class="item" data-page="ai">${l10n.t('AI Provider')}</a>
+		<a class="item" data-page="fim">${l10n.t('FIM Configuration')}</a>
+		<a class="item" data-page="embedding">${l10n.t('Embedding Configuration')}</a>
 	</nav>
 
 	<main>
-		<h1 id="pageTitle">常规</h1>
+		<h1 id="pageTitle">${l10n.t('General')}</h1>
 		<div class="subtitle" id="pageSubtitle"></div>
 
 		<!-- 常规：功能开关 -->
@@ -423,16 +534,16 @@ button[hidden] { display: none; }
 
 		<!-- 代码库：索引与文档 -->
 		<section id="page-codebase" hidden>
-			<h2>代码库</h2>
+			<h2>${l10n.t('Codebase')}</h2>
 			<div class="card">
-				<h3>代码库索引</h3>
-				<p class="desc">嵌入代码库以提升上下文理解和知识。嵌入和元数据存储在云端，但所有代码都存储在本地。</p>
+				<h3>${l10n.t('Codebase index')}</h3>
+				<p class="desc">${l10n.t('Embed the codebase to improve context understanding and knowledge. Embeddings and metadata are stored in the cloud, but all code stays local.')}</p>
 				<div class="progress-row">
 					<span class="percent" id="percent">--</span>
 					<div class="bar"><div class="fill" id="fill"></div></div>
-					<button id="pauseBtn" hidden>Pause Indexing</button>
-					<button id="rebuildBtn" hidden>重建索引</button>
-					<button id="deleteBtn" class="danger">删除索引</button>
+					<button id="pauseBtn" hidden>${l10n.t('Pause Indexing')}</button>
+					<button id="rebuildBtn" hidden>${l10n.t('Rebuild Index')}</button>
+					<button id="deleteBtn" class="danger">${l10n.t('Delete index')}</button>
 				</div>
 				<div class="status"><span class="dot" id="dot"></span><span id="statusText">--</span></div>
 				<div class="file-list" id="fileList"></div>
@@ -440,23 +551,23 @@ button[hidden] { display: none; }
 			<div class="card">
 				<div class="setting-row">
 					<div class="setting-text">
-						<div class="title">索引新文件夹</div>
-						<div class="desc">自动索引包含少于 50,000 个文件的文件夹</div>
+						<div class="title">${l10n.t('Index new folder')}</div>
+						<div class="desc">${l10n.t('Automatically index folders with fewer than 50,000 files')}</div>
 					</div>
 					<div class="toggle"><input type="checkbox" id="autoIndexFolders" data-key="autoIndexNewFolders"><span class="track"></span></div>
 				</div>
 				<div class="setting-row">
 					<div class="setting-text">
-						<div class="title">忽略 .cursorignore 中的文件</div>
-						<div class="desc">除 .gitignore 外，还要从索引中排除的文件</div>
+						<div class="title">${l10n.t('Ignore files in .cursorignore')}</div>
+						<div class="desc">${l10n.t('Files to exclude from the index in addition to .gitignore')}</div>
 					</div>
 					<div class="toggle"><input type="checkbox" id="ignoreCursorignore" data-key="ignoreCursorignore"><span class="track"></span></div>
-					<button id="editCursorignore" class="ghost">编辑</button>
+					<button id="editCursorignore" class="ghost">${l10n.t('Edit')}</button>
 				</div>
 				<div class="setting-row">
 					<div class="setting-text">
-						<div class="title">为即时 Grep 索引仓库 <span class="beta">测试版</span></div>
-						<div class="desc">自动索引仓库以加速 Grep 搜索。所有数据均存储在本地。<span id="grepCount"></span></div>
+						<div class="title">${l10n.t('Index the repository for instant Grep')} <span class="beta">${l10n.t('Beta')}</span></div>
+						<div class="desc">${l10n.t('Automatically index the repository to speed up Grep searches. All data is stored locally.')}<span id="grepCount"></span></div>
 					</div>
 					<div class="toggle"><input type="checkbox" id="grepIndex" data-key="grepIndex"><span class="track"></span></div>
 				</div>
@@ -491,82 +602,22 @@ window.addEventListener('message', e => {
 		document.querySelectorAll('input[data-secret-key]').forEach(input => {
 			const sk = input.dataset.secretKey;
 			if (sk in statuses) {
-				input.placeholder = statuses[sk] ? '\u2713 \u5DF2\u914D\u7F6E' : '\u672A\u914D\u7F6E\uFF0C\u8BF7\u8F93\u5165';
+				input.placeholder = statuses[sk] ? L.secretConfigured : L.secretMissing;
 			}
 		});
 	}
 });
 
-const PAGES = {
-	general: ['常规', 'Kodrix 核心功能总开关'],
-	codebase: ['代码库', '索引与文档管理 — 全工程语义索引 · Grep 索引 · 忽略规则'],
-	ai: ['AI 供应商', '模型路由与补全通道'],
-	fim: ['FIM 配置', 'Tab 补全专用 FIM 通道（对标 Cursor Tab）'],
-	embedding: ['Embedding 配置', '真向量语义检索（Embedding）'],
-};
+// 宿主侧本地化后的数据表 / 文案（webview 里没有 l10n，必须由宿主注入）
+const PAGES = ${jsJson(PAGE_META)};
+const FEATURE_GROUPS = ${jsJson(FEATURE_GROUPS)};
+const AI_FIELDS = ${jsJson(AI_FIELDS)};
+const FIM_FIELDS = ${jsJson(FIM_FIELDS)};
+const EMBEDDING_FIELDS = ${jsJson(EMBEDDING_FIELDS)};
+const L = ${jsJson(WEBVIEW_TEXT)};
 
-// ── 功能开关（常规页） ──
-const FEATURE_GROUPS = [
-	{
-		title: '开发工作流',
-		items: [
-			['kodrix.features.wiki', 'Repo Wiki', '打开工作区自动生成项目 Wiki'],
-			['kodrix.features.spec', 'Spec 驱动', '需求→设计→任务三栏工作流'],
-			['kodrix.features.memory', '跨会话 Memory', '记住项目上下文'],
-			['kodrix.features.kanban', 'Agent 看板', '任务可视化看板'],
-			['kodrix.features.agentRouter', '智能路由', '按任务类型自动选择流程'],
-			['kodrix.features.ideaFlow', 'Idea Flow', '想法→产品的全自动流水线'],
-			['kodrix.features.vibeCoding', 'Vibe Coding', '一句话生成项目'],
-			['kodrix.features.agentCrew', 'Agent Crew', '多智能体并行协作编排'],
-			['kodrix.features.terminalAI', '终端 AI', 'Cmd+K 生成命令，Cmd+Enter 运行'],
-		],
-	},
-	{
-		title: '智能与上下文',
-		items: [
-			['kodrix.features.codebaseIntelligence', '代码库智能', '全工程语义索引（AST 符号/依赖/调用图）'],
-			['kodrix.features.predictiveCompletion', '预测补全', '基于全工程索引的「下一步编辑」预测'],
-			['kodrix.features.codebaseQuery', '代码库问答', '@codebase 自然语言查询定义/引用/架构'],
-			['kodrix.features.semanticMemory', '语义记忆', 'TF-IDF 向量检索，零外部依赖'],
-			['kodrix.features.proactiveContext', '主动上下文', '打开文件自动关联相关记忆'],
-			['kodrix.features.contextIntelligence', '上下文智能', 'Wiki + Memory + Learning 自动注入'],
-			['kodrix.features.learning', 'Learning 引擎', '跨会话知识沉淀，越用越聪明'],
-			['kodrix.features.sessionLearning', '会话学习', 'Agent 会话结束自动蒸馏知识'],
-		],
-	},
-	{
-		title: '协作与工具',
-		items: [
-			['kodrix.features.arena', 'Arena 对比', '双模型输出对比'],
-			['kodrix.features.hooks', 'Hooks 预置', 'GitHub Action 风格自动化钩子'],
-			['kodrix.features.acp', 'ACP 外部 Agent', '接入第三方 Agent'],
-			['kodrix.features.propertyTests', '属性测试', 'Spec / Kiro 风格属性测试生成'],
-		],
-	},
-];
-
-// ── 表单字段定义（AI / FIM / Embedding 页） ──
-const AI_FIELDS = [
-	{ key: 'kodrix.modelRouter.enabled', label: '模型 Auto 路由', hint: '按任务类型（smart/balanced/fast）自动选择模型', type: 'switch' },
-	{ key: 'kodrix.tabCompletion.enabled', label: 'Tab 补全通道', hint: '启用 Kodrix Tab 补全（默认关闭以避免与上游 Copilot 冲突）', type: 'switch' },
-	{ key: 'kodrix.arena.modelA', label: 'Arena 对比模型 A', hint: '留空则使用当前默认模型', type: 'text' },
-	{ key: 'kodrix.arena.modelB', label: 'Arena 对比模型 B', hint: '', type: 'text' },
-];
-
-const FIM_FIELDS = [
-	{ key: 'kodrix.tabCompletion.mode', label: '补全模式', type: 'select', options: [['fim', 'FIM 专用通道'], ['fast', '通用模型通道']] },
-	{ key: 'kodrix.tabCompletion.fimProvider', label: 'FIM 提供方', type: 'select', options: [['deepseek', 'DeepSeek FIM'], ['custom', '自定义 FIM 接口']] },
-	{ key: 'kodrix.tabCompletion.fimEndpoint', label: 'FIM 端点', type: 'text', hint: 'custom 提供方时填写自定义 URL（OpenAI 兼容 completions 格式）', showIf: 'kodrix.tabCompletion.fimProvider' },
-	{ key: 'kodrix.tabCompletion.fimApiKey', label: 'FIM API Key', type: 'password', secretKey: 'kodrix.agent-os.tabCompletion.fimApiKey' },
-	{ key: 'kodrix.tabCompletion.fimModel', label: 'FIM 模型', type: 'text', hint: 'DeepSeek 默认 deepseek-chat' },
-];
-
-const EMBEDDING_FIELDS = [
-	{ key: 'kodrix.semanticEmbedding.enabled', label: '启用真向量语义检索', hint: '需同时填写 API Key。保存后自动启用。', type: 'switch' },
-	{ key: 'kodrix.semanticEmbedding.apiKey', label: '智谱（BigModel）API Key', hint: 'https://open.bigmodel.cn', type: 'password', secretKey: 'kodrix.agent-os.semanticEmbedding.apiKey' },
-	{ key: 'kodrix.semanticEmbedding.endpoint', label: 'Embedding 端点', type: 'text' },
-	{ key: 'kodrix.semanticEmbedding.model', label: 'Embedding 模型', hint: '默认 embedding-3', type: 'text' },
-];
+/** 本地化后的动态文案：宿主侧保留 {0}/{1} 占位，这里按运行时的值替换 */
+const fmt = (template, ...args) => String(template).replace(/\\{(\\d+)\\}/g, (m, i) => (args[i] === undefined ? m : String(args[i])));
 
 function esc(s) {
 	return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -638,7 +689,7 @@ function renderForm(containerId, fields, values) {
 		}
 		rows[f.key] = '<div class="form-row" data-key="' + esc(f.key) + '"><label>' + esc(f.label) + '</label>' + control +
 			(f.hint ? '<div class="hint">' + esc(f.hint) + '</div>' : '') +
-			'<div class="save-hint">\u5DF2\u4FDD\u5B58</div></div>';
+			'<div class="save-hint">' + esc(L.saved) + '</div></div>';
 	});
 
 	const html = fields.map(f => rows[f.key]).join('');
@@ -660,16 +711,26 @@ function renderForm(containerId, fields, values) {
 		input.addEventListener('change', () => post({ type: 'setConfig', key: input.dataset.key, value: input.checked }));
 	});
 	container.querySelectorAll('input[type="text"]').forEach(input => {
-		input.addEventListener('change', () => {
+		// 边输边存（防抖 600ms）：此前只监听 change，用户输完不点别处就以为已保存
+		let debounce;
+		const save = () => {
 			post({ type: 'setConfig', key: input.dataset.key, value: input.value });
 			input.parentElement.classList.add('saved');
 			setTimeout(() => input.parentElement.classList.remove('saved'), 1500);
+		};
+		input.addEventListener('input', () => {
+			clearTimeout(debounce);
+			debounce = setTimeout(save, 600);
+		});
+		input.addEventListener('change', () => {
+			clearTimeout(debounce);
+			save();
 		});
 	});
 	container.querySelectorAll('input[type="password"][data-secret-key]').forEach(input => {
 		input.addEventListener('change', () => {
 			post({ type: 'setSecret', key: input.dataset.secretKey, value: input.value });
-			input.placeholder = '\u2713 \u5DF2\u914D\u7F6E';
+			input.placeholder = L.secretConfigured;
 			input.value = '';
 			input.parentElement.classList.add('saved');
 			setTimeout(() => input.parentElement.classList.remove('saved'), 1500);
@@ -685,7 +746,9 @@ function renderForm(containerId, fields, values) {
 }
 
 // ── 索引卡片渲染（代码库页） ──
+let lastIndexStatus = 'idle';
 function renderIndex(s) {
+	lastIndexStatus = s && s.status ? s.status : 'idle';
 	const percent = $('percent'), fill = $('fill'), dot = $('dot');
 	const statusText = $('statusText'), pauseBtn = $('pauseBtn'), rebuildBtn = $('rebuildBtn');
 
@@ -693,7 +756,7 @@ function renderIndex(s) {
 		percent.textContent = '--';
 		fill.style.width = '0%';
 		dot.className = 'dot';
-		statusText.textContent = '未索引';
+		statusText.textContent = L.notIndexed;
 		pauseBtn.hidden = true;
 		rebuildBtn.hidden = false;
 	} else if (s.status === 'building' || s.status === 'paused') {
@@ -702,19 +765,23 @@ function renderIndex(s) {
 		percent.textContent = pct + '%';
 		fill.style.width = pct + '%';
 		dot.className = 'dot ' + (s.status === 'paused' ? 'paused' : 'syncing');
-		statusText.textContent = s.status === 'paused' ? '已暂停 (Paused)' : '正在同步 (Syncing) ' + s.progress.parsed + '/' + total;
+		statusText.textContent = s.status === 'paused'
+			? L.paused
+			: fmt(L.syncing, s.progress.parsed, total);
 		pauseBtn.hidden = false;
-		pauseBtn.textContent = s.status === 'paused' ? 'Resume' : 'Pause Indexing';
+		pauseBtn.textContent = s.status === 'paused' ? L.resume : L.pauseIndexing;
 		rebuildBtn.hidden = true;
 	} else if (s.status === 'done') {
 		const total = s.stats ? s.stats.totalFiles : 0;
-		percent.textContent = total + ' 文件';
+		percent.textContent = fmt(L.fileCount, total);
 		fill.style.width = '100%';
 		dot.className = 'dot done';
 		if (total === 0) {
-			statusText.textContent = '索引为空 — 未发现可索引源文件，可点击「重建索引」重试';
+			statusText.textContent = L.indexEmpty;
 		} else {
-			statusText.textContent = '索引完成' + (s.stats ? ' · ' + s.stats.totalSymbols + ' 个符号 · ' + Math.round((s.stats.indexDurationMs || 0) / 1000) + 's' : '');
+			statusText.textContent = s.stats
+				? fmt(L.indexDoneDetail, s.stats.totalSymbols, Math.round((s.stats.indexDurationMs || 0) / 1000))
+				: L.indexDone;
 		}
 		pauseBtn.hidden = true;
 		rebuildBtn.hidden = false;
@@ -723,8 +790,8 @@ function renderIndex(s) {
 	const list = $('fileList');
 	if (!s.files || !s.files.length) {
 		list.innerHTML = s.status === 'done'
-			? '<div class="empty">尚无索引文件。请确认工作区已打开，且存在 .ts/.js/.py 等源文件（已排除 node_modules / out 等）。</div>'
-			: '<div class="empty">尚无索引文件</div>';
+			? '<div class="empty">' + esc(L.noIndexFilesDone) + '</div>'
+			: '<div class="empty">' + esc(L.noIndexFiles) + '</div>';
 	} else {
 		list.innerHTML = s.files.map(f =>
 			'<div class="file-item"><span class="lang-badge">' + esc(f.language) + '</span><span>' + esc(f.relativePath) + '</span></div>'
@@ -736,14 +803,15 @@ function renderIndex(s) {
 		const el = document.querySelector('#page-codebase input[data-key="' + key + '"]');
 		if (el) el.checked = !!cfg[key];
 	});
-	$('grepCount').textContent = s.grepFileCount > 0 ? '（已索引 ' + s.grepFileCount + ' 个文件）' : '';
+	$('grepCount').textContent = s.grepFileCount > 0 ? esc(fmt(L.grepFileCount, s.grepFileCount)) : '';
 }
 
 // ── 按钮与开关 ──
-$('pauseBtn').addEventListener('click', () => post({ type: 'indexAction', action: 'pause' }));
+// 同一个按钮按当前状态发 pause / resume（此前固定发 pause，暂停后无法恢复）
+$('pauseBtn').addEventListener('click', () => post({ type: 'indexAction', action: lastIndexStatus === 'paused' ? 'resume' : 'pause' }));
 $('rebuildBtn').addEventListener('click', () => post({ type: 'indexAction', action: 'rebuild' }));
 $('deleteBtn').addEventListener('click', () => {
-	if (confirm('确定要删除代码库索引吗？删除后需要重新构建。')) post({ type: 'indexAction', action: 'delete' });
+	if (confirm(L.confirmDeleteIndex)) post({ type: 'indexAction', action: 'delete' });
 });
 $('editCursorignore').addEventListener('click', () => post({ type: 'editCursorignore' }));
 document.querySelectorAll('#page-codebase .toggle input').forEach(input => {

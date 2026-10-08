@@ -36,8 +36,7 @@ let activeSessionId: string | undefined;
 const _stateTimers = new Set<ReturnType<typeof setTimeout>>();
 
 function pushTimer(fn: () => void, ms: number): void {
-	let handle: ReturnType<typeof setTimeout>;
-	handle = setTimeout(() => {
+	const handle = setTimeout(() => {
 		_stateTimers.delete(handle);
 		fn();
 	}, ms);
@@ -74,9 +73,9 @@ function setWorkbenchAgentClass(state: AgentState): void {
 		// DOM is only available in the renderer process; tsconfig excludes the DOM lib,
 		// so we use a minimal structural type and access via globalThis.
 		const doc = (globalThis as { document?: MinimalDocument }).document;
-		if (!doc) return; // server-side / headless — skip DOM manipulation
+		if (!doc) {return;} // server-side / headless — skip DOM manipulation
 		const workbench = doc.querySelector('.monaco-workbench');
-		if (!workbench) return;
+		if (!workbench) {return;}
 
 		// Remove all existing agent-state classes first
 		for (const c of [...workbench.classList]) {

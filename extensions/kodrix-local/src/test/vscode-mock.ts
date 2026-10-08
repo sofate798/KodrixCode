@@ -3,11 +3,49 @@
  *
  *  通过 Module._resolveFilename 将 'vscode' 模块重定向到本文件预注册的缓存条目，
  *  使被测源文件无需 @vscode/test-electron 即可加载。
+ *
+ *  测试可通过 `require('./vscode-mock').__state` 读取/改写桩状态：
+ *    - lmRegistrations：lm.registerLanguageModelChatProvider 收到的注册
+ *    - commandCalls / failCommands：commands.executeCommand 的记录与失败注入
+ *    - quickPickResult / inputBoxResult：对话框返回值
+ *    - copilotReady：waitForCopilotReady 依赖的 Copilot 扩展是否就绪
+ *    - notifications：window.show{Information,Warning,Error}Message 的如实记录
  *--------------------------------------------------------------------------------------------*/
 
 import Module from 'module';
 
+/** 测试可读写的桩状态 */
+export interface KodrixMockState {
+	lmRegistrations: Array<{ vendor: string; provider: unknown }>;
+	commandCalls: Array<{ command: string; args: unknown[] }>;
+	failCommands: Set<string>;
+	quickPickResult: unknown;
+	inputBoxResult: string | undefined;
+	copilotReady: boolean;
+	notifications: Array<{ severity: 'info' | 'warning' | 'error'; message: string }>;
+}
+
+const mockState: KodrixMockState = {
+	lmRegistrations: [],
+	commandCalls: [],
+	failCommands: new Set<string>(),
+	quickPickResult: undefined,
+	inputBoxResult: undefined,
+	copilotReady: true,
+	notifications: [],
+};
+
+/** 记录一条弹窗，供测试断言「成功/失败是否被如实播报」 */
+function recordNotification(severity: 'info' | 'warning' | 'error', message: unknown): void {
+	mockState.notifications.push({ severity, message: String(message ?? '') });
+}
+
 const mockVscode = {
+	__state: mockState,
+
+	// ProgressLocation 在真实 API 里是 vscode 顶层导出（不是 window 下的属性）
+	ProgressLocation: { Notification: 15, Window: 10, SourceControl: 1 },
+
 	// ── workspace ────────────────────────────────────────────────
 	workspace: {
 		workspaceFolders: undefined as unknown[] | undefined,
@@ -29,15 +67,20 @@ const mockVscode = {
 			writeFile: async () => { /* no-op */ },
 			stat: async () => ({ type: 1, size: 0 }),
 		},
+		onDidChangeConfiguration: () => ({ dispose: () => { /* no-op */ } }),
 		onDidSaveTextDocument: () => ({ dispose: () => { /* no-op */ } }),
 	},
 
 	// ── window ───────────────────────────────────────────────────
 	window: {
-		showInformationMessage: async (..._args: unknown[]) => undefined,
-		showWarningMessage: async (..._args: unknown[]) => undefined,
-		showErrorMessage: async (..._args: unknown[]) => undefined,
-		createOutputChannel(_name: string) {
+		showInformationMessage: async (message: unknown, ..._args: unknown[]) => { recordNotification('info', message); return undefined; },
+		showWarningMessage: async (message: unknown, ..._args: unknown[]) => { recordNotification('warning', message); return undefined; },
+		showErrorMessage: async (message: unknown, ..._args: unknown[]) => { recordNotification('error', message); return undefined; },
+		async withProgress(_options: unknown, task: (report: unknown, token: unknown) => Promise<unknown>) {
+			// 真实实现会返回 task 的结果；这里必须透传，否则依赖进度提示的注册路径拿不到返回值
+			return task({ report: () => { /* no-op */ } }, { isCancellationRequested: false, onCancellationRequested: () => ({ dispose: () => { /* no-op */ } }) });
+		},
+		ProgressLocation: { Notification: 15, Window: 10, SourceControl: 1 },		createOutputChannel(_name: string) {
 			return {
 				appendLine: () => { /* no-op */ },
 				append: () => { /* no-op */ },
@@ -45,9 +88,9 @@ const mockVscode = {
 				dispose: () => { /* no-op */ },
 			};
 		},
-		showQuickPick: async (_items: unknown[], ..._args: unknown[]) => undefined,
+		showQuickPick: async (_items: unknown[], ..._args: unknown[]) => mockState.quickPickResult,
 		showTextDocument: async (..._args: unknown[]) => undefined,
-		showInputBox: async (..._args: unknown[]) => undefined,
+		showInputBox: async (..._args: unknown[]) => mockState.inputBoxResult,
 		createQuickPick() {
 			return {
 				items: [],
@@ -70,10 +113,33 @@ const mockVscode = {
 		activeTextEditor: undefined,
 	},
 
-	// ── commands ─────────────────────────────────────────────────
+	// ── commands / extensions / lm ───────────────────────────────
 	commands: {
-		executeCommand: async (..._args: unknown[]) => undefined,
+		async executeCommand(command: string, ...args: unknown[]) {
+			mockState.commandCalls.push({ command, args });
+			if (mockState.failCommands.has(command)) {
+				// 模拟 core 未注册该命令（旧构建）或目标组不存在
+				throw new Error(`command '${command}' not found`);
+			}
+			return undefined;
+		},
 		registerCommand(_command: string, _callback: (...args: unknown[]) => unknown) {
+			return { dispose: () => { /* no-op */ } };
+		},
+		async getCommands(_filterInternal?: boolean) {
+			return ['lm.migrateLanguageModelsProviderGroup', 'lm.removeLanguageModelsProviderGroup'];
+		},
+	},
+	extensions: {
+		getExtension(id: string) {
+			return mockState.copilotReady
+				? { id, isActive: true, activate: async () => { /* no-op */ } }
+				: undefined;
+		},
+	},
+	lm: {
+		registerLanguageModelChatProvider(vendor: string, provider: unknown) {
+			mockState.lmRegistrations.push({ vendor, provider });
 			return { dispose: () => { /* no-op */ } };
 		},
 	},
@@ -117,6 +183,17 @@ const mockVscode = {
 		}
 	},
 
+	// ── 语言模型内容部件（provideLanguageModelChatResponse 里用 instanceof 判断） ──
+	LanguageModelTextPart: class {
+		constructor(public readonly value: string) { /* no-op */ }
+	},
+	LanguageModelToolCallPart: class {
+		constructor(public readonly callId: string, public readonly name: string, public readonly input: unknown) { /* no-op */ }
+	},
+	LanguageModelToolResultPart: class {
+		constructor(public readonly callId: string, public readonly content: unknown[]) { /* no-op */ }
+	},
+
 	// ── l10n ─────────────────────────────────────────────────────
 	l10n: {
 		t(message: string, ...args: unknown[]) {
@@ -136,6 +213,7 @@ const mockVscode = {
 	ThemeIcon: class { constructor(_id: string) { /* no-op */ } },
 	MarkdownString: class { value: string; constructor(value?: string) { this.value = value ?? ''; } },
 	ViewColumn: { One: 1, Two: 2, Three: 3 },
+	env: { openExternal: async () => true },
 };
 
 // ── 注册到 Module 缓存 ──────────────────────────────────────────
@@ -154,8 +232,9 @@ const originalResolveFilename = (Module as unknown as { _resolveFilename: Functi
 	return originalResolveFilename.call(this, request, parent, isMain, options);
 };
 
-require.cache[fakeVscodePath] = {
+const fakeModule: { exports: unknown } = {
 	exports: mockVscode,
-} as unknown as NodeModule;
+};
+require.cache[fakeVscodePath] = fakeModule as unknown as NodeModule;
 
 module.exports = mockVscode;

@@ -413,7 +413,7 @@ function readArgvConfigSync(): IArgvConfig {
 	let argvConfig: IArgvConfig | undefined = undefined;
 	try {
 		argvConfig = parse(fs.readFileSync(argvConfigPath).toString());
-	} catch (error: any) {
+	} catch (error) {
 		if (error?.code === 'ENOENT') {
 			createDefaultArgvConfigSync(argvConfigPath);
 		} else if (error?.name === 'SyntaxError' || error instanceof SyntaxError) {

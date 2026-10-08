@@ -51,10 +51,10 @@ function buildFileQuery(filePath) {
     const segments = filePath.replace(/\\/g, '/').split('/').slice(-3);
     return [base, dir, ...segments].join(' ');
 }
-function analyzeFileContext(filePath) {
+async function analyzeFileContext(filePath) {
     const fileName = path.basename(filePath);
     const query = buildFileQuery(filePath);
-    const results = (0, semanticMemory_1.searchSimilar)(query, 3);
+    const results = await (0, semanticMemory_1.searchSimilar)(query, 3);
     return {
         filePath,
         fileName,
@@ -80,13 +80,15 @@ function handleActiveEditor(editor) {
         clearTimeout(debounceTimer);
     }
     debounceTimer = setTimeout(() => {
-        const hint = analyzeFileContext(filePath);
-        lastHint = hint.relevantCount > 0 && (hint.topScore ?? 0) > 0.08 ? hint : undefined;
-        (0, kodrixEventBus_1.emitKodrixEvent)({
-            type: 'file.focused',
-            filePath,
-            relevantCount: hint.relevantCount,
-        });
+        void (async () => {
+            const hint = await analyzeFileContext(filePath);
+            lastHint = hint.relevantCount > 0 && (hint.topScore ?? 0) > 0.08 ? hint : undefined;
+            (0, kodrixEventBus_1.emitKodrixEvent)({
+                type: 'file.focused',
+                filePath,
+                relevantCount: hint.relevantCount,
+            });
+        })();
     }, 300);
 }
 function registerProactiveContext(context) {

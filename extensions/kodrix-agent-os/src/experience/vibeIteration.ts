@@ -111,7 +111,7 @@ export function getIterationSummary(sessionId: string): string | undefined {
 	}
 
 	if (session.iterations.length === 0) {
-		return l10n.t('暂无迭代记录');
+		return l10n.t('No iterations yet');
 	}
 
 	return session.iterations.map((iter, i) => {

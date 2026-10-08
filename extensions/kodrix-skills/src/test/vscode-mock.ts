@@ -41,6 +41,8 @@ const mockVscode = {
 			return {
 				appendLine: () => { /* no-op */ },
 				append: () => { /* no-op */ },
+				warn: () => { /* no-op */ },
+				error: () => { /* no-op */ },
 				show: () => { /* no-op */ },
 				dispose: () => { /* no-op */ },
 			};
@@ -154,8 +156,9 @@ const originalResolveFilename = (Module as unknown as { _resolveFilename: Functi
 	return originalResolveFilename.call(this, request, parent, isMain, options);
 };
 
-require.cache[fakeVscodePath] = {
+const fakeModule: { exports: unknown } = {
 	exports: mockVscode,
-} as unknown as NodeModule;
+};
+require.cache[fakeVscodePath] = fakeModule as unknown as NodeModule;
 
 module.exports = mockVscode;

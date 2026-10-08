@@ -19,7 +19,7 @@ import { TestInstantiationService } from '../../../instantiation/test/common/ins
 import { ILogService, NullLogService } from '../../../log/common/log.js';
 import { IAgentPluginManager } from '../../common/agentPluginManager.js';
 import { DiscoveredType, SessionCustomizationDiscovery } from '../../node/copilot/sessionCustomizationDiscovery.js';
-import { SessionPluginBundler } from '../../node/shared/sessionPluginBundler.js';
+import { SessionPluginBundler, SESSION_PLUGIN_BUNDLE_DISPLAY_NAME } from '../../node/shared/sessionPluginBundler.js';
 import { mapToParsedPlugin, toDiscoveredDirectoryCustomizations } from '../../node/copilot/copilotAgent.js';
 
 suite('SessionCustomizationDiscovery', () => {
@@ -649,12 +649,12 @@ suite('SessionPluginBundler', () => {
 		const result = await bundler.bundle(directories);
 
 		assert.ok(result);
-		assert.strictEqual(result.ref.name, 'VS Code Synced Data');
+		assert.strictEqual(result.ref.name, SESSION_PLUGIN_BUNDLE_DISPLAY_NAME);
 		assert.ok(result.ref.nonce);
 
 		const root = bundler.rootUri;
 		const manifest = await fileService.readFile(URI.joinPath(root, '.plugin', 'plugin.json'));
-		assert.match(manifest.value.toString(), /"name": "VS Code Synced Data"/);
+		assert.ok(manifest.value.toString().includes(`"name": ${JSON.stringify(SESSION_PLUGIN_BUNDLE_DISPLAY_NAME)}`));
 
 		const agent = await fileService.readFile(URI.joinPath(root, 'agents', 'foo.agent.md'));
 		assert.strictEqual(agent.value.toString(), 'agent body');

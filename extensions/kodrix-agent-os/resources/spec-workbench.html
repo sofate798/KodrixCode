@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{htmlLang}}">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}};">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}'; font-src {{cspSource}};">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<style>
 		.codicon { vertical-align: -0.15em; }
@@ -260,17 +260,17 @@
 <body>
 	<header>
 		<h1><i class="codicon codicon-symbol-ruler" aria-hidden="true"></i> Spec Editor</h1>
-		<span class="badge">Kiro 三栏</span>
-		<select id="specSelect"><option value="">— 选择 Spec —</option></select>
-		<button class="btn secondary" id="btnRefresh" data-tooltip="刷新 Spec 列表"><i class="codicon codicon-refresh" aria-hidden="true"></i></button>
-		<button class="btn secondary" id="btnNew" data-tooltip="新建 Spec"><i class="codicon codicon-add" aria-hidden="true"></i> 新建</button>
-		<button class="btn" id="btnImplement" data-tooltip="让 Agent 按 Spec 实施"><i class="codicon codicon-rocket" aria-hidden="true"></i> 实施（Agent）</button>
+		<span class="badge">{{l10n:Kiro three-pane}}</span>
+		<select id="specSelect"><option value="">{{l10n:— Select a Spec —}}</option></select>
+		<button class="btn secondary" id="btnRefresh" data-tooltip="{{l10n:Refresh Spec list}}"><i class="codicon codicon-refresh" aria-hidden="true"></i></button>
+		<button class="btn secondary" id="btnNew" data-tooltip="{{l10n:New Spec}}"><i class="codicon codicon-add" aria-hidden="true"></i> {{l10n:New}}</button>
+		<button class="btn" id="btnImplement" data-tooltip="{{l10n:Have the Agent implement per the Spec}}"><i class="codicon codicon-rocket" aria-hidden="true"></i> {{l10n:Implement (Agent)}}</button>
 	</header>
 	<div class="columns">
 		<section class="col" id="reqCol">
 			<div class="col-head req">
 				<span><i class="codicon codicon-notebook" aria-hidden="true"></i> Requirements</span>
-				<button class="btn secondary" data-edit="requirements.md" data-tooltip="在编辑器中打开"><i class="codicon codicon-edit" aria-hidden="true"></i></button>
+				<button class="btn secondary" data-edit="requirements.md" data-tooltip="{{l10n:Open in editor}}"><i class="codicon codicon-edit" aria-hidden="true"></i></button>
 			</div>
 			<div class="col-body" id="reqContent">
 				<div class="skeleton skeleton-line stagger-1"></div>
@@ -281,7 +281,7 @@
 		<section class="col" id="designCol">
 			<div class="col-head design">
 				<span><i class="codicon codicon-tools" aria-hidden="true"></i> Design</span>
-				<button class="btn secondary" data-edit="design.md" data-tooltip="在编辑器中打开"><i class="codicon codicon-edit" aria-hidden="true"></i></button>
+				<button class="btn secondary" data-edit="design.md" data-tooltip="{{l10n:Open in editor}}"><i class="codicon codicon-edit" aria-hidden="true"></i></button>
 			</div>
 			<div class="col-body" id="designContent">
 				<div class="skeleton skeleton-line stagger-1"></div>
@@ -291,7 +291,7 @@
 		<section class="col" id="tasksCol">
 			<div class="col-head tasks">
 				<span><i class="codicon codicon-pass" aria-hidden="true"></i> Tasks</span>
-				<button class="btn secondary" data-edit="tasks.md" data-tooltip="在编辑器中打开"><i class="codicon codicon-edit" aria-hidden="true"></i></button>
+				<button class="btn secondary" data-edit="tasks.md" data-tooltip="{{l10n:Open in editor}}"><i class="codicon codicon-edit" aria-hidden="true"></i></button>
 			</div>
 			<div class="col-body" id="tasksContent">
 				<div class="skeleton skeleton-line short stagger-1"></div>
@@ -301,9 +301,9 @@
 			</div>
 		</section>
 	</div>
-	<script>
+	<script nonce="{{nonce}}">
 		const vscode = acquireVsCodeApi();
-	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
+		const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
 		const specSelect = document.getElementById('specSelect');
 		const reqContent = document.getElementById('reqContent');
 		const designContent = document.getElementById('designContent');
@@ -353,7 +353,7 @@
 					: text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 				el.classList.remove('empty');
 			} else {
-				el.innerHTML = '<div class="empty-state"><span class="empty-icon"><i class="codicon codicon-file-text" aria-hidden="true"></i></span><p>（空）</p></div>';
+				el.innerHTML = '<div class="empty-state"><span class="empty-icon"><i class="codicon codicon-file-text" aria-hidden="true"></i></span><p>{{l10n:(empty)}}</p></div>';
 				el.classList.add('empty');
 			}
 		}
@@ -370,7 +370,7 @@
 		window.addEventListener('message', function(e) {
 			const msg = e.data;
 			if (msg.type === 'specList') {
-				specSelect.innerHTML = '<option value="">— 选择 Spec —</option>';
+				specSelect.innerHTML = '<option value="">{{l10n:— Select a Spec —}}</option>';
 				(msg.slugs || []).forEach(function(s) {
 					const o = document.createElement('option');
 					o.value = s;

@@ -8,8 +8,7 @@
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
 import { getProjectIndex } from './projectIndexer';
-import { SymbolKind } from './types';
-import type { CodeSymbol, ProjectIndex } from './types';
+import { SymbolKind, type CodeSymbol, type ProjectIndex } from './types';
 
 // ── 事件触发器（索引变更时刷新 CodeLens） ──
 
@@ -18,6 +17,11 @@ const _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
 /** 触发 CodeLens 刷新（索引更新后调用） */
 export function fireChange(): void {
 	_onDidChangeCodeLenses.fire();
+}
+
+/** 释放模块级 CodeLens 变更事件（在 deactivate 时调用） */
+export function disposeCodeLensEmitter(): void {
+	_onDidChangeCodeLenses.dispose();
 }
 
 // ── CodeLens Provider ──
@@ -49,19 +53,19 @@ export class AgentCodeLensProvider implements vscode.CodeLensProvider {
 				lenses.push(new vscode.CodeLens(range, {
 					title: `$(zap) ${l10n.t('Optimize')}`,
 					command: 'workbench.action.chat.open',
-					arguments: [{ query: `@codebase ${l10n.t('优化此函数')} ${sym.name}` }],
+					arguments: [{ query: `@codebase ${l10n.t('Optimize this function')} ${sym.name}` }],
 				}));
 
 				lenses.push(new vscode.CodeLens(range, {
 					title: `$(beaker) ${l10n.t('Test')}`,
 					command: 'workbench.action.chat.open',
-					arguments: [{ query: `@codebase ${l10n.t('为此函数生成测试')} ${sym.name}` }],
+					arguments: [{ query: `@codebase ${l10n.t('Generate tests for this function')} ${sym.name}` }],
 				}));
 
 				lenses.push(new vscode.CodeLens(range, {
 					title: `$(info) ${l10n.t('Explain')}`,
 					command: 'workbench.action.chat.open',
-					arguments: [{ query: `@codebase ${l10n.t('解释此函数')} ${sym.name}` }],
+					arguments: [{ query: `@codebase ${l10n.t('Explain This Function')} ${sym.name}` }],
 				}));
 			}
 
@@ -131,7 +135,7 @@ export function registerCodeLensCommands(context: vscode.ExtensionContext): void
 		vscode.commands.registerCommand('kodrix.codebase.showDependencies', async (filePath: string) => {
 			const index = getProjectIndex();
 			if (!index) {
-				vscode.window.showWarningMessage(l10n.t('暂无项目索引，无法显示依赖关系'));
+				vscode.window.showWarningMessage(l10n.t('No project index; unable to show dependencies'));
 				return;
 			}
 
@@ -139,7 +143,7 @@ export function registerCodeLensCommands(context: vscode.ExtensionContext): void
 			const revDeps = index.reverseDependencyGraph[filePath] ?? [];
 
 			if (!deps.length && !revDeps.length) {
-				vscode.window.showInformationMessage(l10n.t('该文件无依赖关系'));
+				vscode.window.showInformationMessage(l10n.t('This file has no dependencies'));
 				return;
 			}
 
@@ -147,30 +151,30 @@ export function registerCodeLensCommands(context: vscode.ExtensionContext): void
 			const items: DepItem[] = [];
 
 			if (deps.length) {
-				items.push({ label: l10n.t('依赖的文件'), kind: vscode.QuickPickItemKind.Separator });
+				items.push({ label: l10n.t('Dependent files'), kind: vscode.QuickPickItemKind.Separator });
 				for (const dep of deps) {
 					items.push({
 						label: `$(file) ${vscode.workspace.asRelativePath(dep)}`,
-						description: l10n.t('此文件导入'),
+						description: l10n.t('This file imports'),
 						filePath: dep,
 					});
 				}
 			}
 
 			if (revDeps.length) {
-				items.push({ label: l10n.t('被以下文件依赖'), kind: vscode.QuickPickItemKind.Separator });
+				items.push({ label: l10n.t('Depended on by'), kind: vscode.QuickPickItemKind.Separator });
 				for (const rev of revDeps) {
 					items.push({
 						label: `$(file) ${vscode.workspace.asRelativePath(rev)}`,
-						description: l10n.t('导入了此文件'),
+						description: l10n.t('Imports this file'),
 						filePath: rev,
 					});
 				}
 			}
 
 			const picked = await vscode.window.showQuickPick(items, {
-				placeHolder: l10n.t('选择文件以打开'),
-				title: l10n.t('文件依赖关系'),
+				placeHolder: l10n.t('Select a file to open'),
+				title: l10n.t('File dependencies'),
 			});
 			if (picked?.filePath) {
 				const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(picked.filePath));
@@ -184,7 +188,7 @@ export function registerCodeLensCommands(context: vscode.ExtensionContext): void
 		vscode.commands.registerCommand('kodrix.codebase.showCallers', async (symbolId: string) => {
 			const index = getProjectIndex();
 			if (!index) {
-				vscode.window.showWarningMessage(l10n.t('暂无项目索引，无法显示调用方'));
+				vscode.window.showWarningMessage(l10n.t('No project index; unable to show callers'));
 				return;
 			}
 
@@ -192,7 +196,7 @@ export function registerCodeLensCommands(context: vscode.ExtensionContext): void
 			if (!callers.length) {
 				const sym = index.symbols[symbolId];
 				const name = sym?.name ?? symbolId;
-				vscode.window.showInformationMessage(l10n.t('未找到 {0} 的调用方', name));
+				vscode.window.showInformationMessage(l10n.t('No callers found for {0}', name));
 				return;
 			}
 
@@ -201,7 +205,7 @@ export function registerCodeLensCommands(context: vscode.ExtensionContext): void
 
 			for (const call of callers) {
 				const callerSym = index.symbols[call.callerId];
-				const callerName = callerSym?.name ?? call.callerId.split('#').pop() ?? l10n.t('未知');
+				const callerName = callerSym?.name ?? call.callerId.split('#').pop() ?? l10n.t('Unknown');
 				const callerFile = callerSym?.filePath ?? call.callerId.split('#')[0] ?? '';
 				items.push({
 					label: `$(call-outgoing) ${callerName}`,
@@ -213,8 +217,8 @@ export function registerCodeLensCommands(context: vscode.ExtensionContext): void
 			}
 
 			const picked = await vscode.window.showQuickPick(items, {
-				placeHolder: l10n.t('选择调用方以跳转'),
-				title: l10n.t('调用方列表'),
+				placeHolder: l10n.t('Select a caller to jump to'),
+				title: l10n.t('Callers'),
 			});
 			if (picked?.callerId) {
 				const callerSym = index.symbols[picked.callerId];

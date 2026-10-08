@@ -107,7 +107,7 @@ function reset(seq) {
 	reset(['<tool_call><name>complete</name><arguments>{"summary":"降级成功"}</arguments></tool_call>']);
 	const r3 = await al.runAgentLoop({ task: '触发降级', workspace: wsRoot, checkpoint: false });
 	check('降级后完成', r3.status === 'completed', r3.status + ' / ' + r3.output);
-	check('轨迹含降级记录', r3.trace.some(s => s.content.includes('降级到')), JSON.stringify(r3.trace[0]?.content?.slice(0, 80)));
+	check('轨迹含降级记录', r3.trace.some(s => s.content.includes('falling back to')), JSON.stringify(r3.trace[0]?.content?.slice(0, 80)));
 	check('最终输出正确', r3.output === '降级成功');
 
 	console.log('\n[C] 会话续聊（Threads 简化：resumeFrom 注入历史上下文）');
@@ -164,7 +164,7 @@ function reset(seq) {
 	] };
 	const ir = await ap.applyProposal(idemProp, wsRoot, { checkpoint: false });
 	check('已应用 → 跳过（不失败）', ir.applied.length === 0 && ir.skipped.length === 1, JSON.stringify(ir));
-	check('跳过原因标注已应用', ir.skipped[0].reason.includes('已应用'), ir.skipped[0].reason);
+	check('跳过原因标注已应用', ir.skipped[0].reason.includes('Already applied'), ir.skipped[0].reason);
 	check('文件未被破坏', fs.readFileSync(target, 'utf-8') === 'const x = 2;\n');
 
 	console.log('\n[G] 模型候选列表（故障转移基础设施）');

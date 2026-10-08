@@ -48,8 +48,8 @@ function flatten(langpack) {
     const c = langpack.contents[mod];
     for (const key of Object.keys(c)) {
       const t = c[key];
-      if (typeof t !== 'string') continue;
-      if (!freq.has(key)) freq.set(key, new Map());
+      if (typeof t !== 'string') {continue;}
+      if (!freq.has(key)) {freq.set(key, new Map());}
       const m = freq.get(key);
       m.set(t, (m.get(t) || 0) + 1);
     }
@@ -57,7 +57,7 @@ function flatten(langpack) {
   const out = {};
   for (const [key, m] of freq) {
     let best = null, bestN = -1;
-    for (const [t, n] of m) if (n > bestN) { best = t; bestN = n; }
+    for (const [t, n] of m) {if (n > bestN) { best = t; bestN = n; }}
     out[key] = best;
   }
   return out;
@@ -154,8 +154,8 @@ const ZH_LOCALIZE2 = `function localize2(data, originalMessage, ...args) {
 }`;
 
 function apply() {
-  if (!fs.existsSync(LANGPACK_MAIN)) fail(`语言包翻译文件缺失：${LANGPACK_MAIN}（请确认 extensions/ms-ceintl.vscode-language-pack-zh-hans 已安装）`);
-  if (!fs.existsSync(NLS_JS)) fail(`未找到 out/vs/nls.js（请先执行编译，如 npm run build-fast）`);
+  if (!fs.existsSync(LANGPACK_MAIN)) {fail(`语言包翻译文件缺失：${LANGPACK_MAIN}（请确认 extensions/ms-ceintl.vscode-language-pack-zh-hans 已安装）`);}
+  if (!fs.existsSync(NLS_JS)) {fail(`未找到 out/vs/nls.js（请先执行编译，如 npm run build-fast）`);}
 
   const table = flatten(JSON.parse(fs.readFileSync(LANGPACK_MAIN, 'utf8')));
   const tableJs = TABLE_DECL + JSON.stringify(table) + ';\n';
@@ -168,7 +168,7 @@ function apply() {
 
   // 头部注入翻译表（放在 getNLSMessages 之前）
   const anchor = 'function getNLSMessages() {';
-  if (!src.includes(anchor)) fail('out/vs/nls.js 结构异常：找不到 getNLSMessages 锚点');
+  if (!src.includes(anchor)) {fail('out/vs/nls.js 结构异常：找不到 getNLSMessages 锚点');}
   src = src.replace(anchor, MARK + '\n' + tableJs + '\n' + anchor);
 
   // 替换 localize / localize2（兼容两种编译产物变体）
@@ -180,7 +180,7 @@ function apply() {
       break;
     }
   }
-  if (!replacedLocalize) fail('out/vs/nls.js 结构异常：找不到原始 localize 函数体');
+  if (!replacedLocalize) {fail('out/vs/nls.js 结构异常：找不到原始 localize 函数体');}
   for (const variant of ORIG_LOCALIZE2_VARIANTS) {
     if (src.includes(variant)) {
       src = src.replace(variant, ZH_LOCALIZE2);
@@ -196,8 +196,8 @@ function apply() {
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) walk(p, out);
-    else if (e.name.endsWith('.js') && !e.name.endsWith('.map')) out.push(p);
+    if (e.isDirectory()) {walk(p, out);}
+    else if (e.name.endsWith('.js') && !e.name.endsWith('.map')) {out.push(p);}
   }
   return out;
 }
@@ -213,9 +213,9 @@ function verify(table) {
     let m;
     while ((m = keyRe.exec(s)) !== null) {
       const key = m[1] || m[2] || m[3] || m[4];
-      if (!key || key.length > 200) continue;
+      if (!key || key.length > 200) {continue;}
       total++;
-      if (typeof table[key] === 'string') hits.add(key);
+      if (typeof table[key] === 'string') {hits.add(key);}
     }
   }
   return { totalKeys: total, hitKeys: hits.size };

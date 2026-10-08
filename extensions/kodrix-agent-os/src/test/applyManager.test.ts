@@ -16,7 +16,7 @@ import * as os from 'os';
 // vscode mock 在 runTests.ts 中已注册，此处 require 源模块安全
 const applyManager = require('../apply/applyManager');
 
-interface DiffLine { type: 'same' | 'add' | 'del'; text: string; }
+interface DiffLine { type: 'same' | 'add' | 'del'; text: string }
 
 suite('applyManager', () => {
 
@@ -129,7 +129,7 @@ suite('applyManager', () => {
 			const change = { filePath: '../../etc/passwd', type: 'write', newContent: 'x' };
 			const result = applyManager.validateChange(change, tmpDir);
 			assert.strictEqual(result.ok, false);
-			assert.ok(result.error?.includes('越界'));
+			assert.ok(result.error?.includes('Path escapes the workspace'));
 		});
 
 		test('write 新文件 通过', () => {
@@ -161,14 +161,14 @@ suite('applyManager', () => {
 			const change = { filePath: 'edit-multi.ts', type: 'edit', oldContent: 'aaa', newContent: 'ccc' };
 			const result = applyManager.validateChange(change, tmpDir);
 			assert.strictEqual(result.ok, false);
-			assert.ok(result.error?.includes('匹配'));
+			assert.ok(result.error?.includes('oldContent matched'));
 		});
 
 		test('delete 不存在的文件 报错', () => {
 			const change = { filePath: 'no-such-file.ts', type: 'delete', newContent: '' };
 			const result = applyManager.validateChange(change, tmpDir);
 			assert.strictEqual(result.ok, false);
-			assert.ok(result.error?.includes('不存在'));
+			assert.ok(result.error?.includes('File does not exist'));
 		});
 	});
 
@@ -205,7 +205,7 @@ suite('applyManager', () => {
 			// 应被识别为已应用（跳过），而非校验失败
 			assert.strictEqual(result.applied.length, 0);
 			assert.ok(result.skipped.length > 0);
-			assert.ok(result.skipped[0].reason.includes('已应用'));
+			assert.ok(result.skipped[0].reason.includes('Already applied'));
 		});
 	});
 

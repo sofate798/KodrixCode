@@ -1,6 +1,5 @@
 {
 	"description": "本地大模型与云端 API 供应商配置，Cursor 风格快捷键与一键导入",
-
 	"command.migrateConfig.title": "迁移配置（Cursormini / Kodrix）",
 	"command.openProviderPresets.title": "浏览模型供应商预设",
 	"command.openProviderWorkbench.title": "AI 供应商管理",
@@ -20,13 +19,16 @@
 	"command.openAgentsWindow.title": "打开 Agents 窗口",
 	"command.openWorkspaceInAgentsWindow.title": "在 Agents 窗口中打开当前工作区",
 	"command.onboardingOpen.title": "打开欢迎向导",
-
+	"command.checkForUpdates.title": "检查更新",
 	"config.migrateOnFirstRun.description": "首次启动时自动迁移 ~/.cursormini 或 ~/.kodrix 中的模型与 Agent 配置",
 	"config.importCursorOnFirstRun.description": "首次启动时自动从 Cursor 导入 Rules、MCP 与 Skills（若存在 ~/.cursor）",
+	"config.updateCheck.enabled.description": "定期读取发布清单以提示新版本。本产品没有核心自动更新通道，此处仅做提示；不发送任何设备或账号信息。",
+	"config.updateCheck.intervalHours.description": "两次发布检查之间的最小间隔（小时）。",
+	"config.updateCheck.feedUrl.description": "发布清单地址（默认为 GitHub Releases API）。自建分发时可指向自己的地址。",
+	"config.updateCheck.includePrerelease.description": "同时提示预发布版本。",
 	"config.modelRoutes.description": "多模型路由（plan / agent / code / fast），每项仅使用 model 字段",
 	"config.modelRoutes.model.description": "模型 ID（须已在 Manage Models 中可用）",
 	"config.implementAgentModel.description": "Plan 交接后的 Implement Agent 所用模型（Copilot 未贡献该键时由 Kodrix 兜底注册，便于写入用户设置）",
-	"config.tabCompletion.description": "启用 Cursor Tab 级体验：Copilot 补全 + Next Edit Suggestions (NES)",
 	"config.backgroundAgents.description": "启用 Background Agent（Copilot CLI 后台任务）",
 	"config.cloudAgents.description": "启用 Cloud Agent（Copilot Coding Agent）",
 	"config.composerUI.description": "启用 Composer 风格多文件 UI：会话侧栏、检查点、Diff 审阅",

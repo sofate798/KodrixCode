@@ -41,3 +41,144 @@ jobs:
       - name: Outdated dependencies (report only)
         run: npx --yes npm-check-updates --dep dev --format group
         continue-on-error: true
+
+  # -------------------------------------------------------------------
+  # Layer 1 of the Kodrix quality signal: purely static contracts over the
+  # three Kodrix extensions. No npm install, no network, no Electron —
+  # deterministic and a couple of seconds long, so it stays useful even
+  # while the compile/audit jobs above are flaky.
+  # -------------------------------------------------------------------
+  kodrix-contracts:
+    name: Kodrix Contract Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # This layer is authoritative for the contract it checks, but it must
+    # never decide the nightly verdict next to the known-broken jobs.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: "LAYER=command-contract — declared commands vs registerCommand() sites"
+        shell: bash
+        run: |
+          if ! node .github/workflows/_shared/check-kodrix-command-contract.mjs; then
+            echo '::error title=Kodrix command contract::package.json declares kodrix.* commands that no registerCommand() implements (see the list above, or fix the manifest).'
+            exit 1
+          fi
+
+      - name: "LAYER=contribution-contract — enabledApiProposals + provider-backed contributes"
+        shell: bash
+        run: |
+          if ! node .github/workflows/_shared/check-kodrix-contributions.mjs; then
+            echo '::error title=Kodrix contribution contract::A contributed settings renderer / chat participant / view / proposed API no longer matches the sources or the fork proposal registry.'
+            exit 1
+          fi
+
+      # 曾经真实发生过：skillInstall.ts 引用 ./zipValidation，而该文件从未 git add。
+      # 本地一切正常（文件在磁盘），新克隆与 CI 直接编译失败。这里以 git 索引为准做持久防护。
+      - name: "LAYER=import-contract — every relative import resolves inside the git index"
+        shell: bash
+        run: |
+          if ! node .github/workflows/_shared/check-kodrix-import-contract.mjs; then
+            echo '::error title=Kodrix import contract::A source file imports a module that is not committed. `git add` the missing file (it exists on disk but not in the repo).'
+            exit 1
+          fi
+
+  # -------------------------------------------------------------------
+  # Layer 2: one real (non-mock) startup smoke through a genuine VS Code
+  # workbench + extension host, driven by @vscode/test-electron.
+  #
+  # Scope is intentionally narrow and the reason is encoded in
+  # .github/workflows/_shared/kodrix-workbench-smoke.mjs:
+  #   * kodrix-skills declares no proposed API → it can activate on a
+  #     publicly downloadable VS Code, so it gets asserted end to end.
+  #   * kodrix-local / kodrix-agent-os declare proposed APIs
+  #     (settingsEditorRenderer, chatContextProvider) which stable builds
+  #     do not expose; asserting them would require compiling this fork
+  #     (30–90 min), so they are covered by the static layer above instead.
+  #
+  # Network cost: VS Code stable (~120 MB) + a few small npm packages.
+  # Typical wall time once cached runner image is warm: 4–8 minutes.
+  # continue-on-error keeps this from blocking the rest of the nightly.
+  # -------------------------------------------------------------------
+  kodrix-workbench-smoke:
+    name: Workbench Smoke (real Electron)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    env:
+      SMOKE_DEPS: ${{ github.workspace }}/.kodrix-smoke-deps
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install smoke toolchain only (no root npm install)
+        shell: bash
+        # --ignore-scripts is required: the root .npmrc pins
+        # runtime=electron + build_from_source, so any script-enabled
+        # install would try to compile native modules against Electron
+        # headers. The smoke layer needs pure JS packages only.
+        run: |
+          set -euo pipefail
+          mkdir -p "$SMOKE_DEPS"
+          npm install --no-save --ignore-scripts --no-audit --no-fund \
+            --prefix "$SMOKE_DEPS" @vscode/test-electron@^2.4.0
+          npm install --no-save --ignore-scripts --no-audit --no-fund \
+            --prefix extensions/kodrix-skills typescript@next "@types/node@24.x"
+
+      - name: Compile kodrix-skills with plain tsc (no gulp)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The unused-* checks are relaxed on purpose: the smoke layer only
+          # needs emit-to-JS fidelity, and typescript@next may be a newer dev
+          # build than the one pinned in the root package.json. Real type
+          # errors still fail this step (noEmitOnError keeps that sharp).
+          node extensions/kodrix-skills/node_modules/typescript/bin/tsc \
+            -p extensions/kodrix-skills/tsconfig.json \
+            --noUnusedLocals false --noUnusedParameters false --noEmitOnError true
+          test -f extensions/kodrix-skills/out/extension.js
+
+      - name: "LAYER=workbench-smoke — boot a real workbench and activate the extension"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y xvfb libxkbfile1 libsecret-1-0 libnss3 libgbm1
+          fi
+          ENTRY=$(node -e "console.log(require.resolve('@vscode/test-electron', { paths: [process.env.SMOKE_DEPS] }))")
+          mkdir -p "$GITHUB_WORKSPACE/.build/logs/kodrix-smoke"
+          xvfb-run -a env \
+            KODRIX_TEST_ELECTRON_ENTRY="$ENTRY" \
+            KODRIX_SMOKE_EXTENSIONS=kodrix-skills \
+            KODRIX_SMOKE_LOGS_PATH="$GITHUB_WORKSPACE/.build/logs/kodrix-smoke" \
+            node .github/workflows/_shared/kodrix-workbench-smoke.mjs
+
+      - name: "LAYER=workbench-smoke — what is NOT covered here (informational)"
+        if: always()
+        shell: bash
+        run: |
+          echo "kodrix-local and kodrix-agent-os are not activated in this layer:"
+          echo "  extensions/kodrix-local/package.json   enabledApiProposals = [settingsEditorRenderer]"
+          echo "  extensions/kodrix-agent-os/package.json enabledApiProposals = [chatContextProvider, settingsEditorRenderer]"
+          echo "Proposed APIs are not exposed by a downloadable stable VS Code; a real"
+          echo "activation smoke for those two needs a build of this fork (see the"
+          echo "Full Compile Check job / test/smoke). Their manifests are checked by the"
+          echo "Kodrix Contract Checks job instead."
+
+      - name: Upload workbench logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kodrix-workbench-smoke-logs
+          path: .build/logs/kodrix-smoke/
+          if-no-files-found: ignore
+          retention-days: 7

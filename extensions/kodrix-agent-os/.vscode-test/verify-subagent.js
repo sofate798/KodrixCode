@@ -110,7 +110,7 @@ function check(name, cond, detail) {
 	console.log('\n[B] 汇总报告渲染');
 	const md = sub.renderSubagentReport(batch);
 	check('含父任务', md.includes('为 Kodrix 新增健康检查接口'));
-	check('含状态表格', md.includes('| # | 子任务 |') && md.includes('completed'));
+	check('含状态表格', md.includes('| # | Subtask |') && md.includes('completed'));
 	check('含子任务详情', md.includes('## 1. 设计接口') && md.includes('## 2. 实现控制器'));
 	check('含输出内容', md.includes('控制器完成'));
 

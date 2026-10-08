@@ -9,6 +9,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { routeModel } from '../model/modelRouter';
@@ -89,10 +90,10 @@ export async function runBackgroundTask(task: BackgroundTask): Promise<void> {
 	const routed = await routeModel({ taskType: 'plan' });
 	if (!routed) {
 		task.status = 'failed';
-		task.error = '无可用语言模型（请在 Manage Models 中配置 BYOK 模型）';
+		task.error = l10n.t('No language model available (configure a BYOK model in Manage Models)');
 		task.finishedAt = new Date().toISOString();
 		writeTask(task);
-		await vscode.window.showWarningMessage(`后台任务失败：${task.title}（无可用模型）`);
+		await vscode.window.showWarningMessage(l10n.t('Background task failed: {0} (no model available)', task.title));
 		return;
 	}
 	const cts = new vscode.CancellationTokenSource();
@@ -119,7 +120,7 @@ export async function runBackgroundTask(task: BackgroundTask): Promise<void> {
 		task.result = text.slice(0, BACKGROUND_TASK_RESULT_MAX_CHARS);
 		task.status = text.trim() ? 'completed' : 'failed';
 		if (task.status === 'failed') {
-			task.error = '模型无响应输出';
+			task.error = l10n.t('The model returned no output');
 		}
 	} catch (err) {
 		task.status = 'failed';
@@ -132,9 +133,18 @@ export async function runBackgroundTask(task: BackgroundTask): Promise<void> {
 	task.finishedAt = new Date().toISOString();
 	writeTask(task);
 	if (task.status === 'completed') {
-		await vscode.window.showInformationMessage(`后台任务完成：${task.title}`);
+		// 成功提示带"下一步动作"：直接跳到任务详情/结果，而不是只留一句"完成"
+		const viewTask = l10n.t('View Tasks');
+		const choice = await vscode.window.showInformationMessage(l10n.t('Background task completed: {0}', task.title), viewTask);
+		if (choice === viewTask) {
+			await vscode.commands.executeCommand(COMMANDS.backgroundList);
+		}
 	} else {
-		await vscode.window.showWarningMessage(`后台任务失败：${task.title}（${task.error}）`);
+		const viewTask = l10n.t('View Tasks');
+		const choice = await vscode.window.showWarningMessage(l10n.t('Background task failed: {0} ({1})', task.title, task.error ?? l10n.t('unknown reason')), viewTask);
+		if (choice === viewTask) {
+			await vscode.commands.executeCommand(COMMANDS.backgroundList);
+		}
 	}
 }
 
@@ -177,7 +187,7 @@ function renderBackgroundPanelHtml(tasks: BackgroundTask[]): string {
 	<td title="${t.error ?? ''}">${summary || '—'}</td>
 </tr>`.trim();
 		}).join('')
-		: '<tr><td colspan="4" style="text-align:center;color:#8b949e">（暂无后台任务——运行「Kodrix: 后台 Agent 派发任务」）</td></tr>';
+		: l10n.t('<tr><td colspan="4" style="text-align:center;color:#8b949e">(no background tasks yet — run "Kodrix: Dispatch Background Task")</td></tr>');
 	return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><style>
@@ -193,19 +203,55 @@ tr:hover{background:var(--vscode-list-hoverBackground)}
 .legend{margin-top:10px;font-size:12px;color:var(--vscode-descriptionForeground)}
 </style></head>
 <body>
-<h1>后台 Agent 会话</h1>
-<p class="sub">点击任务行查看完整结果 · 共 ${tasks.length} 个任务</p>
+<h1>${l10n.t('Background Agent Sessions')}</h1>
+<p class="sub">${l10n.t('Click a task row to view the full result · {0} tasks in total', tasks.length)}</p>
 <table>
-<tr><th>任务</th><th>状态</th><th>创建</th><th>结果摘要</th></tr>
+<tr><th>${l10n.t('Task')}</th><th>${l10n.t('Status')}</th><th>${l10n.t('Created')}</th><th>${l10n.t('Result Summary')}</th></tr>
 ${rows}
 </table>
-<button class="btn" onclick="refresh()">刷新</button>
-<div class="legend">状态：<span style="color:#3fb950">completed</span> · <span style="color:#d29922">running</span> · <span style="color:#f85149">failed</span></div>
+<button class="btn" onclick="refresh()">${l10n.t('Refresh')}</button>
+<div class="legend">${l10n.t('Status')}:<span style="color:#3fb950">completed</span> · <span style="color:#d29922">running</span> · <span style="color:#f85149">failed</span></div>
 <script>const vscode=acquireVsCodeApi();function refresh(){vscode.postMessage({command:'refresh'})}function openTask(id){vscode.postMessage({command:'open',id})}</script>
 </body></html>`;
 }
 
+/**
+ * 任务状态收敛：进程重启后，持久化为 `running` 的任务其执行上下文已经不存在，
+ * 永远不会自己变成 completed/failed —— 用户会看到"一直在运行"的僵尸任务。
+ * 扩展激活时调用一次，把它们标记为失败并注明原因。
+ * @returns 收敛（改写）的任务数
+ */
+export function reconcileInterruptedTasks(): number {
+	const dir = getTasksDir();
+	if (!dir || !fs.existsSync(dir)) {
+		return 0;
+	}
+	let reconciled = 0;
+	for (const task of listBackgroundTasks()) {
+		if (task.status !== 'running') {
+			continue;
+		}
+		task.status = 'failed';
+		task.error = task.error
+			? `${task.error}\n${l10n.t('The task was interrupted by an extension restart')}`
+			: l10n.t('The task was interrupted by an extension restart (it will not resume on its own; dispatch it again)');
+		task.finishedAt = task.finishedAt ?? new Date().toISOString();
+		writeTask(task);
+		reconciled++;
+	}
+	if (reconciled > 0) {
+		logger.info(`[BackgroundAgent] 已将 ${reconciled} 个遗留的 running 任务标记为中断`);
+	}
+	return reconciled;
+}
+
 export function registerBackgroundAgent(context: vscode.ExtensionContext): void {
+	// 启动即收敛遗留状态（读盘失败不影响激活）
+	try {
+		reconcileInterruptedTasks();
+	} catch (err) {
+		logger.warn(`[BackgroundAgent] 遗留任务状态收敛失败：${err instanceof Error ? err.message : String(err)}`);
+	}
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.backgroundPanel, async () => {
 			if (_backgroundPanel) {
@@ -213,7 +259,7 @@ export function registerBackgroundAgent(context: vscode.ExtensionContext): void 
 				_backgroundPanel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());
 				return;
 			}
-			const panel = createTrackedPanel(context, 'kodrix.background', '后台 Agent 会话', vscode.ViewColumn.Active, { enableScripts: true });
+			const panel = createTrackedPanel(context, 'kodrix.background', l10n.t('Background Agent Sessions'), vscode.ViewColumn.Active, { enableScripts: true });
 			_backgroundPanel = panel;
 			panel.webview.html = renderBackgroundPanelHtml(listBackgroundTasks());
 			panel.onDidDispose(() => { _backgroundPanel = undefined; });
@@ -224,50 +270,50 @@ export function registerBackgroundAgent(context: vscode.ExtensionContext): void 
 				}
 				if (msg?.command === 'open') {
 					const dir = getTasksDir();
-					if (!dir) return;
+					if (!dir) {return;}
 					try {
 						const task = JSON.parse(fs.readFileSync(getTaskFilePath(dir, msg.id), 'utf-8')) as BackgroundTask;
-						const doc = await vscode.workspace.openTextDocument({ content: `# ${task.title}\n\n状态：${task.status} · 创建：${task.createdAt}\n\n${task.result ?? task.error ?? '（无输出）'}`, language: 'markdown' });
+						const doc = await vscode.workspace.openTextDocument({ content: `# ${task.title}\n\n${l10n.t('Status')}: ${task.status} · ${l10n.t('Created')}: ${task.createdAt}\n\n${task.result ?? task.error ?? l10n.t('(no output)')}`, language: 'markdown' });
 						await vscode.window.showTextDocument(doc, { preview: false });
 					} catch (err) {
-						await vscode.window.showErrorMessage('任务文件无效或不存在');
+						await vscode.window.showErrorMessage(l10n.t('Task file is invalid or does not exist'));
 					}
 				}
 			});
 		}),
 		vscode.commands.registerCommand(COMMANDS.backgroundDispatch, async () => {
 			const title = await vscode.window.showInputBox({
-				prompt: '描述后台任务目标（Agent 将独立完成并通知你）',
-				placeHolder: '例如：调研项目现状并输出一份升级方案',
+				prompt: l10n.t('Describe the background task goal (the Agent will complete it independently and notify you)'),
+				placeHolder: l10n.t('e.g., investigate the project status and produce an upgrade plan'),
 			});
 			if (!title) {
 				return;
 			}
 			const task = await createBackgroundTask(title);
 			if (!task) {
-				await vscode.window.showErrorMessage('无法派发后台任务（未打开工作区）');
+				await vscode.window.showErrorMessage(l10n.t('Cannot dispatch background task (no workspace open)'));
 				return;
 			}
-			await vscode.window.showInformationMessage(`后台任务已派发：${task.id}（完成后将通知你）`);
+			await vscode.window.showInformationMessage(l10n.t('Background task dispatched: {0} (you will be notified when it completes)', task.id));
 		}),
 		vscode.commands.registerCommand(COMMANDS.backgroundList, async () => {
 			const tasks = listBackgroundTasks();
 			if (!tasks.length) {
-				await vscode.window.showInformationMessage('暂无后台任务。使用「Kodrix: 派发后台任务」开始。');
+				await vscode.window.showInformationMessage(l10n.t('No background tasks yet. Use "Kodrix: Dispatch Background Task" to get started.'));
 				return;
 			}
 			const doc = await vscode.workspace.openTextDocument({
 				content: [
-					'# Kodrix 后台任务',
+					l10n.t('# Kodrix Background Tasks'),
 					'',
-					'| ID | 标题 | 状态 | 创建时间 | 完成时间 | 结果摘要 |',
+					`| ID | ${l10n.t('Title')} | ${l10n.t('Status')} | ${l10n.t('Created')} | ${l10n.t('Finished')} | ${l10n.t('Result Summary')} |`,
 					'|----|------|------|---------|---------|---------|',
 					...tasks.map(t => {
 						const summary = (t.result || t.error || '—').split('\n')[0].slice(0, 60);
 						return `| \`${t.id}\` | ${t.title} | ${t.status} | ${t.createdAt.slice(0, 19)} | ${t.finishedAt?.slice(0, 19) ?? '—'} | ${summary} |`;
 					}),
 					'',
-					`共 ${tasks.length} 个任务 · 存储 .kodrix/background/`,
+					l10n.t('{0} tasks in total · stored under .kodrix/background/', tasks.length),
 				].join('\n'),
 				language: 'markdown',
 			});

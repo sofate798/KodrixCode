@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getMemoryDir, getLearningLogPath } from '../paths';
-import type { LearningCategory, LearningEntry } from './learningEngine';
+import type { LearningEntry } from './learningEngine';
 import { isRecord, isString, isNumber } from '../utils/jsonValidator';
 import { atomicWriteFileSync } from '../utils/fsSafe';
 import { logger } from '../logger';
@@ -27,13 +27,29 @@ function isValidLearningEntry(v: unknown): v is LearningEntry {
 
 let _embeddingProvider: EmbeddingProvider | undefined;
 
+/** TF-IDF 回退路径的标签（索引里记录标签，避免"索引是 1536 维真实向量、查询却按 128 维 TF-IDF"的静默失配） */
+const TFIDF_TAG = 'tfidf';
+
+/** 当前应当使用的向量来源标签 */
+function currentProviderTag(): string {
+	return _embeddingProvider ? `provider:${_embeddingProvider.name}` : TFIDF_TAG;
+}
+
 /** 注入 EmbeddingProvider（由 extension.ts 的 syncEmbeddingProvider 调用） */
 export function setEmbeddingProvider(provider: EmbeddingProvider | undefined): void {
+	const before = currentProviderTag();
 	_embeddingProvider = provider;
+	const after = currentProviderTag();
 	if (provider) {
 		logger.info(`[SemanticMemory] EmbeddingProvider 已注入: ${provider.name}，将使用真实向量`);
 	} else {
 		logger.info('[SemanticMemory] EmbeddingProvider 已清除，回退到 TF-IDF 哈希向量');
+	}
+	// 向量来源变了 → 旧向量与查询向量不同空间，必须重建，否则语义记忆会永久查不到结果（静默失效）
+	if (before !== after) {
+		void rebuildIndex().catch(err =>
+			logger.warn(`[SemanticMemory] 向量来源切换后重建索引失败：${err instanceof Error ? err.message : String(err)}`),
+		);
 	}
 }
 
@@ -51,6 +67,8 @@ const INDEX_VERSION = 3;
 interface VectorIndex {
 	version: number;
 	dim: number; // 动态维度：首次 embed 时确定
+	/** 生成本索引的向量来源（`tfidf` / `provider:<name>`）；缺失视为旧索引，按需重建 */
+	providerTag?: string;
 	entries: Record<string, number[]>; // entryId → float vector
 	updatedAt: string;
 }
@@ -65,7 +83,7 @@ function isValidVectorIndex(v: unknown): v is VectorIndex {
 }
 
 function emptyIndex(dim: number): VectorIndex {
-	return { version: INDEX_VERSION, dim, entries: {}, updatedAt: new Date().toISOString() };
+	return { version: INDEX_VERSION, dim, providerTag: currentProviderTag(), entries: {}, updatedAt: new Date().toISOString() };
 }
 
 function loadIndex(): VectorIndex {
@@ -84,9 +102,19 @@ function loadIndex(): VectorIndex {
 					return emptyIndex(DEFAULT_TFIDF_DIM);
 				}
 				// 无 provider 时保留旧 TF-IDF 向量，升级版本号
-				return { ...raw, version: INDEX_VERSION };
+				return { ...raw, version: INDEX_VERSION, providerTag: TFIDF_TAG };
 			}
-			return raw;
+			// 向量来源不一致（例如用户关掉了 Embedding）：旧向量与查询向量不在同一空间，
+			// 继续用会"每条都因维度不等被跳过"→ 语义记忆静默永远返回空。这里判定失效并触发重建。
+			const tag = raw.providerTag ?? (raw.dim === DEFAULT_TFIDF_DIM ? TFIDF_TAG : 'unknown');
+			if (tag !== currentProviderTag()) {
+				logger.warn(`[SemanticMemory] 向量来源已变化（索引 ${tag} → 当前 ${currentProviderTag()}），重建语义索引`);
+				void rebuildIndex().catch(err =>
+					logger.warn(`[SemanticMemory] 重建失败：${err instanceof Error ? err.message : String(err)}`),
+				);
+				return emptyIndex(DEFAULT_TFIDF_DIM);
+			}
+			return { ...raw, providerTag: tag };
 		}
 		logger.warn('[SemanticMemory] loadIndex: invalid shape — resetting');
 		return emptyIndex(DEFAULT_TFIDF_DIM);
@@ -98,19 +126,32 @@ function loadIndex(): VectorIndex {
 function saveIndex(idx: VectorIndex): void {
 	const p = getIndexPath();
 	idx.updatedAt = new Date().toISOString();
-	// Prune old entries not in learning log
+	// Prune old entries not in learning log。
+	// 只有整份日志都能解析时才敢判定"条目已被删除"：否则读取/解析失败会被误判为删除，
+	// 把仍然有效的向量静默清掉（用户看到语义记忆莫名其妙变少）。
 	const logPath = getLearningLogPath();
 	if (fs.existsSync(logPath)) {
 		const validIds = new Set<string>();
+		let corrupt = 0;
 		const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean);
 		for (const line of lines) {
 			try {
 				const entry = JSON.parse(line);
-				if (entry.id) validIds.add(entry.id);
-			} catch { /* skip */ }
+				if (entry && typeof entry === 'object' && (entry as { id?: unknown }).id) {
+					validIds.add(String((entry as { id: unknown }).id));
+				} else {
+					corrupt++;
+				}
+			} catch {
+				corrupt++;
+			}
 		}
-		for (const id of Object.keys(idx.entries)) {
-			if (!validIds.has(id)) delete idx.entries[id];
+		if (corrupt === 0) {
+			for (const id of Object.keys(idx.entries)) {
+				if (!validIds.has(id)) {delete idx.entries[id];}
+			}
+		} else {
+			logger.warn(`[SemanticMemory] learning.jsonl 有 ${corrupt} 行异常，本次跳过向量修剪以免误删有效向量`);
 		}
 	}
 	atomicWriteFileSync(p, JSON.stringify(idx, null, 2));
@@ -120,7 +161,7 @@ function saveIndex(idx: VectorIndex): void {
 
 /** 使用真实 EmbeddingProvider 编码文本为浮点向量 */
 async function encodeTextReal(text: string): Promise<number[] | undefined> {
-	if (!_embeddingProvider) return undefined;
+	if (!_embeddingProvider) {return undefined;}
 	try {
 		const vec = await _embeddingProvider.embed(text);
 		return vec ?? undefined;
@@ -180,34 +221,68 @@ export function invalidateEntryCache(): void {
  * - 有 EmbeddingProvider 时：使用真实向量（异步）
  * - 无 EmbeddingProvider 时：使用 TF-IDF 哈希向量（同步）
  */
+/**
+ * 向量索引落盘防抖。
+ * 单条记忆入库此前是"整读索引 + 整写索引"（索引可达数十 MB）：连续沉淀几条记忆就会
+ * 反复读写几十 MB。这里把写合并到 1.5s 窗口内，并在检索前兜底落盘，保证读取方看到最新数据。
+ */
+const INDEX_SAVE_DEBOUNCE_MS = 1500;
+let _pendingIndexSave: { timer: ReturnType<typeof setTimeout>; index: VectorIndex } | undefined;
+
+function scheduleIndexSave(idx: VectorIndex): void {
+	if (_pendingIndexSave) {clearTimeout(_pendingIndexSave.timer);}
+	const timer = setTimeout(() => {
+		_pendingIndexSave = undefined;
+		saveIndex(idx);
+	}, INDEX_SAVE_DEBOUNCE_MS);
+	// 定时器不应阻止进程退出
+	const maybeUnref = (timer as unknown as { unref?: unknown }).unref;
+	if (typeof maybeUnref === 'function') {
+		(maybeUnref as () => void).call(timer);
+	}
+	_pendingIndexSave = { timer, index: idx };
+}
+
+/** 立刻落盘待写的向量索引（检索前 / 需要强一致时调用） */
+export function flushIndexSave(): void {
+	if (!_pendingIndexSave) {return;}
+	clearTimeout(_pendingIndexSave.timer);
+	const { index } = _pendingIndexSave;
+	_pendingIndexSave = undefined;
+	saveIndex(index);
+}
+
 export async function indexLearningEntry(entry: LearningEntry): Promise<void> {
 	const enabled = vscode.workspace.getConfiguration('kodrix.features').get<boolean>('semanticMemory', true);
-	if (!enabled) return;
+	if (!enabled) {return;}
 
 	const idx = loadIndex();
+	const tag = idx.providerTag ?? TFIDF_TAG;
 
-	if (_embeddingProvider) {
-		// 真实 embedding
-		const vec = await encodeTextReal(entry.content);
-		if (vec) {
-			// 首次 embed 时确定维度
-			if (idx.dim !== vec.length) {
-				idx.dim = vec.length;
-			}
-			idx.entries[entry.id] = vec;
-			saveIndex(idx);
-		} else {
-			// fallback 到 TF-IDF
-			idx.entries[entry.id] = encodeVector(entry.content, idx.dim || DEFAULT_TFIDF_DIM);
-			saveIndex(idx);
+	// 索引是真实向量空间：单条也必须是同样维度，否则会造成"混合维度索引"（后续查询每条都被跳过）
+	if (tag !== TFIDF_TAG) {
+		if (!_embeddingProvider) {
+			void rebuildIndex().catch(err => logger.warn(`[SemanticMemory] 重建失败：${err instanceof Error ? err.message : String(err)}`));
+			return;
 		}
-	} else {
-		// TF-IDF fallback
-		const vec = encodeVector(entry.content, idx.dim || DEFAULT_TFIDF_DIM);
+		const vec = await encodeTextReal(entry.content);
+		if (!vec || vec.length !== idx.dim) {
+			logger.warn('[SemanticMemory] 本次 embedding 不可用或维度不符，跳过单条索引（等下次整体重建）');
+			return;
+		}
 		idx.entries[entry.id] = vec;
-		saveIndex(idx);
+		scheduleIndexSave(idx);
+		invalidateEntryCache();
+		return;
 	}
 
+	// TF-IDF 空间：维度必须与 TF-IDF 默认一致（索引若仍是 provider 维度则先重建）
+	if (idx.dim !== DEFAULT_TFIDF_DIM) {
+		void rebuildIndex().catch(err => logger.warn(`[SemanticMemory] 重建失败：${err instanceof Error ? err.message : String(err)}`));
+		return;
+	}
+	idx.entries[entry.id] = encodeVector(entry.content, DEFAULT_TFIDF_DIM);
+	saveIndex(idx);
 	invalidateEntryCache();
 }
 
@@ -223,27 +298,34 @@ export interface ScoredMemory {
  * 加入时间衰减：越新的记忆权重越高
  */
 export async function searchSimilar(query: string, topK = 5): Promise<ScoredMemory[]> {
-	if (!query.trim()) return [];
+	if (!query.trim()) {return [];}
+	// 兜底落盘：批量沉淀时写是防抖的，检索前确保磁盘与内存一致（进程重启后不丢）
+	flushIndexSave();
 
 	const idx = loadIndex();
-	if (Object.keys(idx.entries).length === 0) return [];
+	if (Object.keys(idx.entries).length === 0) {return [];}
 
-	let queryVec: number[];
+	const tag = idx.providerTag ?? (idx.dim === DEFAULT_TFIDF_DIM ? TFIDF_TAG : 'unknown');
+	let queryVec: number[] | undefined;
 
-	if (_embeddingProvider) {
+	// 索引是真实向量时，查询也必须用真实向量（同一向量空间）
+	if (tag !== TFIDF_TAG && _embeddingProvider) {
 		const realVec = await encodeTextReal(query);
-		if (realVec) {
-			// 维度不匹配时回退 TF-IDF
-			if (realVec.length !== idx.dim) {
-				queryVec = encodeVector(query, idx.dim || DEFAULT_TFIDF_DIM);
-			} else {
-				queryVec = realVec;
-			}
-		} else {
-			queryVec = encodeVector(query, idx.dim || DEFAULT_TFIDF_DIM);
+		if (realVec && realVec.length === idx.dim) {
+			queryVec = realVec;
 		}
-	} else {
+	}
+	if (!queryVec) {
 		queryVec = encodeVector(query, idx.dim || DEFAULT_TFIDF_DIM);
+	}
+	if (queryVec.length !== idx.dim) {
+		// 维度仍然不一致：继续算下去只会"每条都被跳过"→ 静默返回空。
+		// 这里显式告警并触发重建，让下一次查询能拿到结果，而不是永久静默失效。
+		logger.warn(`[SemanticMemory] 查询向量维度 ${queryVec.length} ≠ 索引维度 ${idx.dim}（来源 ${tag}），已触发索引重建`);
+		void rebuildIndex().catch(err =>
+			logger.warn(`[SemanticMemory] 重建失败：${err instanceof Error ? err.message : String(err)}`),
+		);
+		return [];
 	}
 
 	// 使用缓存读取 learning entries，避免重复读盘
@@ -256,7 +338,7 @@ export async function searchSimilar(query: string, topK = 5): Promise<ScoredMemo
 
 	for (const entry of entries) {
 		const vec = idx.entries[entry.id];
-		if (!vec || vec.length !== queryVec.length) continue;
+		if (!vec || vec.length !== queryVec.length) {continue;}
 
 		const sim = cosineSim(queryVec, vec);
 
@@ -279,7 +361,7 @@ export async function searchSimilar(query: string, topK = 5): Promise<ScoredMemo
  */
 export async function getSemanticContext(query: string, maxChars = 1200): Promise<string> {
 	const results = await searchSimilar(query, 5);
-	if (!results.length) return '';
+	if (!results.length) {return '';}
 
 	const lines = ['[Semantic Memory — 项目相关记忆]'];
 	for (const r of results) {
@@ -303,13 +385,22 @@ export async function getTopicalMemories(contextHint: string, maxEntries = 3): P
  * - 有 EmbeddingProvider 时：所有条目走真实 embedding
  * - 无 EmbeddingProvider 时：TF-IDF 哈希向量
  */
+/** 重建单飞：多处调用（bootstrap / learningEngine / 设置页 / 来源切换）并发会互相覆盖索引 */
+let _rebuildInFlight: Promise<{ total: number; indexed: number }> | undefined;
+
 export async function rebuildIndex(): Promise<{ total: number; indexed: number }> {
+	if (_rebuildInFlight) {return _rebuildInFlight;}
+	_rebuildInFlight = doRebuildIndex().finally(() => { _rebuildInFlight = undefined; });
+	return _rebuildInFlight;
+}
+
+async function doRebuildIndex(): Promise<{ total: number; indexed: number }> {
 	invalidateEntryCache();
 	const logPath = getLearningLogPath();
-	if (!fs.existsSync(logPath)) return { total: 0, indexed: 0 };
+	if (!fs.existsSync(logPath)) {return { total: 0, indexed: 0 };}
 
 	const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean);
-	const idx = emptyIndex(_embeddingProvider ? DEFAULT_TFIDF_DIM : DEFAULT_TFIDF_DIM);
+	const idx = emptyIndex(DEFAULT_TFIDF_DIM);
 	// 先标记为待确定维度，首次 embed 时设置
 	let dimSet = false;
 
@@ -330,13 +421,19 @@ export async function rebuildIndex(): Promise<{ total: number; indexed: number }
 						continue;
 					}
 				}
-				// TF-IDF fallback
+				// TF-IDF fallback：维度固定为 DEFAULT_TFIDF_DIM（若前面已有真实向量则不会走到这里）
+				if (!dimSet) {
+					idx.dim = DEFAULT_TFIDF_DIM;
+					dimSet = true;
+				}
 				idx.entries[parsed.id] = encodeVector(parsed.content, DEFAULT_TFIDF_DIM);
 				indexed++;
 			}
 		} catch { /* skip */ }
 	}
 
+	// 记录本次索引的向量来源：下次 loadIndex 若发现来源变化即可判定失效并重建
+	idx.providerTag = currentProviderTag();
 	saveIndex(idx);
 	return { total: lines.length, indexed };
 }
@@ -354,25 +451,4 @@ export function getSemanticStats(): { totalVectors: number; indexSize: string; d
 		dim: idx.dim,
 		hasEmbedding: !!_embeddingProvider,
 	};
-}
-
-/**
- * 智能学习建议：基于搜索发现记忆空白
- */
-export async function suggestLearningGaps(context: string): Promise<string[]> {
-	const results = await searchSimilar(context, 10);
-	// 如果没有任何高度相关的记忆 → 提示用户补充
-	if (!results.length || results[0].score < 0.1) {
-		return ['未找到相关项目记忆 — 使用 Ctrl+Shift+Alt+M 沉淀当前知识'];
-	}
-
-	const gaps: string[] = [];
-	const categories = new Set<LearningCategory>(results.map(r => r.entry.category));
-	const allCats: LearningCategory[] = ['architecture', 'convention', 'pattern', 'pitfall', 'preference'];
-	for (const cat of allCats) {
-		if (!categories.has(cat)) {
-			gaps.push(`缺少「${cat}」类别的记忆，建议补充`);
-		}
-	}
-	return gaps;
 }

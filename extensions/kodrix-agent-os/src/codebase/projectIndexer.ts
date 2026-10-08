@@ -7,11 +7,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as ts from 'typescript';
 import { ensureDir, getWorkspaceKodrixDir } from '../paths';
 import { logger } from '../logger';
 import { isRecord, isString, isNumber } from '../utils/jsonValidator';
-import { atomicWriteFileSync } from '../utils/fsSafe';
+import { atomicWriteFileSync, atomicWriteStreamAsync } from '../utils/fsSafe';
+import { decodeTextBuffer, stripBom } from '../utils/textFile';
+import { MAX_AUTO_INDEX_FILES, clampMaxAutoIndexFiles, INDEX_TOO_MANY_FILES_PREFIX } from '../shared/constants';
 import {
 	SymbolKind, SymbolVisibility,
 	type CodeSymbol, type ImportRelation,
@@ -94,75 +97,187 @@ function shouldExclude(filePath: string, config: IndexerConfig, rootPath?: strin
 
 // ── .cursorignore 支持（对标 Cursor：除 .gitignore 外额外排除） ──
 
-let _cursorignoreCache: { root: string; globs: RegExp[] } | null = null;
+interface CursorignoreRule {
+	regex: RegExp;
+	/** `!` 前缀：重新纳入（gitignore 语义：后出现的规则覆盖先出现的） */
+	negated: boolean;
+}
+
+let _cursorignoreCache: { root: string; rules: CursorignoreRule[]; cursorEnabled: boolean } | null = null;
 
 function invalidateCursorignoreCache(): void {
 	_cursorignoreCache = null;
 }
 
 /**
- * 读取项目根目录的 `.cursorignore`（每行一条 glob 规则，`#` 开头为注释，
- * `!` 开头的取反规则暂不支持，按忽略处理），预编译为正则列表。
+ * 读取忽略规则：`.gitignore` **始终生效**（UI 文案承诺"除 .gitignore 外…"），
+ * `.cursorignore` 由 `kodrix.codebase.ignoreCursorignore` 控制（默认为真）。
+ * 两者合并后按 gitignore 语义求值（后出现的规则覆盖先出现的，支持 `!` 取反）。
  */
-function getCursorignoreGlobs(rootPath: string): RegExp[] {
-	const enabled = vscode.workspace.getConfiguration('kodrix.codebase').get<boolean>('ignoreCursorignore', true);
-	if (!enabled) {return [];}
-	if (_cursorignoreCache && _cursorignoreCache.root === rootPath) {return _cursorignoreCache.globs;}
+function getCursorignoreRules(rootPath: string): CursorignoreRule[] {
+	const cursorignoreEnabled = vscode.workspace.getConfiguration('kodrix.codebase').get<boolean>('ignoreCursorignore', true);
+	if (_cursorignoreCache && _cursorignoreCache.root === rootPath && _cursorignoreCache.cursorEnabled === cursorignoreEnabled) {
+		return _cursorignoreCache.rules;
+	}
 
-	let globs: RegExp[] = [];
-	try {
-		const file = path.join(rootPath, '.cursorignore');
-		if (fs.existsSync(file)) {
-			const rules = fs.readFileSync(file, 'utf-8')
+	const parseIgnoreFile = (fileName: string): CursorignoreRule[] => {
+		const file = path.join(rootPath, fileName);
+		if (!fs.existsSync(file)) {return [];}
+		try {
+			return fs.readFileSync(file, 'utf-8')
 				.split(/\r?\n/)
 				.map(l => l.trim())
-				.filter(l => l.length > 0 && !l.startsWith('#') && !l.startsWith('!'));
-			globs = compileGlobs(rules);
+				.filter(l => l.length > 0 && !l.startsWith('#'))
+				.map(line => {
+					const negated = line.startsWith('!');
+					const glob = negated ? line.slice(1).trim() : line;
+					const regex = compileIgnoreGlob(glob);
+					return regex ? { regex, negated } : undefined;
+				})
+				.filter((rule): rule is CursorignoreRule => !!rule);
+		} catch {
+			return [];
 		}
-	} catch {
-		/* 忽略读取失败，按无规则处理 */
-	}
+	};
 
-	_cursorignoreCache = { root: rootPath, globs };
-	return globs;
+	// .gitignore 先、.cursorignore 后：后者可以取反前者（更贴近用户"额外排除"的直觉）
+	const rules = [
+		...parseIgnoreFile('.gitignore'),
+		...(cursorignoreEnabled ? parseIgnoreFile('.cursorignore') : []),
+	];
+
+	_cursorignoreCache = { root: rootPath, rules, cursorEnabled: cursorignoreEnabled };
+	return rules;
 }
 
-function isCursorignoreExcluded(relativePath: string, cursorignoreGlobs: RegExp[]): boolean {
-	for (const regex of cursorignoreGlobs) {
-		if (regex.test(relativePath)) {return true;}
+/** gitignore 语义：按顺序求值，最后一条命中的规则决定去留（支持 `!` 取反重新纳入） */
+function isCursorignoreExcluded(relativePath: string, rules: CursorignoreRule[]): boolean {
+	let excluded = false;
+	for (const rule of rules) {
+		if (rule.regex.test(relativePath)) {
+			excluded = !rule.negated;
+		}
 	}
-	return false;
+	return excluded;
 }
 
-function discoverFiles(rootPath: string, config: IndexerConfig): string[] {
+/**
+ * 编译一条 gitignore 规则（与 `compileGlobs` 的区别在于严格遵循 gitignore 语义）：
+ * - 无斜杠的模式匹配**任意层级**（`*.log` 命中 `a/b/x.log`）
+ * - 以 `/` 开头表示锚定到仓库根
+ * - 以 `/` 结尾表示目录（命中目录本身与其下全部内容）
+ * 此前直接用 `compileGlobs` 得到 `^generated/$`，既匹配不到目录内容、也匹配不到子层级的 `*.gen.ts`。
+ */
+function compileIgnoreGlob(pattern: string): RegExp | undefined {
+	let p = pattern.replace(/\\/g, '/').trim();
+	if (!p) {return undefined;}
+	const anchored = p.startsWith('/');
+	if (anchored) {p = p.slice(1);}
+	const dirOnly = p.endsWith('/');
+	if (dirOnly) {p = p.replace(/\/+$/, '');}
+	if (!p) {return undefined;}
+	const hasSlash = p.includes('/');
+
+	const DS_SLASH = '\u0001DS\u0001';
+	const DS = '\u0002DS\u0002';
+	const escaped = p
+		.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+		.replace(/\*\*\//g, DS_SLASH)
+		.replace(/\*\*/g, DS)
+		.replace(/\*/g, '[^/]*')
+		.replace(/\?/g, '[^/]')
+		.replace(new RegExp(DS_SLASH, 'g'), '(?:.*/)?')
+		.replace(new RegExp(DS, 'g'), '.*');
+
+	// 过度宽泛的规则会把索引清空（gitignore 里 `*`/`**` 就是"全部忽略"）
+	if (escaped === '.*' || escaped === '[^/]*') {
+		logger.warn(`[ProjectIndexer] 忽略过度宽泛的忽略规则：${pattern}`);
+		return undefined;
+	}
+
+	const prefix = (anchored || hasSlash) ? '' : '(?:.*/)?';
+	const suffix = dirOnly ? '(?:/.*)?' : '';
+	return new RegExp('^' + prefix + escaped + suffix + '$');
+}
+
+async function discoverFiles(rootPath: string, config: IndexerConfig): Promise<string[]> {
 	const files: string[] = [];
 	const stack = [rootPath];
+	let visitedDirs = 0;
+	let visitedEntries = 0;
+	/** 已访问目录的真实路径：符号链接可能指回上层目录，靠它做环检测（否则会无限递归） */
+	const visitedRealDirs = new Set<string>();
+	try { visitedRealDirs.add(fs.realpathSync(rootPath)); } catch { /* 忽略 */ }
+
+	/** 目录是否可进入（排除隐藏目录/依赖目录，并对符号链接做环检测） */
+	const canEnterDir = (full: string, name: string, viaLink: boolean): boolean => {
+		if (name.startsWith('.') || config.excludeDirs.includes(name)) {return false;}
+		if (!viaLink) {return true;}
+		try {
+			const real = fs.realpathSync(full);
+			if (visitedRealDirs.has(real)) {return false;}
+			visitedRealDirs.add(real);
+			return true;
+		} catch {
+			return false;
+		}
+	};
 
 	// Pre-compile globs once per discovery pass — avoids recompiling per file
 	const compiledGlobs = compileGlobs(config.excludeGlobs);
-	const cursorignoreGlobs = getCursorignoreGlobs(rootPath);
+	const cursorignoreRules = getCursorignoreRules(rootPath);
 
 	while (stack.length) {
 		const dir = stack.pop()!;
+		visitedDirs++;
 		let entries: fs.Dirent[];
 		try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
 		catch { continue; }
 
 		for (const entry of entries) {
+			visitedEntries++;
 			const full = path.join(dir, entry.name);
 			if (entry.isDirectory()) {
-				if (!entry.name.startsWith('.') && !config.excludeDirs.includes(entry.name)) {
+				if (canEnterDir(full, entry.name, false)) {
 					stack.push(full);
 				}
 			} else if (entry.isFile()) {
 				if (!shouldExclude(full, config, rootPath, compiledGlobs)) {
-					// .cursorignore 过滤：使用相对路径匹配，规则里可直接写目录或 glob
+					// .gitignore / .cursorignore 过滤：使用相对路径匹配，规则里可直接写目录或 glob
 					const relativePath = path.relative(rootPath, full).replace(/\\/g, '/');
-					if (!isCursorignoreExcluded(relativePath, cursorignoreGlobs)) {
+					if (!isCursorignoreExcluded(relativePath, cursorignoreRules)) {
 						files.push(full);
 					}
 				}
+			} else if (entry.isSymbolicLink()) {
+				// 符号链接（monorepo 里 pnpm workspace / 本地包 link 很常见）：
+				// 需要 stat 才知道指向文件还是目录；目录链接做 realpath 环检测，避免无限递归。
+				try {
+					const st = fs.statSync(full);
+					if (st.isDirectory()) {
+						if (canEnterDir(full, entry.name, true)) {
+							stack.push(full);
+						}
+					} else if (st.isFile()) {
+						if (!shouldExclude(full, config, rootPath, compiledGlobs)) {
+							const relativePath = path.relative(rootPath, full).replace(/\\/g, '/');
+							if (!isCursorignoreExcluded(relativePath, cursorignoreRules)) {
+								files.push(full);
+							}
+						}
+					}
+				} catch {
+					/* 悬空链接：跳过 */
+				}
 			}
+		}
+
+		// 让出事件循环：既按目录数，也按**条目数**（每个目录里可能有很多文件，
+		// 逐文件做 glob 判定本身就要几十毫秒；只按目录让出实测仍会一次阻塞 250–400ms）
+		if (visitedDirs % DIR_TRAVERSAL_YIELD_INTERVAL === 0
+			|| visitedEntries >= DISCOVER_YIELD_ENTRIES) {
+			visitedEntries = 0;
+			await new Promise<void>(resolve => setImmediate(resolve));
 		}
 	}
 
@@ -827,10 +942,36 @@ function parseRust(content: string, filePath: string): SimpleParseResult {
 
 // ── 文件解析 ──────────────────────────────────────────────────
 
-function parseFile(filePath: string): { symbols: CodeSymbol[]; imports: ImportRelation[]; calls: CallRelation[] } | null {
+/** 非法 UTF-8 解码计数（供统计与告警：GBK 等编码此前会静默变成乱码符号名） */
+let _nonUtf8FileCount = 0;
+
+/**
+ * 读取文本文件并处理编码：
+ * 先按 UTF-8 解，若出现替换字符（U+FFFD，说明字节序列不是合法 UTF-8）则尝试 GBK 回退，
+ * 避免中文源码在索引里变成乱码符号名（此前直接 readFile utf-8，静默损坏）。
+ */
+async function readTextFileSmart(filePath: string): Promise<string> {
+	const buf = await fs.promises.readFile(filePath);
+	const utf8 = buf.toString('utf-8');
+	// 快速路径：合法 UTF-8（绝大多数文件）只解一次码。
+	// 注意：这里必须避免"再调一次 decodeTextBuffer"——那会让每个源文件被解码两遍，
+	// 实测 2 万文件时索引构建从 ~6.5s 劣化到 ~11.5s。
+	if (!utf8.includes('\uFFFD')) {
+		return stripBom(utf8);
+	}
+	// 异常编码（GBK / UTF-16 等）才走完整判定
+	const decoded = decodeTextBuffer(buf, filePath);
+	if (decoded !== utf8) {
+		_nonUtf8FileCount++;
+	}
+	return decoded;
+}
+
+async function parseFile(filePath: string): Promise<{ symbols: CodeSymbol[]; imports: ImportRelation[]; calls: CallRelation[] } | null> {
 	const ext = path.extname(filePath).toLowerCase();
 	try {
-		const content = fs.readFileSync(filePath, 'utf-8');
+		// 异步读：批量索引时不再让单个文件的同步 IO 卡住扩展宿主
+		const content = await readTextFileSmart(filePath);
 
 		// TS/JS 系：完整 AST 解析（含调用图）
 		if (ext === '.ts' || ext === '.tsx' || ext === '.js' || ext === '.jsx' || ext === '.mjs' || ext === '.cjs' || ext === '.mts' || ext === '.cts') {
@@ -880,11 +1021,114 @@ function loadExistingIndex(): ProjectIndex | null {
 	return null;
 }
 
-function saveIndex(index: ProjectIndex): void {
+/** 尾部组装阶段长循环的让出节奏（迭代次数） */
+const TAIL_LOOP_YIELD_INTERVAL = 2000;
+
+/** 长循环里周期性让出事件循环（尾部组装阶段避免长时间独占扩展宿主） */
+async function yieldLoop(iteration: number): Promise<void> {
+	if (iteration % TAIL_LOOP_YIELD_INTERVAL === 0) {
+		await new Promise<void>(resolve => setImmediate(resolve));
+	}
+}
+
+/**
+ * 流式写索引 JSON：产出与 `JSON.stringify(index)` 等价的紧凑 JSON，但分段写入、段间让出。
+ * 20k 文件的索引约 50MB，一次性 stringify 实测单次阻塞约 175ms（`npm run measure:index-perf`）。
+ * 注意：必须先在内存里攒够 `FLUSH_THRESHOLD` 个字符再落 stream，
+ * 否则会退化成数百万次小 write（实测总耗时从 10s 涨到 23s）。
+ */
+const INDEX_JSON_FLUSH_CHARS = 512 * 1024;
+
+async function writeIndexJson(stream: fs.WriteStream, index: ProjectIndex): Promise<void> {
+	let buffer = '';
+	const flush = async (): Promise<void> => {
+		if (!buffer) { return; }
+		const chunk = buffer;
+		buffer = '';
+		if (!stream.write(chunk)) {
+			await new Promise<void>(resolve => stream.once('drain', () => resolve()));
+		}
+		// 每个 flush 之间让出，避免连续编码/写盘长时间占用宿主
+		await new Promise<void>(resolve => setImmediate(resolve));
+	};
+	const write = async (chunk: string): Promise<void> => {
+		buffer += chunk;
+		if (buffer.length >= INDEX_JSON_FLUSH_CHARS) {
+			await flush();
+		}
+	};
+	const writeValue = async (value: unknown): Promise<void> => {
+		if (Array.isArray(value)) {
+			await write('[');
+			for (let i = 0; i < value.length; i++) {
+				if (i > 0) { await write(','); }
+				await writeValue(value[i]);
+			}
+			await write(']');
+			return;
+		}
+		if (value !== null && typeof value === 'object') {
+			await write('{');
+			let first = true;
+			for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+				if (!first) { await write(','); }
+				first = false;
+				await write(`${JSON.stringify(key)}:`);
+				await writeValue(entry);
+			}
+			await write('}');
+			return;
+		}
+		await write(JSON.stringify(value) ?? 'null');
+	};
+	await writeValue(index);
+	await flush();
+}
+
+/** 最近一次构建的诊断信息：把"落盘失败/解析失败"这类静默问题暴露给 UI 与日志 */
+export interface IndexBuildDiagnostics {
+	/** 索引写入磁盘是否失败（失败时重启后需重建） */
+	saveFailed: boolean;
+	saveError?: string;
+	/** 解析失败的文件数（此前这些文件会被静默移出索引） */
+	parseFailures: number;
+	/** 非 UTF-8（已按 GBK 回退解码）的文件数 */
+	nonUtf8Files: number;
+}
+
+// 只改字段、不重新绑定（保持引用稳定，便于面板与诊断读取）
+const _lastBuildDiagnostics: IndexBuildDiagnostics = { saveFailed: false, parseFailures: 0, nonUtf8Files: 0 };
+
+/** 读取最近一次构建的诊断信息（供面板/命令展示） */
+export function getLastBuildDiagnostics(): IndexBuildDiagnostics {
+	return { ..._lastBuildDiagnostics, nonUtf8Files: _nonUtf8FileCount };
+}
+
+async function saveIndex(index: ProjectIndex, session?: number): Promise<{ ok: boolean; error?: string }> {
 	const indexPath = getIndexPath();
-	if (!indexPath) {return;}
-	ensureDir(path.dirname(indexPath));
-	atomicWriteFileSync(indexPath, JSON.stringify(index, null, 2));
+	if (!indexPath) {return { ok: false, error: 'no-workspace' };}
+	// 写入可能耗时数秒：期间若「删除索引」被触发，必须放弃 rename，
+	// 否则原子 rename 会把刚被删掉的索引文件又写回来（用户看到"删了又回来了"）。
+	const deleteGeneration = _deleteGeneration;
+	try {
+		ensureDir(path.dirname(indexPath));
+		// 流式写：避免一次性构造 ~50MB 字符串（实测单次 stringify 阻塞约 175ms）
+		await atomicWriteStreamAsync(
+			indexPath,
+			stream => writeIndexJson(stream, index),
+			{ shouldCommit: () => deleteGeneration === _deleteGeneration && (session === undefined || isBuildCurrent(session)) },
+		);
+		_lastBuildDiagnostics.saveFailed = false;
+		_lastBuildDiagnostics.saveError = undefined;
+		return { ok: true };
+	} catch (err) {
+		// 不受信任工作区会被写入闸门拒绝：索引仍可在内存中使用，只是不落盘
+		const message = err instanceof Error ? err.message : String(err);
+		logger.warn(`[ProjectIndexer] 索引写入失败（不受信任工作区/磁盘错误/构建已过期）：${message}`);
+		_lastBuildDiagnostics.saveFailed = true;
+		_lastBuildDiagnostics.saveError = message;
+		return { ok: false, error: message };
+	}
 }
 
 // ── 增量索引（对标 Cursor Merkle 增量） ────────────────────────────
@@ -920,7 +1164,7 @@ export async function updateProjectIndexIncrementally(
 	};
 
 	// 1) 扫描当前文件集合
-	const files = discoverFiles(rootPath, config);
+	const files = await discoverFiles(rootPath, config);
 	checkCurrent();
 	const current = new Set(files);
 
@@ -984,7 +1228,7 @@ export async function updateProjectIndexIncrementally(
 	for (let i = 0; i < toParse.length; i++) {
 		if (i > 0 && i % 50 === 0) {checkCurrent();}
 		const filePath = toParse[i];
-		const result = parseFile(filePath);
+		const result = await parseFile(filePath);
 		if (result) {
 			for (const sym of result.symbols) {
 				symbols[sym.id] = sym;
@@ -992,6 +1236,15 @@ export async function updateProjectIndexIncrementally(
 				symbolNameIndex[sym.name].push(sym.id);
 			}
 			index.imports.push(...result.imports);
+			// 与全量构建同一规则：仅当同名候选唯一时才把 calleeId 解析为符号 id
+			// （此前全量会把它改写成"最后一个同名符号"、增量完全不改 → 两次构建调用图不一致）
+			for (const call of result.calls) {
+				const shortName = call.calleeId.split('#')[1];
+				const candidates = symbolNameIndex[shortName];
+				if (candidates && candidates.length === 1) {
+					call.calleeId = candidates[0];
+				}
+			}
 			index.calls.push(...result.calls);
 			const stat = fs.statSync(filePath);
 			const ext = path.extname(filePath);
@@ -1057,7 +1310,9 @@ export async function updateProjectIndexIncrementally(
 	// 9) 重算统计
 	const newLangDist: Record<string, number> = {};
 	for (const f of Object.keys(fileSummaries)) {
-		const ext = path.extname(f);
+		// 与全量构建/full 路径保持同一口径：去掉点号并小写（此前增量保留 ".ts"，
+		// 面板按 "ts" 取数时两种构建方式下图表会不一致）
+		const ext = path.extname(f).toLowerCase().replace(/^\./, '') || 'other';
 		newLangDist[ext] = (newLangDist[ext] || 0) + 1;
 	}
 	index.stats.languageDistribution = newLangDist;
@@ -1069,7 +1324,7 @@ export async function updateProjectIndexIncrementally(
 	index.updatedAt = new Date().toISOString();
 
 	checkCurrent();
-	saveIndex(index);
+	await saveIndex(index, session);
 	logger.info(`[ProjectIndexer] Incremental: +${addedFiles.length} added, ~${changedFiles.length} changed, -${removedFiles.length} removed (unchanged ${unchanged})`);
 	return index;
 }
@@ -1082,6 +1337,8 @@ let _watcher: vscode.FileSystemWatcher | null = null;
 let _debounceTimer: ReturnType<typeof setTimeout> | undefined;
 /** 构建世代：force / delete 时递增，使过期的 in-flight 构建放弃写回 _index */
 let _buildSession = 0;
+/** 删除世代：deleteProjectIndex 时递增，使"写入期间被删除"的落盘操作放弃 rename */
+let _deleteGeneration = 0;
 
 // ── 索引状态（供「索引与文档」管理面板） ──
 
@@ -1143,12 +1400,15 @@ export function pauseIndexBuild(): void {
 }
 
 /** 恢复构建（面板 Resume）：重新触发全量索引 */
+/** 恢复构建（面板 Resume）：优先复用磁盘索引做增量刷新，避免暂停后从零重建 */
 export function resumeIndexBuild(): void {
 	if (_buildStatus !== 'paused') {return;}
 	_buildStatus = 'building';
 	logger.info('[ProjectIndexer] Index build resumed');
 	fireIndexState();
-	void ensureProjectIndex(true).catch(err =>
+	// 注意用非 force：force 会让 buildProjectIndex 跳过 loadExistingIndex()，
+	// 等于把「恢复」变成「全量重来」（大仓库上代价极高）。
+	void ensureProjectIndex(false).catch(err =>
 		logger.warn(`[ProjectIndexer] Resumed build failed: ${err instanceof Error ? err.message : String(err)}`),
 	);
 }
@@ -1156,6 +1416,8 @@ export function resumeIndexBuild(): void {
 /** 删除项目索引（面板 删除索引）：中止构建、清空内存与磁盘索引 */
 export async function deleteProjectIndex(): Promise<void> {
 	invalidateInFlightBuild();
+	// 让"正在写入"的 saveIndex 在 rename 前放弃，避免删除后索引文件复活
+	_deleteGeneration++;
 
 	disposeIndexWatcher();
 	_index = null;
@@ -1197,9 +1459,13 @@ function getGrepIndexPath(): string | undefined {
 export async function ensureGrepIndex(): Promise<string[]> {
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {return [];}
+	// 开关是权威来源：关闭时不构建、也不落盘（此前只影响设置面板上的即时构建，语义不完整）
+	if (!vscode.workspace.getConfiguration('kodrix.codebase').get<boolean>('grepIndex', true)) {
+		return [];
+	}
 	const rootPath = folder.uri.fsPath;
 
-	const files = collectAllTextFiles(rootPath);
+	const files = await collectAllTextFiles(rootPath);
 	const indexPath = getGrepIndexPath();
 	if (indexPath) {
 		try {
@@ -1212,16 +1478,24 @@ export async function ensureGrepIndex(): Promise<string[]> {
 	return files;
 }
 
-function collectAllTextFiles(rootPath: string): string[] {
+/** 遍历期间每隔多少个目录让出一次事件循环（避免同步遍历长时间阻塞扩展宿主） */
+const DIR_TRAVERSAL_YIELD_INTERVAL = 200;
+
+/** 遍历期间累计多少个目录条目就让出一次（逐文件 glob 判定本身耗时，仅按目录让出不够） */
+const DISCOVER_YIELD_ENTRIES = 1000;
+
+async function collectAllTextFiles(rootPath: string): Promise<string[]> {
 	const result: string[] = [];
 	const stack = [rootPath];
 	const skipDirs = new Set(['node_modules', '.git', 'dist', 'out', 'build', '.kodrix', 'target', 'coverage', '.next', '.nuxt', '.venv', '__pycache__']);
+	let visitedDirs = 0;
 
 	while (stack.length) {
 		const dir = stack.pop()!;
-		let entries: fs.Dirent[];
+		visitedDirs++;
+		let entries: fs.Dirent[] = [];
 		try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
-		catch { continue; }
+		catch { entries = []; }
 
 		for (const entry of entries) {
 			const full = path.join(dir, entry.name);
@@ -1232,6 +1506,11 @@ function collectAllTextFiles(rootPath: string): string[] {
 			} else if (entry.isFile()) {
 				result.push(path.relative(rootPath, full).replace(/\\/g, '/'));
 			}
+		}
+
+		// 每 N 个目录让出一次事件循环；遍历结果与排序不变
+		if (visitedDirs % DIR_TRAVERSAL_YIELD_INTERVAL === 0) {
+			await new Promise<void>(resolve => setImmediate(resolve));
 		}
 	}
 
@@ -1269,7 +1548,7 @@ export function getProjectIndex(): ProjectIndex | null {
 }
 
 /** Build or return the cached project index, with guard against concurrent rebuilds. */
-export async function ensureProjectIndex(force = false): Promise<ProjectIndex> {
+export async function ensureProjectIndex(force = false, options?: { manual?: boolean }): Promise<ProjectIndex> {
 	if (_index && !force) {return _index;}
 
 	// force：作废 in-flight，避免旧构建晚到写回把新索引覆盖成「0 文件」或脏数据
@@ -1281,7 +1560,7 @@ export async function ensureProjectIndex(force = false): Promise<ProjectIndex> {
 	// 非 force 时并入进行中的构建；force 时抛开旧 promise，另起新会话
 	if (_indexPromise && !force) {return _indexPromise;}
 
-	const running = buildProjectIndex(force);
+	const running = buildProjectIndex(force, options);
 	_indexPromise = running;
 	try {
 		// _index 由 buildProjectIndex 在确认 session 有效后写入；此处不再次赋值，
@@ -1296,7 +1575,7 @@ export async function ensureProjectIndex(force = false): Promise<ProjectIndex> {
 }
 
 /** 全量构建项目索引 */
-async function buildProjectIndex(force = false): Promise<ProjectIndex> {
+async function buildProjectIndex(force = false, options?: { manual?: boolean }): Promise<ProjectIndex> {
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
 		throw new Error('No workspace folder open');
@@ -1343,8 +1622,17 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	}
 
 	// 发现文件
-	const files = discoverFiles(rootPath, config);
+	const files = await discoverFiles(rootPath, config);
 	logger.info(`[ProjectIndexer] Discovered ${files.length} source files`);
+
+	// 文件数上限：设置说明写了「自动索引少于 50,000 个文件的文件夹」，代码必须真的拦住。
+	// 自动（启动）路径超限即放弃并交给调用方给出可操作提示；手动「重建索引」视为用户明确要求，继续执行。
+	const maxAutoFiles = clampMaxAutoIndexFiles(
+		vscode.workspace.getConfiguration('kodrix.codebase').get<number>('maxAutoIndexFiles', MAX_AUTO_INDEX_FILES),
+	);
+	if (!options?.manual && files.length > maxAutoFiles) {
+		throw new Error(`${INDEX_TOO_MANY_FILES_PREFIX}:${files.length}:${maxAutoFiles}`);
+	}
 
 	// 重置构建状态并广播（供「索引与文档」面板展示进度）
 	_buildStatus = 'building';
@@ -1359,7 +1647,11 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	const langDist: Record<string, number> = {};
 
 	let parsed = 0;
-	const BATCH_SIZE = 50;
+	/** 解析失败文件数：写入构建诊断，避免"索引里少了一批文件"完全无迹可循 */
+	let parseFailures = 0;
+	// 每批文件数：解析本身是同步 CPU 工作，批越大单次阻塞越久。
+	// 实测 2 万文件时 50/批 → 单次约 80ms；25/批 → 约 40ms（总耗时基本不变）。
+	const BATCH_SIZE = 25;
 
 	for (let i = 0; i < files.length; i += BATCH_SIZE) {
 		// 中止 / 被 force·delete 作废：不改写 status（pause/delete 已设置）
@@ -1369,13 +1661,14 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 
 		const batch = files.slice(i, i + BATCH_SIZE);
 		for (const filePath of batch) {
-			const result = parseFile(filePath);
+			const result = await parseFile(filePath);
 			if (result) {
 				allSymbols.push(...result.symbols);
 				allImports.push(...result.imports);
 				allCalls.push(...result.calls);
 
-				const ext = path.extname(filePath);
+				// 语言分布 key 统一为小写、无点（增量路径同口径，否则面板图表按 "ts" 取数会缺项）
+				const ext = path.extname(filePath).toLowerCase().replace(/^\./, '') || 'other';
 				langDist[ext] = (langDist[ext] || 0) + 1;
 
 				const stat = fs.statSync(filePath);
@@ -1390,6 +1683,9 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 					lastModified: stat.mtimeMs,
 					language: ext.replace('.', ''),
 				};
+			} else {
+				// 解析失败（文件被占用/语法异常/读盘错误）：此前静默跳过，用户只看到"少了一批文件"
+				parseFailures++;
 			}
 			parsed++;
 		}
@@ -1402,6 +1698,10 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 		if (parsed % 200 === 0) {
 			logger.info(`[ProjectIndexer] Parsed ${parsed}/${files.length} files (${allSymbols.length} symbols found)`);
 		}
+
+		// 每批让出一次事件循环：解析本身是同步的，若不 yield 会长时间占满
+		// 扩展宿主线程（阻塞其他扩展命令 / UI 消息）。批量产出与中止检查不变。
+		await new Promise<void>(resolve => setImmediate(resolve));
 	}
 
 	if (!isBuildCurrent(session)) {
@@ -1413,16 +1713,19 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 	// 符号表（Object.create(null) 防止 __proto__/constructor 等符号名触发原型污染或非数组命中）
 	const symbols: Record<string, CodeSymbol> = Object.create(null);
 	const symbolNameIndex: Record<string, string[]> = Object.create(null);
+	let symbolLoop = 0;
 	for (const sym of allSymbols) {
 		symbols[sym.id] = sym;
 		if (!symbolNameIndex[sym.name]) {symbolNameIndex[sym.name] = [];}
 		symbolNameIndex[sym.name].push(sym.id);
+		await yieldLoop(++symbolLoop);
 	}
 
 	// 依赖图：仅记录实际被索引的文件之间的关系
 	const depGraph: Record<string, string[]> = Object.create(null);
 	const revDepGraph: Record<string, string[]> = Object.create(null);
 	const indexedPaths = new Set(Object.keys(fileSummaries));
+	let importLoop = 0;
 	for (const imp of allImports) {
 		// 跳过自引用和无法解析的相对路径
 		if (!imp.importeePath || imp.importeePath === imp.importerPath) {continue;}
@@ -1436,27 +1739,39 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 		if (!revDepGraph[imp.importeePath].includes(imp.importerPath)) {
 			revDepGraph[imp.importeePath].push(imp.importerPath);
 		}
+		await yieldLoop(++importLoop);
 	}
 
 	// 热门符号（被引用次数）
 	// 先建立符号名→id 反向索引，避免 O(n^2) 遍历
 	const refCount: Record<string, number> = {};
-	for (const sym of allSymbols) {refCount[sym.id] = 0;}
+	let refLoop = 0;
+	for (const sym of allSymbols) {
+		refCount[sym.id] = 0;
+		await yieldLoop(++refLoop);
+	}
 
 	const nameToIds = new Map<string, string[]>();
 	for (const [name, ids] of Object.entries(symbolNameIndex)) {
 		nameToIds.set(name, ids);
 	}
 
+	let callLoop = 0;
 	for (const call of allCalls) {
 		const shortName = call.calleeId.split('#')[1];
 		const candidates = nameToIds.get(shortName);
-		if (candidates) {
+		if (candidates && candidates.length === 1) {
+			// 唯一候选才把 calleeId 解析成符号 id：此前在循环里无条件赋值，结果是
+			// "最后一个同名符号"（随机），同一份代码全量构建与增量构建的调用图不一致。
+			refCount[candidates[0]] = (refCount[candidates[0]] || 0) + 1;
+			call.calleeId = candidates[0];
+		} else if (candidates) {
+			// 同名多个候选：无法确定指向谁 → 不改写 calleeId，仅计入热度
 			for (const candidateId of candidates) {
 				refCount[candidateId] = (refCount[candidateId] || 0) + 1;
-				call.calleeId = candidateId;
 			}
 		}
+		await yieldLoop(++callLoop);
 	}
 	const hotSymbols = Object.entries(refCount)
 		.filter(([, c]) => c > 0)
@@ -1464,15 +1779,20 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 		.slice(0, 50)
 		.map(([id]) => id);
 
-	// 统计：按实际写入索引的文件数（与 incremental / 面板展示一致）
+	// 统计：与增量路径同一口径 —— 符号数按**去重后的 id 数**报
+	// （此前全量报 allSymbols.length、增量报 Object.keys(symbols).length，同一仓库两种构建数字不同）
+	const uniqueSymbolIds = new Set(allSymbols.map(s => s.id));
 	const stats: IndexStats = {
 		totalFiles: Object.keys(fileSummaries).length,
-		totalSymbols: allSymbols.length,
+		totalSymbols: uniqueSymbolIds.size,
 		totalImports: allImports.length,
 		totalCalls: allCalls.length,
 		languageDistribution: langDist,
 		indexDurationMs: Date.now() - startTime,
 	};
+
+	// 记录本次构建诊断（解析失败数），供 UI/日志展示
+	_lastBuildDiagnostics.parseFailures = parseFailures;
 
 	const index: ProjectIndex = {
 		version: INDEX_VERSION,
@@ -1494,8 +1814,19 @@ async function buildProjectIndex(force = false): Promise<ProjectIndex> {
 		throw new Error('Index build cancelled');
 	}
 
-	saveIndex(index);
+	await saveIndex(index, session);
 	logger.info(`[ProjectIndexer] Index complete: ${stats.totalFiles} files, ${stats.totalSymbols} symbols, ${stats.totalImports} imports, ${stats.indexDurationMs}ms`);
+
+	// 落盘失败/解析失败不能只写日志：UI 会报"索引完成"，重启后却发现索引不见了
+	const diagnostics = getLastBuildDiagnostics();
+	if (diagnostics.saveFailed || diagnostics.parseFailures > 0) {
+		logger.warn(`[ProjectIndexer] 构建诊断：落盘${diagnostics.saveFailed ? '失败' : '成功'}、解析失败 ${diagnostics.parseFailures} 个文件、非 UTF-8 ${diagnostics.nonUtf8Files} 个文件`);
+		if (diagnostics.saveFailed) {
+			vscode.window.showWarningMessage(
+				l10n.t('The index was built but could not be written to disk ({0}). It is usable in this session, but must be rebuilt after restart.', diagnostics.saveError ?? l10n.t('unknown reason')),
+			);
+		}
+	}
 
 	// 必须先写入 _index 再广播 done，否则设置页会收到「完成 + 0 文件」并卡住
 	_index = index;
@@ -1610,10 +1941,36 @@ export function startIndexWatcher(context: vscode.ExtensionContext): void {
 	_watcher.onDidDelete(scheduleRebuild);
 
 	context.subscriptions.push(_watcher);
+
+	// 忽略规则文件（.gitignore / .cursorignore）的变更必须：
+	//   1) 先清规则缓存 —— 否则重建仍会沿用旧规则（比"不重建"更隐蔽）
+	//   2) 触发**全量**重建 —— 一条规则可能一次性纳入/排除成百上千个文件，增量无意义
+	const ignoreWatcher = vscode.workspace.createFileSystemWatcher(
+		new vscode.RelativePattern(folder, '{.gitignore,.cursorignore}'),
+	);
+	const onIgnoreRulesChanged = (): void => {
+		invalidateCursorignoreCache();
+		if (_debounceTimer) {clearTimeout(_debounceTimer);}
+		_debounceTimer = setTimeout(() => {
+			logger.info('[ProjectIndexer] 忽略规则变更，触发全量重建');
+			void ensureProjectIndex(true, { manual: true }).catch(err =>
+				logger.warn(`[ProjectIndexer] 忽略规则变更后的重建失败：${err instanceof Error ? err.message : String(err)}`),
+			);
+		}, 500);
+	};
+	ignoreWatcher.onDidChange(onIgnoreRulesChanged);
+	ignoreWatcher.onDidCreate(onIgnoreRulesChanged);
+	ignoreWatcher.onDidDelete(onIgnoreRulesChanged);
+	context.subscriptions.push(ignoreWatcher);
 }
 
 export function disposeIndexWatcher(): void {
 	_watcher?.dispose();
 	_watcher = null;
 	if (_debounceTimer) {clearTimeout(_debounceTimer);}
+}
+
+/** 释放模块级索引状态事件（在 deactivate 时调用） */
+export function disposeIndexStateEmitter(): void {
+	_onIndexStateChange.dispose();
 }

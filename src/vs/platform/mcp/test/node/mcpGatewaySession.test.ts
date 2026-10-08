@@ -11,7 +11,7 @@ import { IJsonRpcErrorResponse, IJsonRpcSuccessResponse } from '../../../../base
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { MCP } from '../../common/modelContextProtocol.js';
-import { McpGatewaySession } from '../../node/mcpGatewaySession.js';
+import { McpGatewaySession, MCP_GATEWAY_SERVER_NAME } from '../../node/mcpGatewaySession.js';
 
 class TestServerResponse extends EventEmitter {
 	public statusCode: number | undefined;
@@ -239,7 +239,7 @@ suite('McpGatewaySession', () => {
 				resources: { listChanged: true },
 			},
 			serverInfo: {
-				name: 'VS Code MCP Gateway',
+				name: MCP_GATEWAY_SERVER_NAME,
 				version: '1.0.0',
 			},
 		});

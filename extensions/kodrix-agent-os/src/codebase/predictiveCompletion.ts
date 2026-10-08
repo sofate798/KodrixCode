@@ -12,10 +12,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { getProjectIndex } from './projectIndexer';
 import { logger } from '../logger';
-import { SymbolKind, SymbolVisibility } from './types';
-import type { CodeSymbol, ProjectIndex } from './types';
+import { SymbolKind, SymbolVisibility, type CodeSymbol, type ProjectIndex } from './types';
 
 const MAX_SYMBOL_SCAN_ENTRIES = 200;
 const MAX_OBJ_SYMBOLS = 5;
@@ -42,10 +42,10 @@ function getCachedIndex(): ProjectIndex | null {
 /** 检测到函数调用时，匹配项目中的函数签名 */
 function matchFunctionCall(prefix: string, index: ProjectIndex): string | null {
 	const callMatch = prefix.match(/(?:(\w+)\.(\w+)|(\w+))\s*\(\s*?$/);
-	if (!callMatch) return null;
+	if (!callMatch) {return null;}
 
 	const funcName = callMatch[2] || callMatch[3];
-	if (!funcName || funcName.length < 2) return null;
+	if (!funcName || funcName.length < 2) {return null;}
 
 	for (const [name, ids] of Object.entries(index.symbolNameIndex)) {
 		if (name.toLowerCase() === funcName.toLowerCase()) {
@@ -56,7 +56,7 @@ function matchFunctionCall(prefix: string, index: ProjectIndex): string | null {
 					if (sigMatch) {
 						const params = sigMatch[1].trim();
 						const afterParen = prefix.substring(prefix.lastIndexOf('(') + 1);
-						if (afterParen.trim()) return null;
+						if (afterParen.trim()) {return null;}
 						return params;
 					}
 				}
@@ -69,15 +69,15 @@ function matchFunctionCall(prefix: string, index: ProjectIndex): string | null {
 /** 检测到变量名引用时，匹配项目中的导出符号 */
 function matchSymbolReference(prefix: string, index: ProjectIndex): string | null {
 	const wordMatch = prefix.match(/([a-zA-Z_$][\w.]*)$/);
-	if (!wordMatch) return null;
+	if (!wordMatch) {return null;}
 
 	const partial = wordMatch[1];
-	if (partial.length < 3) return null;
+	if (partial.length < 3) {return null;}
 
 	const matches: Array<{ name: string; score: number }> = [];
 	let scanned = 0;
 	for (const [name, ids] of Object.entries(index.symbolNameIndex)) {
-		if (++scanned > MAX_SYMBOL_SCAN_ENTRIES) break;
+		if (++scanned > MAX_SYMBOL_SCAN_ENTRIES) {break;}
 		if (name.startsWith(partial) && name !== partial && name.length > partial.length) {
 			for (const id of ids) {
 				const sym = index.symbols[id];
@@ -89,7 +89,7 @@ function matchSymbolReference(prefix: string, index: ProjectIndex): string | nul
 		}
 	}
 
-	if (matches.length === 0) return null;
+	if (matches.length === 0) {return null;}
 	matches.sort((a, b) => b.score - a.score);
 	return matches[0].name.substring(partial.length);
 }
@@ -97,7 +97,7 @@ function matchSymbolReference(prefix: string, index: ProjectIndex): string | nul
 /** 检测到链式调用，匹配项目中的已知 API */
 function matchChainedCall(prefix: string, index: ProjectIndex): string | null {
 	const chainMatch = prefix.match(/\.(\w*)$/);
-	if (!chainMatch) return null;
+	if (!chainMatch) {return null;}
 
 	const partial = chainMatch[1];
 	const beforeDot = prefix.slice(0, prefix.lastIndexOf('.'));
@@ -124,10 +124,10 @@ function matchChainedCall(prefix: string, index: ProjectIndex): string | null {
 			const sym = index.symbols[id];
 			if (sym && sym.name === objName && (sym.kind === SymbolKind.Class || sym.kind === SymbolKind.Interface)) {
 				objSymbols.push(sym);
-				if (objSymbols.length >= MAX_OBJ_SYMBOLS) break;
+				if (objSymbols.length >= MAX_OBJ_SYMBOLS) {break;}
 			}
 		}
-		if (objSymbols.length >= MAX_OBJ_SYMBOLS) break;
+		if (objSymbols.length >= MAX_OBJ_SYMBOLS) {break;}
 	}
 
 	for (const objSym of objSymbols) {
@@ -194,11 +194,11 @@ class ProjectAwareCompletionProvider implements vscode.InlineCompletionItemProvi
 	): Promise<vscode.InlineCompletionItem[]> {
 		// 节流：避免每次击键都触发完整搜索
 		const now = Date.now();
-		if (now - this._lastCallTime < this._minCallInterval) return [];
+		if (now - this._lastCallTime < this._minCallInterval) {return [];}
 		this._lastCallTime = now;
 
 		const items: vscode.InlineCompletionItem[] = [];
-		if (token.isCancellationRequested) return items;
+		if (token.isCancellationRequested) {return items;}
 
 		// 获取编辑器上下文
 		let prefix: string, suffix: string;
@@ -213,34 +213,34 @@ class ProjectAwareCompletionProvider implements vscode.InlineCompletionItemProvi
 
 		// 获取索引（带 TTL 缓存，避免大文件下每次击键都读索引）
 		const index = getCachedIndex();
-		if (!index || index.stats.totalSymbols === 0) return items;
+		if (!index || index.stats.totalSymbols === 0) {return items;}
 
 		const suggestions: Array<{ text: string; reason: string; confidence: number }> = [];
 
 		try {
 			const funcCall = matchFunctionCall(prefix, index);
 			if (funcCall) {
-				suggestions.push({ text: funcCall, reason: '项目函数签名匹配', confidence: 0.9 });
+				suggestions.push({ text: funcCall, reason: l10n.t('Project function signature match'), confidence: 0.9 });
 			}
 		} catch { /* 单次匹配失败不影响其他补全 */ }
 
 		try {
 			const symbolRef = matchSymbolReference(prefix, index);
 			if (symbolRef) {
-				suggestions.push({ text: symbolRef, reason: '项目导出符号匹配', confidence: 0.85 });
+				suggestions.push({ text: symbolRef, reason: l10n.t('Project exported symbol match'), confidence: 0.85 });
 			}
 		} catch { /* 同上 */ }
 
 		try {
 			const chained = matchChainedCall(prefix, index);
 			if (chained) {
-				suggestions.push({ text: chained, reason: 'API 链式调用模式', confidence: 0.75 });
+				suggestions.push({ text: chained, reason: l10n.t('API chained-call pattern'), confidence: 0.75 });
 			}
 		} catch { /* 同上 */ }
 
 		const block = matchBlockCompletion(prefix, suffix);
 		if (block) {
-			suggestions.push({ text: block, reason: '代码块闭合', confidence: 0.65 });
+			suggestions.push({ text: block, reason: l10n.t('Code block closing'), confidence: 0.65 });
 		}
 
 		for (const s of suggestions) {
@@ -259,7 +259,7 @@ export function findAffectedCallSites(
 	symbolName: string,
 ): Array<{ filePath: string; line: number }> {
 	const index = getProjectIndex();
-	if (!index) return [];
+	if (!index) {return [];}
 
 	const symId = `${filePath}#${symbolName}`;
 	const calls = index.calls.filter(c => c.calleeId === symId);
@@ -275,7 +275,7 @@ export function getAffectedFilesForSymbol(
 	symbolName: string,
 ): string[] {
 	const index = getProjectIndex();
-	if (!index) return [];
+	if (!index) {return [];}
 
 	const symId = `${filePath}#${symbolName}`;
 	const importers = index.reverseDependencyGraph[filePath] || [];

@@ -12,8 +12,7 @@
 
 import * as path from 'path';
 import { l10n } from 'vscode';
-import type { ProjectIndex } from '../codebase/types';
-import { SymbolKind } from '../codebase/types';
+import { SymbolKind, type ProjectIndex } from '../codebase/types';
 import { logger } from '../logger';
 
 /** 单个 Code Smell 记录 */
@@ -65,7 +64,7 @@ export async function detectCodeSmells(
 				file: relPath,
 				type: 'large_file',
 				severity: 'warning',
-				message: l10n.t('文件过大：约 {0} 行（{1} 字节）', estimatedLines, summary.sizeBytes),
+				message: l10n.t('File too large: about {0} lines ({1} bytes)', estimatedLines, summary.sizeBytes),
 			});
 		}
 	}
@@ -79,16 +78,17 @@ export async function detectCodeSmells(
 				file: relPath,
 				type: 'high_coupling',
 				severity: 'warning',
-				message: l10n.t('高耦合：依赖 {0} 个文件', deps.length),
+				message: l10n.t('Highly coupled: depends on {0} files', deps.length),
 			});
 		}
 	}
 
 	// 3. 循环依赖检测（DFS）
-	const visited = new Set<string>();
+	// visited 必须**每个起点重置**：此前是全局共享的 Set，第一个根遍历过的节点在后续根的
+	// DFS 里会立刻返回空，导致"除首批可达节点外"的环全部漏报。
 	const inStack = new Set<string>();
 
-	function dfs(node: string, pathSoFar: string[]): string[][] {
+	function dfs(node: string, pathSoFar: string[], visited: Set<string>): string[][] {
 		if (inStack.has(node)) {
 			const cycleStart = pathSoFar.indexOf(node);
 			return [pathSoFar.slice(cycleStart).concat(node)];
@@ -100,27 +100,44 @@ export async function detectCodeSmells(
 		inStack.add(node);
 		const cycles: string[][] = [];
 		for (const dep of (depGraph[node] || [])) {
-			cycles.push(...dfs(dep, [...pathSoFar, node]));
+			cycles.push(...dfs(dep, [...pathSoFar, node], visited));
 		}
 		inStack.delete(node);
 		return cycles;
 	}
 
+	/**
+	 * 环的规范化：按**旋转**归一（固定从字典序最小的节点开始），保留遍历顺序。
+	 * 此前用 `sort().join('|')`，会把共享同一批节点但顺序不同的环合并成一个（漏报）。
+	 */
+	const canonicalCycle = (cycle: string[]): string => {
+		const nodes = cycle.slice(0, -1); // 去掉收尾处重复的起点
+		if (!nodes.length) {return '';}
+		let minIdx = 0;
+		for (let i = 1; i < nodes.length; i++) {
+			if (nodes[i] < nodes[minIdx]) {minIdx = i;}
+		}
+		return [...nodes.slice(minIdx), ...nodes.slice(0, minIdx)].join('|');
+	};
+
 	const reportedCycles = new Set<string>();
+	const MAX_REPORTED_CYCLES = 50;
 	for (const file of Object.keys(depGraph)) {
-		const cycles = dfs(file, []);
+		if (reportedCycles.size >= MAX_REPORTED_CYCLES) {break;}
+		// 每个起点一份 visited（局部传播），inStack 仍然全局但成对增删，不会跨起点残留
+		const cycles = dfs(file, [], new Set<string>());
 		for (const cycle of cycles) {
-			const key = cycle.slice().sort().join('|');
-			if (!reportedCycles.has(key)) {
-				reportedCycles.add(key);
-				const relCycle = cycle.map(f => path.relative(workspaceRoot, f).replace(/\\/g, '/'));
-				smells.push({
-					file: relCycle[0],
-					type: 'circular_dep',
-					severity: 'warning',
-					message: l10n.t('循环依赖：{0}', relCycle.join(' → ')),
-				});
-			}
+			const key = canonicalCycle(cycle);
+			if (!key || reportedCycles.has(key)) {continue;}
+			reportedCycles.add(key);
+			const relCycle = cycle.map(f => path.relative(workspaceRoot, f).replace(/\\/g, '/'));
+			smells.push({
+				file: relCycle[0],
+				type: 'circular_dep',
+				severity: 'warning',
+				message: l10n.t('Circular dependencies: {0}', relCycle.join(' → ')),
+			});
+			if (reportedCycles.size >= MAX_REPORTED_CYCLES) {break;}
 		}
 	}
 
@@ -135,7 +152,7 @@ export async function detectCodeSmells(
 					file: relPath,
 					type: 'unused_export',
 					severity: 'info',
-					message: l10n.t('{0} 个导出符号未被其他文件引用', summary.exportCount),
+					message: l10n.t('{0} exported symbols are not referenced by other files', summary.exportCount),
 				});
 			}
 		}
@@ -151,7 +168,7 @@ export async function detectCodeSmells(
 					type: 'long_function',
 					file: relPath,
 					line: sym.line,
-					message: l10n.t('函数 {0} 过长（{1} 行，阈值 {2} 行）', sym.name, length, LONG_FUNCTION_THRESHOLD),
+					message: l10n.t('Function {0} is too long ({1} lines, threshold {2})', sym.name, length, LONG_FUNCTION_THRESHOLD),
 					severity: 'warning',
 				});
 			}
@@ -164,11 +181,11 @@ export async function detectCodeSmells(
 /** Code Smell 类型的中文标签 */
 function smellTypeLabel(type: CodeSmell['type']): string {
 	switch (type) {
-		case 'large_file': return l10n.t('过大文件');
-		case 'high_coupling': return l10n.t('高耦合');
-		case 'circular_dep': return l10n.t('循环依赖');
-		case 'unused_export': return l10n.t('未使用导出');
-		case 'long_function': return l10n.t('过长函数');
+		case 'large_file': return l10n.t('Oversized files');
+		case 'high_coupling': return l10n.t('High coupling');
+		case 'circular_dep': return l10n.t('Circular dependencies');
+		case 'unused_export': return l10n.t('Unused exports');
+		case 'long_function': return l10n.t('Overly long functions');
 	}
 }
 

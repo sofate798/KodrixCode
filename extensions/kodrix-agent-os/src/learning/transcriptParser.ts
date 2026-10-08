@@ -34,7 +34,7 @@ function extractTextFromContent(content: unknown): string {
 			.filter(Boolean)
 			.join('\n');
 	}
-	if (content && typeof content === 'object' && 'content' in content) {
+	if (content && typeof content === 'object' && Object.hasOwn(content, 'content')) {
 		return extractTextFromContent((content as { content: unknown }).content);
 	}
 	return '';

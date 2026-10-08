@@ -11,6 +11,7 @@
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import {
 	listCheckpoints,
@@ -38,6 +39,11 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 		this._onDidChangeTreeData.fire(undefined);
 	}
 
+	/** 释放 TreeDataProvider 的变更事件（注册处将其 push 进 context.subscriptions） */
+	dispose(): void {
+		this._onDidChangeTreeData.dispose();
+	}
+
 	getTreeItem(element: CheckpointTreeItem): vscode.TreeItem {
 		return element;
 	}
@@ -55,12 +61,12 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 		const checkpoints = await listCheckpoints();
 		return checkpoints.map(cp => ({
 			label: cp.label || cp.id,
-			description: `${cp.fileCount} ${l10n.t('个文件')} · ${formatTime(cp.createdAt)}`,
+			description: `${cp.fileCount} ${l10n.t('files')} · ${formatTime(cp.createdAt)}`,
 			tooltip: new vscode.MarkdownString(
 				`**${escapeMarkdown(cp.label)}**\n\n` +
-				`${l10n.t('ID')}：\`${cp.id}\`\n\n` +
-				`${l10n.t('创建时间')}：${cp.createdAt}\n\n` +
-				`${l10n.t('文件数')}：${cp.fileCount}`
+				`${l10n.t('ID')}: \`${cp.id}\`\n\n` +
+				`${l10n.t('Created At')}: ${cp.createdAt}\n\n` +
+				`${l10n.t('File count')}: ${cp.fileCount}`
 			),
 			iconPath: new vscode.ThemeIcon('history'),
 			collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
@@ -84,7 +90,7 @@ class CheckpointTimelineProvider implements vscode.TreeDataProvider<CheckpointTr
 				relPath: f.relPath,
 				command: {
 					command: 'kodrix.checkpoint.diffFile',
-					title: l10n.t('对比文件差异'),
+					title: l10n.t('Compare File Differences'),
 					arguments: [checkpointId, f.relPath],
 				},
 			};
@@ -133,7 +139,7 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 		treeDataProvider: provider,
 		showCollapseAll: true,
 	});
-	context.subscriptions.push(treeView);
+	context.subscriptions.push(treeView, provider);
 
 	// 刷新时间线
 	context.subscriptions.push(
@@ -145,27 +151,37 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 		vscode.commands.registerCommand('kodrix.checkpoint.diffFile', async (checkpointId: string, relPath: string) => {
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (!folder) {
-				vscode.window.showWarningMessage(l10n.t('请先打开工作区'));
+				vscode.window.showWarningMessage(l10n.t('Please open a workspace first'));
 				return;
 			}
 			const manifest = await readCheckpointManifest(checkpointId);
 			if (!manifest) {
-				vscode.window.showErrorMessage(l10n.t('检查点不存在'));
+				vscode.window.showErrorMessage(l10n.t('Checkpoint not found'));
 				return;
 			}
 			const file = manifest.files.find(f => f.relPath === relPath);
 			if (!file) {
-				vscode.window.showErrorMessage(l10n.t('文件中不存在于该检查点'));
+				vscode.window.showErrorMessage(l10n.t('File does not exist in this checkpoint'));
 				return;
 			}
 			const abs = path.join(folder.uri.fsPath, relPath);
-			// 创建临时文件存放检查点内容
-			const tempDir = path.join(folder.uri.fsPath, '.kodrix', 'checkpoint-temp');
+			// 临时文件写到**系统临时目录**：此前写在工作区 .kodrix/checkpoint-temp/ 且用后不删，
+			// 工作区会越堆越脏（还容易被误当成项目文件）。系统临时目录由 OS 回收，不污染工作区。
+			const tempDir = path.join(os.tmpdir(), 'kodrix-checkpoint-diff');
 			await fs.promises.mkdir(tempDir, { recursive: true });
 			const tempPath = path.join(tempDir, `${checkpointId}-${relPath.replace(/[\\/]/g, '_')}`);
 			await fs.promises.writeFile(tempPath, file.content, 'utf-8');
 
-			const title = `${relPath} — ${l10n.t('检查点')} vs ${l10n.t('当前')}`;
+			// 两边内容一致时不开 diff：否则用户会看到一个没有差异的对比页，不知道是不是坏了
+			let currentContent = '';
+			try { currentContent = await fs.promises.readFile(abs, 'utf-8'); } catch { /* 文件可能已删除 */ }
+			if (currentContent === file.content) {
+				void vscode.window.showInformationMessage(l10n.t('This file matches the checkpoint content; no need to compare: {0}', relPath));
+				void fs.promises.unlink(tempPath).catch(() => undefined);
+				return;
+			}
+
+			const title = `${relPath} — ${l10n.t('Checkpoint')} vs ${l10n.t('Current')}`;
 			await vscode.commands.executeCommand(
 				'vscode.diff',
 				vscode.Uri.file(tempPath),
@@ -183,22 +199,24 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 			}
 			const manifest = await readCheckpointManifest(item.checkpointId);
 			const label = manifest?.label ?? item.checkpointId;
+			const rollbackLabel = l10n.t('Roll Back');
 			const ok = await vscode.window.showWarningMessage(
-				l10n.t('确定回滚到「{0}」？将覆盖 {1}', label, `${manifest?.files.length ?? 0} ${l10n.t('个文件')}`),
+				l10n.t('Roll back to "{0}"? This will overwrite {1}', label, `${manifest?.files.length ?? 0} ${l10n.t('files')}`),
 				{ modal: true },
-				l10n.t('回滚'),
+				rollbackLabel,
+				l10n.t('Cancel'),
 			);
-			if (ok !== l10n.t('回滚')) {
+			if (ok !== rollbackLabel) {
 				return;
 			}
 			try {
 				const r = await restoreCheckpoint(item.checkpointId);
 				vscode.window.showInformationMessage(
-					l10n.t('回滚完成：恢复 {0} 个文件{1}', r.restored, r.skipped ? l10n.t('，跳过 {0}', r.skipped) : ''),
+					l10n.t('Rollback complete: restored {0} files{1}', r.restored, r.skipped ? l10n.t(', skipped {0}', r.skipped) : ''),
 				);
 				provider.refresh();
 			} catch (err) {
-				vscode.window.showErrorMessage(l10n.t('回滚失败：{0}', err instanceof Error ? err.message : String(err)));
+				vscode.window.showErrorMessage(l10n.t('Rollback failed: {0}', err instanceof Error ? err.message : String(err)));
 			}
 		}),
 	);
@@ -212,18 +230,18 @@ export function registerCheckpointTimeline(context: vscode.ExtensionContext): vo
 			const manifest = await readCheckpointManifest(item.checkpointId);
 			const label = manifest?.label ?? item.checkpointId;
 			const ok = await vscode.window.showWarningMessage(
-				l10n.t('确定删除检查点「{0}」？此操作不可恢复', label),
+				l10n.t('Delete checkpoint "{0}"? This action cannot be undone', label),
 				{ modal: true },
-				l10n.t('删除'),
+				l10n.t('Delete'),
 			);
-			if (ok !== l10n.t('删除')) {
+			if (ok !== l10n.t('Delete')) {
 				return;
 			}
 			if (await deleteCheckpoint(item.checkpointId)) {
-				vscode.window.showInformationMessage(l10n.t('已删除检查点「{0}」', label));
+				vscode.window.showInformationMessage(l10n.t('Deleted checkpoint "{0}"', label));
 				provider.refresh();
 			} else {
-				vscode.window.showErrorMessage(l10n.t('删除检查点失败'));
+				vscode.window.showErrorMessage(l10n.t('Failed to delete checkpoint'));
 			}
 		}),
 	);

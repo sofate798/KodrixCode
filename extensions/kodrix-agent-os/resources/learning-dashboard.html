@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{htmlLang}}">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}};">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}'; font-src {{cspSource}};">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<style>
 		.codicon { vertical-align: -0.15em; }
@@ -334,66 +334,71 @@
 </head>
 <body>
 	<div class="header">
-		<h1><i class="codicon codicon-beaker" aria-hidden="true"></i> Learning Dashboard — 越用越聪明 <span id="embeddingBadge" class="embedding-badge embedding-tfidf">TF-IDF</span></h1>
-		<p>跨会话知识沉淀 · 自动蒸馏 · 语义记忆检索 · 学习趋势</p>
+		<h1><i class="codicon codicon-beaker" aria-hidden="true"></i> Learning Dashboard — {{l10n:Gets smarter with use}} <span id="embeddingBadge" class="embedding-badge embedding-tfidf">TF-IDF</span></h1>
+		<p>{{l10n:Cross-session knowledge · Automatic distillation · Semantic memory retrieval · Learning trends}}</p>
 	</div>
 
 	<!-- Stats -->
 	<div class="stats-row" id="statsRow">
-		<div class="stat-card"><div class="sv" id="statTotal">—</div><div class="sl">总学习条目</div></div>
-		<div class="stat-card"><div class="sv" id="statSessions">—</div><div class="sl">学习会话数</div></div>
-		<div class="stat-card"><div class="sv" id="statSemantic">—</div><div class="sl">语义向量</div></div>
-		<div class="stat-card"><div class="sv" id="statThisWeek">—</div><div class="sl">本周新增</div></div>
-		<div class="stat-card"><div class="sv" id="statMemory">—</div><div class="sl">Memory 条目</div></div>
+		<div class="stat-card"><div class="sv" id="statTotal">—</div><div class="sl">{{l10n:Total learning entries}}</div></div>
+		<div class="stat-card"><div class="sv" id="statSessions">—</div><div class="sl">{{l10n:Learning session count}}</div></div>
+		<div class="stat-card"><div class="sv" id="statSemantic">—</div><div class="sl">{{l10n:Semantic vectors}}</div></div>
+		<div class="stat-card"><div class="sv" id="statThisWeek">—</div><div class="sl">{{l10n:New this week}}</div></div>
+		<div class="stat-card"><div class="sv" id="statMemory">—</div><div class="sl">{{l10n:Memory Entries}}</div></div>
 	</div>
+
+	<!-- 损坏行提示：learning.jsonl 中有无法解析的行时显示（这些行不会被编辑/删除操作丢弃，但也不会出现在列表里） -->
+	<div id="corruptNotice" class="empty-note" style="display:none;margin:8px 0;"></div>
 
 	<!-- Toolbar -->
 	<div class="toolbar">
-		<input type="text" id="searchInput" placeholder="搜索学习内容…" />
+		<input type="text" id="searchInput" placeholder="{{l10n:Search learning content…}}" />
 		<select id="filterCat">
-			<option value="all">全部类别</option>
-			<option value="architecture">架构</option>
-			<option value="convention">约定</option>
-			<option value="pattern">模式</option>
-			<option value="pitfall">陷阱</option>
-			<option value="preference">偏好</option>
-			<option value="other">其他</option>
+			<option value="all">{{l10n:All categories}}</option>
+			<option value="architecture">{{l10n:Architecture}}</option>
+			<option value="convention">{{l10n:Conventions}}</option>
+			<option value="pattern">{{l10n:Mode}}</option>
+			<option value="pitfall">{{l10n:Pitfalls}}</option>
+			<option value="preference">{{l10n:Preferences}}</option>
+			<option value="other">{{l10n:Other}}</option>
 		</select>
 		<select id="filterSource">
-			<option value="all">全部来源</option>
-			<option value="manual">手动</option>
-			<option value="session">会话蒸馏</option>
+			<option value="all">{{l10n:All sources}}</option>
+			<option value="manual">{{l10n:Manual}}</option>
+			<option value="session">{{l10n:Session Distillation}}</option>
 			<option value="wiki">Wiki</option>
 			<option value="spec">Spec</option>
-			<option value="capture">捕获</option>
+			<option value="capture">{{l10n:Capture}}</option>
 		</select>
 		<select id="filterTime">
-			<option value="all">全部时间</option>
-			<option value="7">最近 7 天</option>
-			<option value="30">最近 30 天</option>
+			<option value="all">{{l10n:All time}}</option>
+			<option value="7">{{l10n:Last 7 days}}</option>
+			<option value="30">{{l10n:Last 30 days}}</option>
 		</select>
-		<button class="btn-sm" id="btnCapture"><i class="codicon codicon-add" aria-hidden="true"></i> 沉淀知识</button>
-		<button class="btn-sm" id="btnRefresh"><i class="codicon codicon-refresh" aria-hidden="true"></i> 刷新</button>
+		<button class="btn-sm" id="btnCapture"><i class="codicon codicon-add" aria-hidden="true"></i> {{l10n:Distill Knowledge}}</button>
+		<button class="btn-sm" id="btnRefresh"><i class="codicon codicon-refresh" aria-hidden="true"></i> {{l10n:Refresh}}</button>
 	</div>
 
 	<!-- Chart -->
 	<div class="chart-area">
-		<h3><i class="codicon codicon-graph" aria-hidden="true"></i> 类别分布</h3>
+		<h3><i class="codicon codicon-graph" aria-hidden="true"></i> {{l10n:Category distribution}}</h3>
 		<div class="bar-chart" id="barChart"></div>
 	</div>
 
 	<!-- Timeline -->
 	<div class="timeline-area">
 		<h3>
-			<span><i class="codicon codicon-history" aria-hidden="true"></i> 学习时间线</span>
-			<span class="count-badge" id="filteredCount">0 条</span>
+			<span><i class="codicon codicon-history" aria-hidden="true"></i> {{l10n:Learning timeline}}</span>
+			<span class="count-badge" id="filteredCount">{{l10n:0 entries}}</span>
 		</h3>
 		<div id="timeline"></div>
 	</div>
 
-<script>
+<script nonce="{{nonce}}">
 	const vscode = acquireVsCodeApi();
 	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
+	/** 本地化后的动态文案：`{{l10n:…}}` 里的 {0}/{1} 保留到运行时再替换 */
+	const fmt = (template, ...args) => String(template).replace(/\{(\d+)\}/g, (m, i) => (args[i] === undefined ? m : String(args[i])));
 	let allEntries = [];
 	let currentFilter = { cat: 'all', source: 'all', search: '', timeDays: 'all' };
 	let editingId = null;
@@ -405,17 +410,18 @@
 		pitfall: '#f14c4c', preference: '#cca700', other: '#888888'
 	};
 	const catNames = {
-		architecture: '架构', convention: '约定', pattern: '模式',
-		pitfall: '陷阱', preference: '偏好', other: '其他'
+		architecture: '{{l10n:Architecture}}', convention: '{{l10n:Conventions}}', pattern: '{{l10n:Mode}}',
+		pitfall: '{{l10n:Pitfalls}}', preference: '{{l10n:Preferences}}', other: '{{l10n:Other}}'
 	};
 	const sourceIcons = {
 		manual: 'edit', session: 'hubot', wiki: 'book', spec: 'symbol-ruler', capture: 'pin', auto: 'flame'
 	};
 
 	function escapeHtml(str) {
+		// DOM 序列化只转义 & < >；属性上下文里的引号仍需手工处理（否则 " 可逃出属性）
 		const div = document.createElement('div');
-		div.textContent = str;
-		return div.innerHTML;
+		div.textContent = str == null ? '' : str;
+		return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 
 	function highlightText(text, query) {
@@ -432,6 +438,15 @@
 		document.getElementById('statSemantic').textContent = data.semanticVectors || 0;
 		document.getElementById('statThisWeek').textContent = data.thisWeek || 0;
 		document.getElementById('statMemory').textContent = data.memoryCount || 0;
+
+		// 损坏行提示：条数比文件实际内容少时给出解释（避免"记录莫名变少"的困惑）
+		var notice = document.getElementById('corruptNotice');
+		if (data.corruptLines > 0) {
+			notice.textContent = fmt('{{l10n:⚠ {0} lines in learning.jsonl could not be parsed (kept in the file; they will not be discarded by edit/delete operations). You can fix the file manually and then click refresh.}}', data.corruptLines);
+			notice.style.display = '';
+		} else {
+			notice.style.display = 'none';
+		}
 
 		// Embedding badge
 		const badge = document.getElementById('embeddingBadge');
@@ -471,10 +486,10 @@
 	function renderTimeline(entries) {
 		const el = document.getElementById('timeline');
 		el.innerHTML = '';
-		document.getElementById('filteredCount').textContent = entries.length + ' 条';
+		document.getElementById('filteredCount').textContent = fmt('{{l10n:{0} entries}}', entries.length);
 
 		if (!entries.length) {
-			el.innerHTML = '<div class="tl-empty">没有匹配的学习记录</div>';
+			el.innerHTML = '<div class="tl-empty">{{l10n:No matching learning records}}</div>';
 			return;
 		}
 
@@ -496,8 +511,8 @@
 					<span class="tl-edit-area">
 						<textarea id="editArea-${e.id}">${escapeHtml(e.content || '')}</textarea>
 						<span class="tl-edit-btns">
-							<button class="tl-edit-save" data-id="${e.id}">${ki('check')} 保存</button>
-							<button class="tl-edit-cancel" data-id="${e.id}">${ki('close')} 取消</button>
+							<button class="tl-edit-save" data-id="${e.id}">${ki('check')} {{l10n:Save}}</button>
+							<button class="tl-edit-cancel" data-id="${e.id}">${ki('close')} {{l10n:Cancel}}</button>
 						</span>
 					</span>
 					<span class="tl-meta">${date}</span>
@@ -512,8 +527,8 @@
 						<span class="tl-source">${srcIcon} ${e.source || ''}</span>
 					</span>
 					<span class="tl-actions">
-						<button class="tl-action-btn edit-btn" data-id="${e.id}" title="编辑">${ki('edit')}</button>
-						<button class="tl-action-btn danger delete-btn" data-id="${e.id}" title="删除">${ki('trash')}</button>
+						<button class="tl-action-btn edit-btn" data-id="${e.id}" title="{{l10n:Edit}}">${ki('edit')}</button>
+						<button class="tl-action-btn danger delete-btn" data-id="${e.id}" title="{{l10n:Delete}}">${ki('trash')}</button>
 					</span>`;
 			}
 			el.appendChild(item);
@@ -536,7 +551,7 @@
 				const id = btn.dataset.id;
 				const entry = allEntries.find(e => e.id === id);
 				const preview = entry ? (entry.content || '').slice(0, 60) : id;
-				if (confirm('确定删除此条目？\n\n' + preview + (preview.length >= 60 ? '…' : ''))) {
+				if (confirm('{{l10n:Delete this entry?}}' + '\n\n' + preview + (preview.length >= 60 ? '…' : ''))) {
 					post('delete', { id });
 				}
 			});

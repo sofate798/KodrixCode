@@ -10,6 +10,6 @@
 	"command.openMarketplace.title": "打开 Skill 市场",
 	"viewContainer.skillMarket.title": "Skill 市场",
 	"view.skillMarket.name": "Skill 市场",
-	"config.installDir.description": "Skill 安装目录（每个 Skill 为子文件夹，内含 SKILL.md）",
-	"config.registryUrls.description": "额外远程 Skill 目录 URL"
+	"config.installDir.description": "Skill 安装目录（每个 Skill 为子文件夹，内含 SKILL.md）；需为绝对路径，且不能是文件系统根目录或用户主目录",
+	"capabilities.untrustedWorkspaces.description": "安装/卸载 Skill 会写入本机 Skill 目录并向 AI 提供指令，因此在不受信任的工作区中禁用。"
 }

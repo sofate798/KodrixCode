@@ -9,9 +9,14 @@
  *   3. 消除拼写错误导致的运行时异常
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEP_LOCKFILE_RE = exports.FILE_WATCH_SKIP_DIRS = exports.INSTRUCTIONS_FILE_EXT = exports.MAX_RECENT_ERRORS = exports.MAX_LEARNING_LOG_BYTES = exports.MAX_LEARNING_IN_INSTRUCTIONS = exports.MAX_BOOTSTRAPPED_WORKSPACES = exports.CREW_RESULT_MAX_CHARS = exports.CREW_CONTEXT_MAX_CHARS = exports.CREW_TASK_TIMEOUT_MS = exports.CREW_DEFAULT_MAX_PARALLEL = exports.CREW_CONFIG_KEYS = exports.CREW_CONFIG = exports.TERMINAL_AI_RUN_TIMEOUT_MS = exports.TERMINAL_AI_GEN_TIMEOUT_MS = exports.AGENT_ERROR_IDLE_DELAY_MS = exports.AGENT_DONE_IDLE_DELAY_MS = exports.IDEA_FLOW_PREVIEW_OPEN_DELAY_MS = exports.IDEA_FLOW_FEATURES_MAX = exports.IDEA_FLOW_MODEL_FAMILIES = exports.IDEA_FLOW_CANVAS_LAUNCH_DELAY_MS = exports.IDEA_FLOW_MAX_LOGS = exports.IDEA_FLOW_MAX_BUILD_MS = exports.IDEA_FLOW_POLL_INTERVAL_MS = exports.IDEA_FLOW_LLM_TIMEOUT_MS = exports.INITIAL_INDEX_DELAY_MS = exports.INSTRUCTION_REGISTER_DELAY_MS = exports.BOOTSTRAP_TIP_DELAY_MS = exports.WIKI_AUTO_BUILD_DELAY_MS = exports.BOOTSTRAP_DELAY_MS = exports.INDEX_CACHE_TTL_MS = exports.WIKI_CACHE_TTL_MS = exports.COMPACT_CONTEXT_MAX_CHARS = exports.ASSEMBLED_CONTEXT_PREVIEW_CHARS = exports.ASSEMBLED_CONTEXT_MAX_CHARS = exports.VIEW_IDS = exports.COMMANDS = exports.ARENA_CONFIG = exports.EXPERIENCE_CONFIG = exports.FEATURE_FLAGS = exports.CONFIG_CHAT = exports.CONFIG_ARENA = exports.CONFIG_FEATURES = exports.CONFIG_SECTION = exports.ENV_DEBUG = exports.DEV_SERVE_CHECK_RE = exports.GENERIC_DEV_PORT = exports.DEFAULT_PREVIEW_PORT = exports.USER_KODRIX_DIR = exports.WORKSPACE_KODRIX_DIR = void 0;
-exports.IDEA_FLOW_CONFIG_KEYS = exports.IDEA_FLOW_CONFIG = exports.MODEL_ROUTER_USAGE_LOG_MAX = exports.MODEL_ROUTER_TIERS = exports.MODEL_ROUTER_CONFIG_KEYS = exports.MODEL_ROUTER_CONFIG = exports.BACKGROUND_TASK_RESULT_MAX_CHARS = exports.BACKGROUND_TASK_TIMEOUT_MS = exports.BACKGROUND_TASKS_DIR = exports.TAB_COMPLETION_MAX_RESULT_CHARS = exports.TAB_COMPLETION_CONTEXT_LINES = exports.TAB_COMPLETION_TIMEOUT_MS = exports.FIM_TEMPERATURE = exports.FIM_MAX_TOKENS = exports.FIM_SEPARATOR = exports.FIM_DEFAULT_MODEL = exports.FIM_DEFAULT_ENDPOINT = exports.FIM_PROVIDER_CUSTOM = exports.FIM_PROVIDER_DEEPSEEK = exports.TAB_COMPLETION_MODE_FAST = exports.TAB_COMPLETION_MODE_FIM = exports.TAB_COMPLETION_CONFIG_KEYS = exports.TAB_COMPLETION_CONFIG = exports.USER_PROFILE_DEFAULT = exports.USER_PROFILE_FILE = exports.TOOL_RESULT_MAX_CHARS = exports.SUBAGENTS_DIR = exports.AGENT_RUNS_DIR = exports.AGENT_LOOP_DEFAULT_CHECKPOINT = exports.AGENT_LOOP_DEFAULT_TIMEOUT_MS = exports.AGENT_LOOP_DEFAULT_MAX_ITERATIONS = exports.AGENT_LOOP_CONFIG_KEYS = exports.AGENT_LOOP_CONFIG = exports.APPLY_BACKUP_DIR = exports.APPLY_DIR = exports.CHECKPOINT_MAX_FILE_BYTES = exports.CHECKPOINT_MAX_FILES_PER_SNAPSHOT = exports.CHECKPOINT_DEFAULT_MAX_ENTRIES = exports.CHECKPOINT_CONFIG_KEYS = exports.CHECKPOINT_CONFIG = exports.WELCOME_DELAY_MS = exports.CURSOR_SKILLS_DIR = exports.SKILLS_DIR = exports.AGENT_SKILLS_LOCATIONS_KEY = exports.PROJECT_ENTRY_RE = void 0;
+exports.FILE_WATCH_SKIP_DIRS = exports.INSTRUCTIONS_FILE_EXT = exports.MAX_RECENT_ERRORS = exports.MAX_LEARNING_LOG_BYTES = exports.MAX_LEARNING_IN_INSTRUCTIONS = exports.MAX_BOOTSTRAPPED_WORKSPACES = exports.CREW_RESULT_MAX_CHARS = exports.CREW_CONTEXT_MAX_CHARS = exports.CREW_TASK_TIMEOUT_MS = exports.CREW_MAX_PARALLEL_LIMIT = exports.CREW_DEFAULT_MAX_PARALLEL = exports.CREW_CONFIG_KEYS = exports.CREW_CONFIG = exports.TERMINAL_AI_RUN_TIMEOUT_MS = exports.TERMINAL_AI_GEN_TIMEOUT_MS = exports.AGENT_ERROR_IDLE_DELAY_MS = exports.AGENT_DONE_IDLE_DELAY_MS = exports.IDEA_FLOW_PREVIEW_OPEN_DELAY_MS = exports.IDEA_FLOW_FEATURES_MAX = exports.IDEA_FLOW_MODEL_FAMILIES = exports.IDEA_FLOW_CANVAS_LAUNCH_DELAY_MS = exports.IDEA_FLOW_MAX_LOGS = exports.IDEA_FLOW_MAX_BUILD_MS = exports.IDEA_FLOW_POLL_INTERVAL_MS = exports.IDEA_FLOW_LLM_TIMEOUT_MS = exports.INITIAL_INDEX_DELAY_MS = exports.INSTRUCTION_REGISTER_DELAY_MS = exports.BOOTSTRAP_TIP_DELAY_MS = exports.WIKI_AUTO_BUILD_DELAY_MS = exports.BOOTSTRAP_DELAY_MS = exports.INDEX_CACHE_TTL_MS = exports.WIKI_CACHE_TTL_MS = exports.COMPACT_CONTEXT_MAX_CHARS = exports.ASSEMBLED_CONTEXT_PREVIEW_CHARS = exports.ASSEMBLED_CONTEXT_MAX_CHARS = exports.VIEW_IDS = exports.COMMANDS = exports.ARENA_CONFIG = exports.EXPERIENCE_CONFIG = exports.FEATURE_FLAGS = exports.CONFIG_CHAT = exports.CONFIG_ARENA = exports.CONFIG_FEATURES = exports.CONFIG_SECTION = exports.ENV_DEBUG = exports.DEV_SERVE_CHECK_RE = exports.GENERIC_DEV_PORT = exports.DEFAULT_PREVIEW_PORT = exports.USER_KODRIX_DIR = exports.WORKSPACE_KODRIX_DIR = void 0;
+exports.MODEL_ROUTER_CONFIG = exports.BACKGROUND_TASK_RESULT_MAX_CHARS = exports.BACKGROUND_TASK_TIMEOUT_MS = exports.BACKGROUND_TASKS_DIR = exports.TAB_COMPLETION_MAX_RESULT_CHARS = exports.TAB_COMPLETION_CONTEXT_LINES = exports.TAB_COMPLETION_TIMEOUT_MS = exports.FIM_TEMPERATURE = exports.FIM_MAX_TOKENS = exports.FIM_SEPARATOR = exports.FIM_DEFAULT_MODEL = exports.FIM_DEFAULT_ENDPOINT = exports.TAB_COMPLETION_FIM_ENABLED_DEFAULT = exports.TAB_COMPLETION_MODE_FAST = exports.TAB_COMPLETION_MODE_FIM = exports.TAB_COMPLETION_CONFIG_KEYS = exports.TAB_COMPLETION_CONFIG = exports.USER_PROFILE_DEFAULT = exports.USER_PROFILE_FILE = exports.TOOL_RESULT_MAX_CHARS = exports.SUBAGENTS_DIR = exports.AGENT_RUNS_DIR = exports.AGENT_LOOP_DEFAULT_CHECKPOINT = exports.INDEX_TOO_MANY_FILES_PREFIX = exports.MAX_AUTO_INDEX_FILES_MAX = exports.MAX_AUTO_INDEX_FILES_MIN = exports.MAX_AUTO_INDEX_FILES = exports.AGENT_LOOP_DEFAULT_ALLOW_DANGEROUS_COMMANDS = exports.AGENT_LOOP_TIMEOUT_MS_LIMIT = exports.AGENT_LOOP_MAX_ITERATIONS_LIMIT = exports.AGENT_LOOP_DEFAULT_TIMEOUT_MS = exports.AGENT_LOOP_DEFAULT_MAX_ITERATIONS = exports.AGENT_LOOP_CONFIG_KEYS = exports.AGENT_LOOP_CONFIG = exports.APPLY_BACKUP_DIR = exports.APPLY_DIR = exports.HAS_WORKSPACE_CONTEXT_KEY = exports.KANBAN_CONFIG_KEYS = exports.KANBAN_CONFIG = exports.CHECKPOINT_MAX_FILE_BYTES = exports.CHECKPOINT_MAX_FILES_PER_SNAPSHOT = exports.CHECKPOINT_DEFAULT_MAX_ENTRIES = exports.CHECKPOINT_CONFIG_KEYS = exports.CHECKPOINT_CONFIG = exports.WELCOME_DELAY_MS = exports.CURSOR_SKILLS_DIR = exports.SKILLS_DIR = exports.AGENT_SKILLS_LOCATIONS_KEY = exports.PROJECT_ENTRY_RE = exports.DEP_LOCKFILE_RE = void 0;
+exports.IDEA_FLOW_CONFIG_KEYS = exports.IDEA_FLOW_CONFIG = exports.MODEL_ROUTER_USAGE_LOG_MAX = exports.MODEL_ROUTER_TIERS = exports.MODEL_ROUTER_CONFIG_KEYS = void 0;
 exports.defaultPreviewUrl = defaultPreviewUrl;
+exports.clampCrewParallel = clampCrewParallel;
+exports.clampMaxAutoIndexFiles = clampMaxAutoIndexFiles;
+exports.clampAgentIterations = clampAgentIterations;
+exports.clampAgentTimeoutMs = clampAgentTimeoutMs;
 // ── 目录路径 ──────────────────────────────────────────────────────
 /** 工作区级 Kodrix 元数据目录名 */
 exports.WORKSPACE_KODRIX_DIR = '.kodrix';
@@ -44,9 +49,13 @@ exports.FEATURE_FLAGS = {
     sessionLearning: 'sessionLearning',
     semanticMemory: 'semanticMemory',
     contextInjection: 'contextInjection',
+    contextIntelligence: 'contextIntelligence',
     ideaFlow: 'ideaFlow',
     codebaseIntelligence: 'codebaseIntelligence',
     terminalAI: 'terminalAI',
+    hooks: 'hooks',
+    acp: 'acp',
+    propertyTests: 'propertyTests',
 };
 // Experience config (kodrix.experience.*)
 exports.EXPERIENCE_CONFIG = {
@@ -66,6 +75,7 @@ exports.COMMANDS = {
     agentOsWelcome: 'kodrix.agentOs.welcome',
     contextStatus: 'kodrix.context.status',
     contextRefresh: 'kodrix.context.refresh',
+    contextToggleSummary: 'kodrix.context.toggleSummary',
     hubOpen: 'kodrix.hub.open',
     routerRoute: 'kodrix.router.route',
     learnCapture: 'kodrix.learn.capture',
@@ -83,16 +93,6 @@ exports.COMMANDS = {
     terminalFocus: 'workbench.action.terminal.focus',
     simpleBrowserShow: 'simpleBrowser.show',
     explorerFocus: 'workbench.view.explorer',
-    // Local Extension
-    openProviderWorkbench: 'kodrix.openProviderWorkbench',
-    openAgentsWindow: 'kodrix.openAgentsWindow',
-    openProviderPresets: 'kodrix.openProviderPresets',
-    applyPreset: 'kodrix.applyPreset',
-    welcome: 'kodrix.welcome',
-    importCursor: 'kodrix.importCursor',
-    migrateConfig: 'kodrix.migrateConfig',
-    // Skills Extension
-    skillsOpenMarketplace: 'kodrix.skills.openMarketplace',
     skillsRefresh: 'kodrix.skills.refresh',
     skillsFocusMarketplace: 'kodrix.skillsMarketplace.focus',
     skillsInstall: 'kodrix.skills.install',
@@ -109,6 +109,8 @@ exports.COMMANDS = {
     checkpointCreate: 'kodrix.checkpoint.create',
     checkpointList: 'kodrix.checkpoint.list',
     checkpointRestore: 'kodrix.checkpoint.restore',
+    checkpointRefreshTimeline: 'kodrix.checkpoint.refreshTimeline',
+    checkpointDiffGallery: 'kodrix.checkpoint.diffGallery',
     // Rules 查看
     rulesList: 'kodrix.rules.list',
     // Model Router（对标 Cursor 多模型路由）
@@ -209,6 +211,18 @@ exports.CREW_CONFIG_KEYS = {
 };
 /** 默认最大并发任务数（对标 Cursor Subagent 并行派生，默认 3 路避免资源爆炸） */
 exports.CREW_DEFAULT_MAX_PARALLEL = 3;
+/** Crew 并发上限（与 package.json kodrix.crew.maxParallel 的 maximum 保持一致） */
+exports.CREW_MAX_PARALLEL_LIMIT = 10;
+/**
+ * 钳制 Crew/Subagent 并发数：非法值（NaN/非数字）回退默认，越界值收敛到 [1, CREW_MAX_PARALLEL_LIMIT]。
+ * Crew 并行调度与 Subagent 派生共用，保证设置项 kodrix.crew.maxParallel 在两条链路行为一致。
+ */
+function clampCrewParallel(value, fallback = exports.CREW_DEFAULT_MAX_PARALLEL) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return Math.min(exports.CREW_MAX_PARALLEL_LIMIT, Math.max(1, Math.floor(fallback)));
+    }
+    return Math.min(exports.CREW_MAX_PARALLEL_LIMIT, Math.max(1, Math.floor(value)));
+}
 /** 单任务默认超时（毫秒），与 IdeaFlow LLM 分析超时保持一致 */
 exports.CREW_TASK_TIMEOUT_MS = 180_000;
 /** 依赖任务输出注入单任务 prompt 的最大字符数（防止上下文爆炸） */
@@ -264,6 +278,16 @@ exports.CHECKPOINT_DEFAULT_MAX_ENTRIES = 100;
 exports.CHECKPOINT_MAX_FILES_PER_SNAPSHOT = 100;
 /** 单个文件超过该字节数不入快照（二进制 / 大文件跳过） */
 exports.CHECKPOINT_MAX_FILE_BYTES = 1_000_000;
+// ── Agent Kanban 显示设置 ─────────────────────────────────────────
+/** Kanban 配置段 */
+exports.KANBAN_CONFIG = 'kodrix.kanban';
+/** Kanban 配置键（kodrix.kanban.*） */
+exports.KANBAN_CONFIG_KEYS = {
+    showCompleted: 'showCompleted',
+};
+// ── setContext 上下文键（package.json views/keybindings when 子句消费） ──
+/** 是否已打开工作区（kodrix.checkpoints 视图可见性依赖此键） */
+exports.HAS_WORKSPACE_CONTEXT_KEY = 'kodrix.hasWorkspace';
 // ── 多文件 Apply + diff 确认（对标 Cursor 多文件 Apply） ──------------------------------
 /** 变更提案目录名（工作区 .kodrix/apply） */
 exports.APPLY_DIR = 'apply';
@@ -277,12 +301,44 @@ exports.AGENT_LOOP_CONFIG_KEYS = {
     maxIterations: 'maxIterations',
     timeoutMs: 'timeoutMs',
     allowCommands: 'allowCommands',
+    allowDangerousCommands: 'allowDangerousCommands',
     checkpoint: 'checkpoint',
 };
 /** 默认最大迭代轮数 */
 exports.AGENT_LOOP_DEFAULT_MAX_ITERATIONS = 20;
 /** 默认总超时（ms） */
 exports.AGENT_LOOP_DEFAULT_TIMEOUT_MS = 600000;
+/** 迭代轮数硬上限：设置项没有 maximum 时，工作区里的 .vscode/settings.json 可以写成天文数字 */
+exports.AGENT_LOOP_MAX_ITERATIONS_LIMIT = 100;
+/** 总超时硬上限（1 小时）：同上，防止"跑飞" */
+exports.AGENT_LOOP_TIMEOUT_MS_LIMIT = 3_600_000;
+/** 危险命令默认拦截（可在设置中显式放开） */
+exports.AGENT_LOOP_DEFAULT_ALLOW_DANGEROUS_COMMANDS = false;
+/** 自动索引的文件数上限（默认值；可被 kodrix.codebase.maxAutoIndexFiles 覆盖，与设置说明一致） */
+exports.MAX_AUTO_INDEX_FILES = 50_000;
+/** 自动索引上限的允许区间 */
+exports.MAX_AUTO_INDEX_FILES_MIN = 100;
+exports.MAX_AUTO_INDEX_FILES_MAX = 1_000_000;
+/** 钳制自动索引文件数上限（非法值回退默认） */
+function clampMaxAutoIndexFiles(value, fallback = exports.MAX_AUTO_INDEX_FILES) {
+    const base = (typeof value === 'number' && Number.isFinite(value)) ? value : fallback;
+    return Math.min(exports.MAX_AUTO_INDEX_FILES_MAX, Math.max(exports.MAX_AUTO_INDEX_FILES_MIN, Math.floor(base)));
+}
+/**
+ * 超限时抛出的错误前缀：启动路径据此给出"跳过自动索引 + 提供手动入口"的可操作提示，
+ * 而不是把它当成普通失败（UI 文案承诺了 50k 上限，代码必须真的拦住）。
+ */
+exports.INDEX_TOO_MANY_FILES_PREFIX = 'INDEX_TOO_MANY_FILES';
+/** 钳制 Agent 迭代轮数到 [1, AGENT_LOOP_MAX_ITERATIONS_LIMIT]（非法值回退默认） */
+function clampAgentIterations(value, fallback = exports.AGENT_LOOP_DEFAULT_MAX_ITERATIONS) {
+    const base = (typeof value === 'number' && Number.isFinite(value)) ? value : fallback;
+    return Math.min(exports.AGENT_LOOP_MAX_ITERATIONS_LIMIT, Math.max(1, Math.floor(base)));
+}
+/** 钳制 Agent 总超时到 [5s, AGENT_LOOP_TIMEOUT_MS_LIMIT]（非法值回退默认） */
+function clampAgentTimeoutMs(value, fallback = exports.AGENT_LOOP_DEFAULT_TIMEOUT_MS) {
+    const base = (typeof value === 'number' && Number.isFinite(value)) ? value : fallback;
+    return Math.min(exports.AGENT_LOOP_TIMEOUT_MS_LIMIT, Math.max(5_000, Math.floor(base)));
+}
 /** 默认运行前自动创建检查点（可回滚 Agent 改动） */
 exports.AGENT_LOOP_DEFAULT_CHECKPOINT = true;
 /** Agent 运行记录目录名（工作区 .kodrix/agent-runs） */
@@ -309,7 +365,7 @@ exports.TAB_COMPLETION_CONFIG = 'kodrix.tabCompletion';
 exports.TAB_COMPLETION_CONFIG_KEYS = {
     enabled: 'enabled',
     mode: 'mode',
-    fimProvider: 'fimProvider',
+    fimEnabled: 'fimEnabled',
     fimEndpoint: 'fimEndpoint',
     fimApiKey: 'fimApiKey',
     fimModel: 'fimModel',
@@ -318,9 +374,9 @@ exports.TAB_COMPLETION_CONFIG_KEYS = {
 /** Tab 补全模式：fim = 专用 FIM 通道；fast = 通用模型通道 */
 exports.TAB_COMPLETION_MODE_FIM = 'fim';
 exports.TAB_COMPLETION_MODE_FAST = 'fast';
-/** FIM 提供方：deepseek（默认）或 custom（自定义端点） */
-exports.FIM_PROVIDER_DEEPSEEK = 'deepseek';
-exports.FIM_PROVIDER_CUSTOM = 'custom';
+/** FIM 专线开关默认值（false 时完全跳过 FIM 通道，直连 fast） */
+exports.TAB_COMPLETION_FIM_ENABLED_DEFAULT = true;
+/** FIM 默认端点（可被 kodrix.tabCompletion.fimEndpoint 覆盖；上游 beta 接口时效性存疑，4xx 后本会话自动跳过） */
 exports.FIM_DEFAULT_ENDPOINT = 'https://api.deepseek.com/beta/fim/completions';
 exports.FIM_DEFAULT_MODEL = 'deepseek-chat';
 /** DeepSeek FIM 前后缀分隔标记（FIM 指南：prompt 以 <｜fim▁end｜> 结尾，suffix 参数独立传） */

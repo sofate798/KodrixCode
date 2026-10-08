@@ -41,6 +41,7 @@ exports.getPrimaryWorkspaceFolder = getPrimaryWorkspaceFolder;
 exports.getProjectHash = getProjectHash;
 exports.getWorkspaceKodrixDir = getWorkspaceKodrixDir;
 exports.ensureDir = ensureDir;
+exports.ensureWorkspaceKodrixDir = ensureWorkspaceKodrixDir;
 exports.getWikiDir = getWikiDir;
 exports.getSpecsDir = getSpecsDir;
 exports.getMemoryDir = getMemoryDir;
@@ -69,6 +70,8 @@ const fs = __importStar(require("fs"));
 const os = __importStar(require("os"));
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
+const fsSafe_1 = require("./utils/fsSafe");
+const logger_1 = require("./logger");
 function getKodrixDir() {
     return path.join(os.homedir(), '.kodrix');
 }
@@ -95,8 +98,45 @@ function getWorkspaceKodrixDir() {
     }
     return path.join(folder.uri.fsPath, '.kodrix');
 }
+/**
+ * 创建目录（递归）。
+ * 不受信任工作区里**不创建工作区内目录**（与 fsSafe 的写入闸门一致），
+ * 这里选择"跳过 + 告警"而不是抛错：调用方多处于启动/后台路径，抛错会变成未处理拒绝；
+ * 真正的内容写入仍由 atomicWriteFileSync 抛错拦截。
+ */
 function ensureDir(dir) {
+    if ((0, fsSafe_1.isWorkspaceWriteBlocked)(dir)) {
+        logger_1.logger.warn(`[Paths] 不受信任的工作区：跳过创建目录 ${dir}`);
+        return;
+    }
     fs.mkdirSync(dir, { recursive: true });
+}
+/** `.kodrix/` 内自动忽略规则：会话记录等属于本机私有数据，不该被 `git add .` 带进仓库 */
+const KODRIX_GITIGNORE = `# Kodrix Agent OS 本机数据（会话记录/运行记录/索引缓存等）
+# 由扩展自动维护：保留本文件、忽略目录内其它内容
+*
+!.gitignore
+`;
+/**
+ * 确保工作区 `.kodrix/` 存在，并在其中放好 `.gitignore`。
+ * 目的：会话 transcript、运行记录、索引缓存等写在工作区里，但默认不应被提交。
+ */
+function ensureWorkspaceKodrixDir() {
+    const base = getWorkspaceKodrixDir();
+    if (!base) {
+        return undefined;
+    }
+    ensureDir(base);
+    const ignorePath = path.join(base, '.gitignore');
+    if (!(0, fsSafe_1.isWorkspaceWriteBlocked)(ignorePath) && !fs.existsSync(ignorePath)) {
+        try {
+            fs.writeFileSync(ignorePath, KODRIX_GITIGNORE, 'utf-8');
+        }
+        catch (err) {
+            logger_1.logger.warn(`[Paths] 写入 .kodrix/.gitignore 失败：${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    return base;
 }
 function getWikiDir() {
     const base = getWorkspaceKodrixDir();

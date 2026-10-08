@@ -16,7 +16,7 @@ import {
 
 export async function createSpec(openWorkbench = false): Promise<string | undefined> {
 	const feature = await vscode.window.showInputBox({
-		prompt: l10n.t('功能名称（将创建 Spec 三件套）'),
+		prompt: l10n.t('Feature name (a Spec trio will be created)'),
 		placeHolder: 'user-authentication',
 	});
 	if (!feature) {
@@ -24,8 +24,8 @@ export async function createSpec(openWorkbench = false): Promise<string | undefi
 	}
 
 	const description = await vscode.window.showInputBox({
-		prompt: l10n.t('简要描述需求'),
-		placeHolder: l10n.t('实现用户登录、注册与会话管理'),
+		prompt: l10n.t('Briefly describe your requirement'),
+		placeHolder: l10n.t('Implement user login, registration, and session management'),
 	}) || '（待补充）';
 
 	const specDir = await createSpecFiles(feature, description);
@@ -42,12 +42,12 @@ export async function createSpec(openWorkbench = false): Promise<string | undefi
 		const reqDoc = await vscode.workspace.openTextDocument(path.join(specDir, 'requirements.md'));
 		await vscode.window.showTextDocument(reqDoc);
 		void vscode.window.showInformationMessage(
-			l10n.t('Spec 已创建：.kodrix/specs/{0}/', slug),
-			l10n.t('打开三栏工作台'), l10n.t('实施任务'),
+			l10n.t('Spec created: .kodrix/specs/{0}/', slug),
+			l10n.t('Open the three-pane workbench'), l10n.t('Implement task'),
 		).then(choice => {
-			if (choice === l10n.t('打开三栏工作台')) {
+			if (choice === l10n.t('Open the three-pane workbench')) {
 				void vscode.commands.executeCommand('kodrix.spec.openWorkbench', slug);
-			} else if (choice === l10n.t('实施任务')) {
+			} else if (choice === l10n.t('Implement task')) {
 				void implementSpec(specDir);
 			}
 		}, () => { /* 用户关闭提示，忽略 */ });
@@ -67,7 +67,7 @@ export async function openSpec(): Promise<void> {
 export async function implementSpec(specDir?: string): Promise<void> {
 	let dir = specDir;
 	if (!dir) {
-		const slug = await pickSpecSlug(l10n.t('选择要实施的 Spec'));
+		const slug = await pickSpecSlug(l10n.t('Select a Spec to implement'));
 		if (!slug) {
 			return;
 		}

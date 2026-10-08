@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import { ensureDir, getMemoryDir, getMemoryPath } from '../paths';
 import { atomicWriteFileSync } from '../utils/fsSafe';
+import { readUserTextFileSync } from '../utils/textFile';
 
 const DEFAULT_MEMORY = `# 项目 Memory
 
@@ -33,15 +34,26 @@ const DEFAULT_MEMORY = `# 项目 Memory
 `;
 
 /**
- * 只读读取 Memory 内容。文件不存在时返回默认模板但**不写盘**（避免读操作产生副作用）。
- * 首次写入由 appendMemoryBullet / writeMemoryContentRaw / ensureMemoryFile 显式完成。
+ * Memory 初始模板（仅用于"首次写入"与"在编辑器中打开"这类显式创建场景）。
+ * 注意：不要把它当作"读取结果"返回 —— 模板里的示例文本会被当成真实项目记忆注入 prompt，
+ * 并被 learningEngine 固化成 Agent 指令（曾出现"从没沉淀过知识，Agent 却收到示例偏好"）。
+ */
+export function getMemoryTemplate(): string {
+	return DEFAULT_MEMORY;
+}
+
+/**
+ * 只读读取 Memory 内容。**文件不存在时返回空串**（不写盘、也不返回模板）：
+ * 让"项目 Memory 为空"这个状态能被上层如实判断并给出引导。
  */
 export function readMemoryContent(): string {
 	const memPath = getMemoryPath();
 	if (!fs.existsSync(memPath)) {
-		return DEFAULT_MEMORY;
+		return '';
 	}
-	return fs.readFileSync(memPath, 'utf-8');
+	// 容错 BOM / UTF-16 / GBK，且读失败返回空串而不是抛错：
+	// memory.md 是用户直接用编辑器改的文件，一次读失败不应把整条上下文组装链路带崩
+	return readUserTextFileSync(memPath) ?? '';
 }
 
 /**
@@ -52,7 +64,7 @@ export function ensureMemoryFile(): string {
 	const memPath = getMemoryPath();
 	if (!fs.existsSync(memPath)) {
 		ensureDir(getMemoryDir());
-		atomicWriteFileSync(memPath, DEFAULT_MEMORY);
+		atomicWriteFileSync(memPath, getMemoryTemplate());
 	}
 	return memPath;
 }
@@ -75,7 +87,8 @@ export function appendMemoryBullet(text: string): string {
 		return readMemoryContent();
 	}
 	const entry = `- ${trimmed} _(${new Date().toISOString().slice(0, 10)})_`;
-	const current = readMemoryContent();
+	// 首次沉淀：以模板为底（保证章节结构完整），而不是从空白文件开始
+	const current = readMemoryContent() || getMemoryTemplate();
 
 	const underCapture = insertUnderSection(current, '## 捕获记录', entry);
 	if (underCapture) {

@@ -12,3 +12,8 @@ export const onContextChanged = CONTEXT_CHANGE_EVENT.event;
 export function notifyContextChanged(): void {
 	CONTEXT_CHANGE_EVENT.fire();
 }
+
+/** 释放模块级上下文变更事件（在 deactivate 时调用） */
+export function disposeContextEvents(): void {
+	CONTEXT_CHANGE_EVENT.dispose();
+}

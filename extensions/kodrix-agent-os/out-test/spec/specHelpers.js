@@ -99,10 +99,10 @@ function readSpecBundle(slug) {
 async function pickSpecSlug(placeHolder) {
     const slugs = listSpecSlugs();
     if (!slugs.length) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('尚无 Spec，请先创建'));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('No Spec yet, please create one first'));
         return undefined;
     }
-    const picked = await vscode.window.showQuickPick(slugs.map(s => ({ label: s, description: `.kodrix/specs/${s}/` })), { placeHolder: placeHolder || vscode_1.l10n.t('选择 Spec') });
+    const picked = await vscode.window.showQuickPick(slugs.map(s => ({ label: s, description: `.kodrix/specs/${s}/` })), { placeHolder: placeHolder || vscode_1.l10n.t('Select Spec') });
     return picked?.label;
 }
 async function openSpecFile(slug, file) {
@@ -112,7 +112,7 @@ async function openSpecFile(slug, file) {
     }
     const p = path.join(dir, file);
     if (!fs.existsSync(p)) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('文件不存在：{0}', file));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('File does not exist: {0}', file));
         return;
     }
     const doc = await vscode.workspace.openTextDocument(p);
@@ -131,8 +131,8 @@ ${description}
 
 ### US-1: 核心功能
 
-**作为** 用户  
-**我希望** _（描述期望行为）_  
+**作为** 用户
+**我希望** _（描述期望行为）_
 **以便** _（业务价值）_
 
 #### 验收标准（EARS）
@@ -143,8 +143,8 @@ ${description}
 
 ### US-2: 边界情况
 
-**作为** 用户  
-**我希望** 系统在异常情况下优雅处理  
+**作为** 用户
+**我希望** 系统在异常情况下优雅处理
 **以便** 保证可靠性
 
 #### 验收标准
@@ -239,14 +239,14 @@ function tasksTemplate(feature, slug) {
 async function createSpecFiles(feature, description) {
     const specsDir = (0, paths_1.getSpecsDir)();
     if (!specsDir) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('请先打开工作区'));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('Please open a workspace first'));
         return undefined;
     }
     const slug = slugify(feature);
     const specDir = path.join(specsDir, slug);
     // 同名 Spec 已存在时不静默覆盖，先征求用户确认
     if (fs.existsSync(specDir)) {
-        const choice = await vscode.window.showWarningMessage(vscode_1.l10n.t('Spec「{0}」已存在，是否覆盖三件套？', slug), { modal: true }, '覆盖', '取消');
+        const choice = await vscode.window.showWarningMessage(vscode_1.l10n.t('Spec "{0}" already exists. Overwrite the three files?', slug), { modal: true }, '覆盖', '取消');
         if (choice !== '覆盖') {
             return undefined;
         }
@@ -259,7 +259,7 @@ async function createSpecFiles(feature, description) {
         return specDir;
     }
     catch (err) {
-        vscode.window.showErrorMessage(vscode_1.l10n.t('创建 Spec 失败：{0}', err instanceof Error ? err.message : String(err)));
+        vscode.window.showErrorMessage(vscode_1.l10n.t('Failed to create Spec: {0}', err instanceof Error ? err.message : String(err)));
         return undefined;
     }
 }

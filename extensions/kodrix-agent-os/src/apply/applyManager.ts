@@ -10,6 +10,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
@@ -67,9 +68,9 @@ export function diffLines(oldText: string, newText: string): DiffLine[] {
 	// 空文本边界：旧为空 → 全新增；新为空 → 全删除
 	const oldEmpty = n === 1 && a[0] === '';
 	const newEmpty = m === 1 && b[0] === '';
-	if (oldEmpty && !newEmpty) return b.map(text => ({ type: 'add', text }));
-	if (newEmpty && !oldEmpty) return a.map(text => ({ type: 'del', text }));
-	if (oldEmpty && newEmpty) return [];
+	if (oldEmpty && !newEmpty) {return b.map(text => ({ type: 'add', text }));}
+	if (newEmpty && !oldEmpty) {return a.map(text => ({ type: 'del', text }));}
+	if (oldEmpty && newEmpty) {return [];}
 	// 大文件降级：避免分配上亿整数
 	if (n * m > DIFF_DP_CELL_LIMIT) {
 		return [
@@ -137,7 +138,7 @@ export function getApplyDir(workspace: string): string {
 /** 列出工作区提案（新→旧） */
 export function listProposals(workspace: string): string[] {
 	const dir = getApplyDir(workspace);
-	if (!fs.existsSync(dir)) return [];
+	if (!fs.existsSync(dir)) {return [];}
 	return fs.readdirSync(dir)
 		.filter(f => f.endsWith('.json'))
 		.sort()
@@ -148,7 +149,7 @@ export function listProposals(workspace: string): string[] {
 export function loadProposal(workspace: string, name: string): ApplyProposal | null {
 	try {
 		const p = path.join(getApplyDir(workspace), name);
-		if (!fs.existsSync(p)) return null;
+		if (!fs.existsSync(p)) {return null;}
 		const raw = JSON.parse(fs.readFileSync(p, 'utf-8')) as ApplyProposal;
 		return raw;
 	} catch {
@@ -177,21 +178,21 @@ function resolveInWs(rel: string, workspace: string): string | undefined {
 /** 校验单条变更 */
 export function validateChange(change: FileChange, workspace: string): { ok: boolean; error?: string } {
 	const abs = resolveInWs(change.filePath, workspace);
-	if (!abs) return { ok: false, error: `路径越界：${change.filePath}` };
-	if (!change.filePath.trim()) return { ok: false, error: 'filePath 为空' };
+	if (!abs) {return { ok: false, error: l10n.t('Path escapes the workspace: {0}', change.filePath) };}
+	if (!change.filePath.trim()) {return { ok: false, error: l10n.t('filePath is empty') };}
 	if (change.type === 'edit') {
-		if (!change.oldContent) return { ok: false, error: `edit 变更缺少 oldContent：${change.filePath}` };
-		if (!fs.existsSync(abs)) return { ok: false, error: `文件不存在，无法 edit：${change.filePath}` };
+		if (!change.oldContent) {return { ok: false, error: l10n.t('edit change is missing oldContent: {0}', change.filePath) };}
+		if (!fs.existsSync(abs)) {return { ok: false, error: l10n.t('File does not exist, cannot edit: {0}', change.filePath) };}
 		const cur = fs.readFileSync(abs, 'utf-8');
 		const count = cur.split(change.oldContent).length - 1;
-		if (count === 0) return { ok: false, error: `oldContent 未匹配：${change.filePath}` };
-		if (count > 1) return { ok: false, error: `oldContent 匹配 ${count} 处（需唯一）：${change.filePath}` };
+		if (count === 0) {return { ok: false, error: l10n.t('oldContent did not match: {0}', change.filePath) };}
+		if (count > 1) {return { ok: false, error: l10n.t('oldContent matched {0} times (must be unique): {1}', count, change.filePath) };}
 	}
 	if (change.type === 'write' && fs.existsSync(abs) && fs.statSync(abs).isDirectory()) {
-		return { ok: false, error: `目标是目录：${change.filePath}` };
+		return { ok: false, error: l10n.t('Target is a directory: {0}', change.filePath) };
 	}
 	if (change.type === 'delete' && !fs.existsSync(abs)) {
-		return { ok: false, error: `文件不存在，无法删除：${change.filePath}` };
+		return { ok: false, error: l10n.t('File does not exist, cannot delete: {0}', change.filePath) };
 	}
 	return { ok: true };
 }
@@ -230,7 +231,7 @@ export async function applyProposal(proposal: ApplyProposal, workspace: string, 
 					continue;
 				}
 			}
-			failures.push({ filePath: c.filePath, reason: v.error ?? '校验失败' });
+			failures.push({ filePath: c.filePath, reason: v.error ?? l10n.t('Validation failed') });
 		}
 	}
 	if (failures.length) {
@@ -238,7 +239,7 @@ export async function applyProposal(proposal: ApplyProposal, workspace: string, 
 			applied: [],
 			skipped: proposal.changes.map(c => {
 				const f = failures.find(x => x.filePath === c.filePath);
-				return f ? { filePath: c.filePath, reason: f.reason } : { filePath: c.filePath, reason: '前置校验失败，整体拒绝（未应用任何变更）' };
+				return f ? { filePath: c.filePath, reason: f.reason } : { filePath: c.filePath, reason: l10n.t('Pre-check failed; the whole proposal was rejected (no changes applied)') };
 			}),
 		};
 	}
@@ -261,12 +262,12 @@ export async function applyProposal(proposal: ApplyProposal, workspace: string, 
 
 	for (const c of proposal.changes) {
 		if (alreadyApplied.has(c.filePath)) {
-			result.skipped.push({ filePath: c.filePath, reason: '已应用（目标内容已存在）' });
+			result.skipped.push({ filePath: c.filePath, reason: l10n.t('Already applied (target content already exists)') });
 			continue;
 		}
 		const abs = resolveInWs(c.filePath, workspace);
 		if (!abs) {
-			result.skipped.push({ filePath: c.filePath, reason: '路径越界' });
+			result.skipped.push({ filePath: c.filePath, reason: l10n.t('Path escapes the workspace') });
 			continue;
 		}
 		try {
@@ -289,7 +290,7 @@ export async function applyProposal(proposal: ApplyProposal, workspace: string, 
 			opts.onBeforeApply?.(c, abs);
 			result.applied.push(c.filePath);
 		} catch (err) {
-			result.skipped.push({ filePath: c.filePath, reason: `应用失败：${err instanceof Error ? err.message : String(err)}` });
+			result.skipped.push({ filePath: c.filePath, reason: l10n.t('Apply failed: {0}', err instanceof Error ? err.message : String(err)) });
 		}
 	}
 	// 应用完成后清理该提案的 staged 临时文件
@@ -317,7 +318,7 @@ export async function stageProposal(proposal: ApplyProposal, workspace: string):
 	const out: Array<{ filePath: string; type: FileChangeType; originalPath: string; stagedPath: string }> = [];
 	for (const c of proposal.changes) {
 		const abs = resolveInWs(c.filePath, workspace);
-		if (!abs) continue;
+		if (!abs) {continue;}
 		const stagedPath = path.join(stageRoot, c.filePath);
 		fs.mkdirSync(path.dirname(stagedPath), { recursive: true });
 		let content = '';
@@ -333,12 +334,12 @@ export async function stageProposal(proposal: ApplyProposal, workspace: string):
 
 export function renderProposalMarkdown(proposal: ApplyProposal, workspace: string): string {
 	const lines = [
-		`# 变更提案：${proposal.name}`,
+		l10n.t('# Change Proposal: {0}', proposal.name),
 		'',
-		proposal.task ? `任务：${proposal.task}` : '',
-		`共 ${proposal.changes.length} 个文件变更 · 生成时间 ${proposal.createdAt.slice(0, 19)}`,
+		proposal.task ? l10n.t('Task: {0}', proposal.task) : '',
+		l10n.t('{0} file changes · generated {1}', proposal.changes.length, proposal.createdAt.slice(0, 19)),
 		'',
-		'> 确认应用前请逐文件核对 diff；应用前将自动创建检查点，可随时回滚。',
+		l10n.t('> Review each file diff before applying; a checkpoint is created automatically before applying, so you can roll back at any time.'),
 		'',
 	];
 	for (const c of proposal.changes) {
@@ -347,7 +348,7 @@ export function renderProposalMarkdown(proposal: ApplyProposal, workspace: strin
 		lines.push(`## ${c.type.toUpperCase()} ${c.filePath}${c.reason ? ` — ${c.reason}` : ''}`);
 		lines.push('');
 		if (c.type === 'delete') {
-			lines.push('（删除文件）', '');
+			lines.push(l10n.t('(delete file)'), '');
 			continue;
 		}
 		const oldText = c.type === 'edit' && exists ? fs.readFileSync(abs!, 'utf-8') : (exists ? fs.readFileSync(abs!, 'utf-8') : '');
@@ -363,18 +364,18 @@ export function renderProposalMarkdown(proposal: ApplyProposal, workspace: strin
 async function showProposalDiff(proposal: ApplyProposal, workspace: string): Promise<void> {
 	const staged = await stageProposal(proposal, workspace);
 	if (!staged.length) {
-		await vscode.window.showInformationMessage('提案没有可预览的变更（路径均越界）');
+		await vscode.window.showInformationMessage(l10n.t('The proposal has no previewable changes (all paths are out of bounds)'));
 		return;
 	}
 	const picked = await vscode.window.showQuickPick(staged.map(s => ({
 		label: `${s.type.toUpperCase()} ${s.filePath}`.trim(),
-		detail: s.type === 'delete' ? '删除文件（右侧为空）' : '对比：原文件 ←→ 提案版本',
+		detail: s.type === 'delete' ? l10n.t('Delete file (right side is empty)') : l10n.t('Compare: original ←→ proposed version'),
 		staged: s,
-	})), { placeHolder: `提案「${proposal.name}」共 ${staged.length} 个文件 — 选择查看编辑器 diff（可多选）`, canPickMany: true });
-	if (!picked) return;
+	})), { placeHolder: l10n.t('Proposal "{0}" contains {1} files — select to view diffs in the editor (multi-select)', proposal.name, staged.length), canPickMany: true });
+	if (!picked) {return;}
 	for (const item of picked) {
 		const s = item.staged;
-		await vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(s.originalPath), vscode.Uri.file(s.stagedPath), `${s.filePath} — 提案 ${proposal.name}（${s.type}）`);
+		await vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(s.originalPath), vscode.Uri.file(s.stagedPath), l10n.t('{0} — proposal {1} ({2})', s.filePath, proposal.name, s.type));
 	}
 }
 
@@ -382,14 +383,14 @@ export function registerApplyManager(context: vscode.ExtensionContext): void {
 	const pickProposal = async (workspace: string): Promise<{ name: string; proposal: ApplyProposal } | undefined> => {
 		const files = listProposals(workspace);
 		if (!files.length) {
-			await vscode.window.showInformationMessage('暂无变更提案。可运行「Kodrix: 运行 Agent 任务」让 Agent 产出提案，或用 propose_changes 工具生成。');
+			await vscode.window.showInformationMessage(l10n.t('No change proposals yet. Run "Kodrix: Run Agent Task" to have the Agent produce a proposal, or generate one with the propose_changes tool.'));
 			return undefined;
 		}
-		const picked = await vscode.window.showQuickPick(files, { placeHolder: '选择变更提案' });
-		if (!picked) return undefined;
+		const picked = await vscode.window.showQuickPick(files, { placeHolder: l10n.t('Select a change proposal') });
+		if (!picked) {return undefined;}
 		const proposal = loadProposal(workspace, picked);
 		if (!proposal) {
-			await vscode.window.showErrorMessage('提案文件无效');
+			await vscode.window.showErrorMessage(l10n.t('Invalid proposal file'));
 			return undefined;
 		}
 		return { name: picked, proposal };
@@ -399,38 +400,54 @@ export function registerApplyManager(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.applyPreview, async () => {
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (!folder) {
-				await vscode.window.showErrorMessage('请先打开工作区');
+				await vscode.window.showErrorMessage(l10n.t('Please open a workspace first'));
 				return;
 			}
 			const ws = folder.uri.fsPath;
 			const picked = await pickProposal(ws);
-			if (!picked) return;
+			if (!picked) {return;}
 			await showProposalDiff(picked.proposal, ws);
 		}),
 		vscode.commands.registerCommand(COMMANDS.applyCommit, async () => {
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (!folder) {
-				await vscode.window.showErrorMessage('请先打开工作区');
+				await vscode.window.showErrorMessage(l10n.t('Please open a workspace first'));
 				return;
 			}
 			const ws = folder.uri.fsPath;
 			const picked = await pickProposal(ws);
-			if (!picked) return;
+			if (!picked) {return;}
 			const { proposal } = picked;
 			// 先打开编辑器内 diff 供审查（可多选）
 			await showProposalDiff(proposal, ws);
+			// 破坏性操作给显式「取消」按钮（只有 ✕ 时用户容易点空），且按钮文案与比较值同源
+			const applyLabel = l10n.t('Apply changes');
 			const ok = await vscode.window.showWarningMessage(
-				`确认应用提案「${proposal.name}」（${proposal.changes.length} 个文件变更）？应用前将自动创建检查点。`,
+				l10n.t('Apply proposal "{0}" ({1} file changes)? A checkpoint will be created automatically before applying.', proposal.name, proposal.changes.length),
 				{ modal: true },
-				'应用变更',
+				applyLabel,
+				l10n.t('Cancel'),
 			);
-			if (ok !== '应用变更') return;
+			if (ok !== applyLabel) {return;}
 			const result = await applyProposal(proposal, ws);
 			if (result.applied.length === proposal.changes.length) {
-				await vscode.window.showInformationMessage(`已应用提案「${proposal.name}」（${result.applied.length} 个文件）`);
+				// 成功提示带"下一步动作"：应用完直接给可执行的下一步，而不是让用户自己找入口
+				const openDocs = l10n.t('Open Changed Files');
+				const picked2 = await vscode.window.showInformationMessage(
+					l10n.t('Applied proposal "{0}" ({1} files)', proposal.name, result.applied.length),
+					openDocs,
+				);
+				if (picked2 === openDocs) {
+					for (const change of proposal.changes.slice(0, 8)) {
+						try {
+							const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(ws, change.filePath)));
+							await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: true });
+						} catch { /* 文件可能已被删除 */ }
+					}
+				}
 			} else {
 				const skippedText = result.skipped.map(s => `${s.filePath}（${s.reason}）`).join('; ');
-				await vscode.window.showWarningMessage(`部分应用：${result.applied.length}/${proposal.changes.length} 成功。未应用：${skippedText}`);
+				await vscode.window.showWarningMessage(l10n.t('Partially applied: {0}/{1} succeeded. Not applied: {2}', result.applied.length, proposal.changes.length, skippedText));
 			}
 		}),
 	);

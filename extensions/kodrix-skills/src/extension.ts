@@ -6,10 +6,12 @@ import * as vscode from 'vscode';
 import { SkillMarketplaceViewProvider } from './marketplaceWebview';
 import {
 	CatalogItem,
+	SkillExistsError,
 	importCursorSkills,
 	installFromCatalogItem,
 	installFromUrl,
 	loadCatalog,
+	parseSha256Fragment,
 	uninstallSkill,
 } from './skillInstall';
 
@@ -59,12 +61,38 @@ async function registerSkillsLocations(): Promise<void> {
 	}
 }
 
+/**
+ * 安装时若目标已存在，先弹确认再以覆盖方式重试。
+ * 返回 undefined 表示用户取消覆盖（调用方不应再提示"已安装"）。
+ */
+async function installWithOverwritePrompt(
+	action: (options: { overwrite?: boolean }) => Promise<string>,
+): Promise<string | undefined> {
+	try {
+		return await action({});
+	} catch (err) {
+		if (!(err instanceof SkillExistsError)) {
+			throw err;
+		}
+		const overwriteLabel = vscode.l10n.t('Overwrite');
+		const choice = await vscode.window.showWarningMessage(
+			vscode.l10n.t('{0}. Overwriting will delete the existing contents of this skill folder.', err.message),
+			{ modal: true },
+			overwriteLabel,
+		);
+		if (choice !== overwriteLabel) {
+			return undefined;
+		}
+		return await action({ overwrite: true });
+	}
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	try {
 		await activateInternal(context);
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
-		vscode.window.showErrorMessage(vscode.l10n.t('Kodrix Skills 激活失败: {0}', msg));
+		vscode.window.showErrorMessage(vscode.l10n.t('Kodrix Skills failed to activate: {0}', msg));
 	}
 }
 
@@ -87,21 +115,23 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 			let catalog: CatalogItem | undefined;
 			if (typeof item === 'string') {
 				catalog = loadCatalog(context.extensionPath).items.find(it => it.id === item);
-			} else if (item && typeof item === 'object' && 'catalogItem' in item) {
-				catalog = item.catalogItem;
+			} else if (item && typeof item === 'object' && Object.hasOwn(item, 'catalogItem')) {
+				catalog = (item as { catalogItem?: CatalogItem }).catalogItem;
 			} else {
 				catalog = item as CatalogItem | undefined;
 			}
 			if (!catalog) {
-				vscode.window.showWarningMessage(vscode.l10n.t('请从 Skill 市场选择要安装的项'));
+				vscode.window.showWarningMessage(vscode.l10n.t('Select an item from the Skill Market to install'));
 				return;
 			}
 			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('安装 {0}…', catalog.displayName) },
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Installing {0}…', catalog.displayName) },
 				async () => {
-					const name = await installFromCatalogItem(context.extensionPath, catalog!);
+					const name = await installWithOverwritePrompt(o => installFromCatalogItem(context.extensionPath, catalog!, o));
 					provider.refresh();
-					vscode.window.showInformationMessage(vscode.l10n.t('Skill 已安装：{0}（{1}/{0}）', name, SKILLS_DIR));
+					if (name) {
+						vscode.window.showInformationMessage(vscode.l10n.t('Skill installed: {0} ({1}/{0})', name, SKILLS_DIR));
+					}
 				},
 			);
 		}),
@@ -112,23 +142,37 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 			}
 			uninstallSkill(name);
 			provider.refresh();
-			vscode.window.showInformationMessage(vscode.l10n.t('已卸载 Skill：{0}', name));
+			vscode.window.showInformationMessage(vscode.l10n.t('Skill uninstalled: {0}', name));
 		}),
 
 		vscode.commands.registerCommand(CMD.installFromUrl, async () => {
 			const url = await vscode.window.showInputBox({
-				prompt: vscode.l10n.t('GitHub 仓库 URL 或 raw SKILL.md 链接'),
+				prompt: vscode.l10n.t('GitHub repository URL or raw SKILL.md link (append #sha256=<64-char hex> to pin the content hash)'),
 				placeHolder: 'https://github.com/owner/repo',
 			});
 			if (!url) {
 				return;
 			}
+			// O1：未固定哈希的来源无法校验完整性，必须由用户明确知情后再安装
+			if (!parseSha256Fragment(url.trim())) {
+				const proceedLabel = vscode.l10n.t('Install Anyway');
+				const proceed = await vscode.window.showWarningMessage(
+					vscode.l10n.t('This link has no pinned content hash (#sha256=…), so its integrity cannot be verified before installation. Continue only if you trust this source.'),
+					{ modal: true },
+					proceedLabel,
+				);
+				if (proceed !== proceedLabel) {
+					return;
+				}
+			}
 			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('从 URL 安装 Skill…') },
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Installing skill from URL…') },
 				async () => {
-					const name = await installFromUrl(url);
+					const name = await installWithOverwritePrompt(o => installFromUrl(url, o));
 					provider.refresh();
-					vscode.window.showInformationMessage(vscode.l10n.t('Skill 已安装：{0}', name));
+					if (name) {
+						vscode.window.showInformationMessage(vscode.l10n.t('Skill installed: {0}', name));
+					}
 				},
 			);
 		}),
@@ -138,8 +182,8 @@ async function activateInternal(context: vscode.ExtensionContext): Promise<void>
 			provider.refresh();
 			vscode.window.showInformationMessage(
 				count > 0
-					? vscode.l10n.t('已从 {0} 导入 {1} 个 Skill', CURSOR_SKILLS_DIR, count)
-					: vscode.l10n.t('未找到 {0} 目录', CURSOR_SKILLS_DIR),
+					? vscode.l10n.t('Imported {0} skill(s) from {1}', String(count), CURSOR_SKILLS_DIR)
+					: vscode.l10n.t('Directory not found: {0}', CURSOR_SKILLS_DIR),
 			);
 		}),
 

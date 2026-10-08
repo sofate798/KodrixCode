@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
 	<style>
 		.codicon { vertical-align: -0.15em; }
@@ -365,21 +365,21 @@
 			<h1>Kodrix Hub</h1>
 			<div class="ws-tag" id="wsTag" style="display:none"></div>
 		</div>
-		<p class="subtitle">Agent 指挥中心 · Idea Flow 想法→产品全自动 · 越用越聪明。大厂整合：Lovable · Devin · Cursor · Windsurf · Trae。</p>
+		<p class="subtitle">{{l10n:Agent Command Center · Idea Flow: idea-to-product, fully automated · Gets smarter with use. Integrations: Lovable · Devin · Cursor · Windsurf · Trae.}}</p>
 		<div class="quick-stats" id="quickStats">
-			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span><div><div class="qs-value" id="statLearning">—</div><div class="qs-label">学习条目</div></div></div>
-			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-notebook" aria-hidden="true"></i></span><div><div class="qs-value" id="statSpecs">—</div><div class="qs-label">Spec 文档</div></div></div>
-			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-graph" aria-hidden="true"></i></span><div><div class="qs-value" id="statKanban">—</div><div class="qs-label">看板任务</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span><div><div class="qs-value" id="statLearning">—</div><div class="qs-label">{{l10n:Learning entries}}</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-notebook" aria-hidden="true"></i></span><div><div class="qs-value" id="statSpecs">—</div><div class="qs-label">{{l10n:Spec documents}}</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-graph" aria-hidden="true"></i></span><div><div class="qs-value" id="statKanban">—</div><div class="qs-label">{{l10n:Board task}}</div></div></div>
 			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-book" aria-hidden="true"></i></span><div><div class="qs-value" id="statWiki">—</div><div class="qs-label">Repo Wiki</div></div></div>
-			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-refresh" aria-hidden="true"></i></span><div><div class="qs-value" id="statSessions">—</div><div class="qs-label">已学习会话</div></div></div>
+			<div class="quick-stat"><span class="qs-icon"><i class="codicon codicon-refresh" aria-hidden="true"></i></span><div><div class="qs-value" id="statSessions">—</div><div class="qs-label">{{l10n:Learned sessions}}</div></div></div>
 		</div>
 	</div>
 
 	<!-- Smart Bar -->
 	<div class="smart-bar-wrap">
 		<div class="smart-bar">
-			<input id="quickPrompt" type="text" placeholder="描述你的想法，AI 全自动变为现实… 如：做一个 AI 知识管理工具，支持双向链接和图谱视图" autocomplete="off" />
-			<button id="quickGo"><i class="codicon codicon-compass" aria-hidden="true"></i> 智能路由</button>
+			<input id="quickPrompt" type="text" placeholder="{{l10n:Describe your idea and AI builds it fully automatically… e.g., an AI knowledge management tool with bidirectional links and a graph view}}" autocomplete="off" />
+			<button id="quickGo"><i class="codicon codicon-compass" aria-hidden="true"></i> {{l10n:Smart Routing}}</button>
 		</div>
 		<div class="intent-preview" id="intentPreview"></div>
 	</div>
@@ -389,11 +389,11 @@
 		<!-- Left Column: Scenarios + Features -->
 		<div style="display:flex;flex-direction:column;gap:20px;">
 			<div class="card-section">
-				<h3><span class="section-icon"><i class="codicon codicon-target" aria-hidden="true"></i></span> 按任务选路径</h3>
+				<h3><span class="section-icon"><i class="codicon codicon-target" aria-hidden="true"></i></span> {{l10n:Choose a path per task}}</h3>
 				<div class="scenario-list" id="scenarios"></div>
 			</div>
 			<div class="card-section">
-				<h3><span class="section-icon"><i class="codicon codicon-settings-gear" aria-hidden="true"></i></span> 功能开关</h3>
+				<h3><span class="section-icon"><i class="codicon codicon-settings-gear" aria-hidden="true"></i></span> {{l10n:Feature Toggles}}</h3>
 				<div class="toggles" id="toggles"></div>
 			</div>
 		</div>
@@ -401,54 +401,63 @@
 		<!-- Right Column: Actions + Intelligence -->
 		<div style="display:flex;flex-direction:column;gap:20px;">
 			<div class="card-section">
-				<h3><span class="section-icon"><i class="codicon codicon-flame" aria-hidden="true"></i></span> 快速操作</h3>
+				<h3><span class="section-icon"><i class="codicon codicon-flame" aria-hidden="true"></i></span> {{l10n:Quick Actions}}</h3>
 				<div class="actions-grid" id="actions"></div>
 			</div>
 			<div class="card-section">
-				<h3><span class="section-icon"><i class="codicon codicon-radio-tower" aria-hidden="true"></i></span> 项目 Intelligence</h3>
-				<div class="context-box" id="contextPreview">加载中…</div>
+				<h3><span class="section-icon"><i class="codicon codicon-radio-tower" aria-hidden="true"></i></span> {{l10n:Project Intelligence}}</h3>
+				<div class="context-box" id="contextPreview">{{l10n:Loading…}}</div>
 				<div style="display:flex;gap:6px;">
-					<button class="btn-sm" id="btnRefreshCtx" style="font-size:10px;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);color:var(--fg);border-radius:4px;cursor:pointer;"><i class="codicon codicon-refresh" aria-hidden="true"></i> 刷新上下文</button>
-					<button class="btn-sm" id="btnBuildWiki" style="font-size:10px;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);color:var(--fg);border-radius:4px;cursor:pointer;"><i class="codicon codicon-book" aria-hidden="true"></i> 重建 Wiki</button>
+					<button class="btn-sm" id="btnRefreshCtx" style="font-size:10px;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);color:var(--fg);border-radius:4px;cursor:pointer;"><i class="codicon codicon-refresh" aria-hidden="true"></i> {{l10n:Refresh context}}</button>
+					<button class="btn-sm" id="btnBuildWiki" style="font-size:10px;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);color:var(--fg);border-radius:4px;cursor:pointer;"><i class="codicon codicon-book" aria-hidden="true"></i> {{l10n:Rebuild Wiki}}</button>
 				</div>
 			</div>
 		</div>
 
 		<!-- Bottom Left: Recent Learning -->
 		<div class="card-section">
-			<h3><span class="section-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span> 最近学习（越用越聪明）</h3>
-			<div class="timeline" id="recentLearning"><div class="empty-note">加载中…</div></div>
+			<h3><span class="section-icon"><i class="codicon codicon-beaker" aria-hidden="true"></i></span> {{l10n:Recent learning (gets smarter with use)}}</h3>
+			<div class="timeline" id="recentLearning"><div class="empty-note">{{l10n:Loading…}}</div></div>
 		</div>
 
 		<!-- Bottom Right: Keyboard Shortcuts -->
 		<div class="card-section">
-			<h3><span class="section-icon"><i class="codicon codicon-record-keys" aria-hidden="true"></i></span> 快捷键速查</h3>
+			<h3><span class="section-icon"><i class="codicon codicon-record-keys" aria-hidden="true"></i></span> {{l10n:Keyboard Shortcuts Cheat Sheet}}</h3>
 			<div id="shortcuts" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;"></div>
 		</div>
 	</div>
 
-	<div class="footer">Kodrix · Idea Flow · Agent OS — 让软件开发回归想法本身</div>
+	<div class="footer">Kodrix · Idea Flow · Agent OS — {{l10n:Bring software development back to the idea itself}}</div>
 </div>
 
-<script>
+<script nonce="{{nonce}}">
 	const vscode = acquireVsCodeApi();
 	const ki = (name) => `<i class="codicon codicon-${name}" aria-hidden="true"></i>`;
 	function post(cmd, data) { vscode.postMessage({ command: cmd, ...data }); }
+	/** 本地化后的动态文案：`{{l10n:…}}` 里的 {0}/{1} 保留到运行时再替换 */
+	const fmt = (template, ...args) => String(template).replace(/\{(\d+)\}/g, (m, i) => (args[i] === undefined ? m : String(args[i])));
+	// 转义插入 innerHTML 的动态文本：学习条目内容、工作区名等来自 Agent / 工作区，
+	// 不经转义直接拼进 HTML 就是注入面（Agent 产物 → 在 webview 里执行脚本）
+	function escapeHtml(v) {
+		return String(v == null ? '' : v)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+	}
 
 	// Scenarios (Idea Flow first as primary)
 	const scenarios = [
-		{ id: 'idea', icon: 'lightbulb', title: 'Idea Flow — 想法→产品', desc: '全自动流水线：分析 → 规划 → 多 Agent 构建 → 预览', route: 'idea' },
-		{ id: 'spec', icon: 'symbol-ruler', title: 'Spec 驱动开发', desc: 'Kiro 三栏 — 需求 → 设计 → 任务', route: 'spec' },
-		{ id: 'agent', icon: 'hubot', title: '多文件 Agent 编辑', desc: 'Cursor Composer — Agent + 检查点', route: 'agent' },
-		{ id: 'ask', icon: 'lightbulb', title: '探索问答', desc: '理解代码库、查逻辑、学技术', route: 'ask' },
-		{ id: 'router', icon: 'compass', title: '智能路由（推荐）', desc: '输入需求，Agent OS 自动选最佳模式', route: null },
+		{ id: 'idea', icon: 'lightbulb', title: '{{l10n:Idea Flow — idea to product}}', desc: '{{l10n:Fully automated pipeline: Analyze → Plan → Multi-Agent Build → Preview}}', route: 'idea' },
+		{ id: 'spec', icon: 'symbol-ruler', title: '{{l10n:Spec-Driven Development}}', desc: '{{l10n:Kiro three-pane — requirements → design → tasks}}', route: 'spec' },
+		{ id: 'agent', icon: 'hubot', title: '{{l10n:Multi-file Agent editing}}', desc: '{{l10n:Cursor Composer — Agent + checkpoints}}', route: 'agent' },
+		{ id: 'ask', icon: 'lightbulb', title: '{{l10n:Explore Q&A}}', desc: '{{l10n:Understand the codebase, trace logic, learn techniques}}', route: 'ask' },
+		{ id: 'router', icon: 'compass', title: '{{l10n:Smart Routing (recommended)}}', desc: '{{l10n:Describe your request; Agent OS picks the best mode automatically}}', route: null },
 	];
 	const scEl = document.getElementById('scenarios');
 	scenarios.forEach(s => {
 		const el = document.createElement('div');
 		el.className = 'scenario-row';
 		el.style.cssText = s.id === 'idea' ? 'border-left:3px solid var(--accent);margin-bottom:4px;' : '';
-		el.innerHTML = `<span class="sr-icon">${ki(s.icon)}</span><div class="sr-body"><div class="sr-title">${s.title}</div><div class="sr-desc">${s.desc}</div></div><span class="sr-arrow">${ki('arrow-right')}</span>`;
+		el.innerHTML = `<span class="sr-icon">${ki(s.icon)}</span><div class="sr-body"><div class="sr-title">${escapeHtml(s.title)}</div><div class="sr-desc">${escapeHtml(s.desc)}</div></div><span class="sr-arrow">${ki('arrow-right')}</span>`;
 		el.onclick = () => post('scenario', { id: s.id });
 		scEl.appendChild(el);
 	});
@@ -461,29 +470,29 @@
 		{ id: 'chat', icon: 'comment-discussion', label: 'Chat', kbd: 'Ctrl+L' },
 		{ id: 'agentMode', icon: 'flame', label: 'Agent', kbd: 'Ctrl+I' },
 		{ id: 'wiki', icon: 'book', label: 'Wiki', kbd: 'Qoder' },
-		{ id: 'kanban', icon: 'graph', label: '看板', kbd: 'Devin' },
-		{ id: 'learning', icon: 'beaker', label: '学习', kbd: 'Ctrl+Shift+Alt+M' },
-		{ id: 'arena', icon: 'law', label: 'Arena', kbd: '对比' },
-		{ id: 'providers', icon: 'plug', label: '模型', kbd: '供应商' },
-		{ id: 'importCursor', icon: 'cloud-download', label: '导入', kbd: 'Cursor' },
-		{ id: 'refreshContext', icon: 'refresh', label: '刷新', kbd: '上下文' },
+		{ id: 'kanban', icon: 'graph', label: '{{l10n:Board}}', kbd: 'Devin' },
+		{ id: 'learning', icon: 'beaker', label: '{{l10n:Learning}}', kbd: 'Ctrl+Shift+Alt+M' },
+		{ id: 'arena', icon: 'law', label: 'Arena', kbd: '{{l10n:Compare}}' },
+		{ id: 'providers', icon: 'plug', label: '{{l10n:Model}}', kbd: '{{l10n:Provider}}' },
+		{ id: 'importCursor', icon: 'cloud-download', label: '{{l10n:Import}}', kbd: 'Cursor' },
+		{ id: 'refreshContext', icon: 'refresh', label: '{{l10n:Refresh}}', kbd: '{{l10n:Context}}' },
 	];
 	const actEl = document.getElementById('actions');
 	actions.forEach(a => {
 		const el = document.createElement('div');
 		el.className = 'action-card';
-		el.innerHTML = `<span class="ac-icon">${ki(a.icon)}</span><span class="ac-label">${a.label}</span><span class="ac-kbd">${a.kbd}</span>`;
+		el.innerHTML = `<span class="ac-icon">${ki(a.icon)}</span><span class="ac-label">${escapeHtml(a.label)}</span><span class="ac-kbd">${escapeHtml(a.kbd)}</span>`;
 		el.onclick = () => post('action', { id: a.id });
 		actEl.appendChild(el);
 	});
 
 	// Keyboard shortcuts
 	const shortcuts = [
-		['Ctrl+Shift+I', 'Idea Flow 主入口'], ['Ctrl+Shift+Alt+I', 'Idea Canvas'],
-		['Ctrl+Shift+H', 'Hub 指挥中心'],
-		['Ctrl+Shift+A', 'Agents 窗口'], ['Ctrl+Shift+Alt+K', 'Spec 三栏'],
-		['Ctrl+Shift+Alt+R', '智能路由'], ['Ctrl+Shift+Alt+M', '沉淀知识'],
-		['Ctrl+I', 'Agent 模式'], ['Ctrl+L', 'Chat 面板'],
+		['Ctrl+Shift+I', '{{l10n:Idea Flow main entry}}'], ['Ctrl+Shift+Alt+I', 'Idea Canvas'],
+		['Ctrl+Shift+H', '{{l10n:Hub Command Center}}'],
+		['Ctrl+Shift+A', '{{l10n:Agents Window}}'], ['Ctrl+Shift+Alt+K', '{{l10n:Spec three-pane}}'],
+		['Ctrl+Shift+Alt+R', '{{l10n:Smart Routing}}'], ['Ctrl+Shift+Alt+M', '{{l10n:Distill Knowledge}}'],
+		['Ctrl+I', '{{l10n:Agent Mode}}'], ['Ctrl+L', '{{l10n:Chat Panel}}'],
 	];
 	const kbdEl = document.getElementById('shortcuts');
 	shortcuts.forEach(([k, v]) => {
@@ -542,7 +551,7 @@
 
 			// Workspace tag
 			const wsEl = document.getElementById('wsTag');
-			if (d.workspaceName) { wsEl.innerHTML = ki('folder') + ' ' + d.workspaceName; wsEl.style.display = 'inline-block'; }
+			if (d.workspaceName) { wsEl.innerHTML = ki('folder') + ' ' + escapeHtml(d.workspaceName); wsEl.style.display = 'inline-block'; }
 			else wsEl.style.display = 'none';
 
 			// Quick stats
@@ -559,13 +568,13 @@
 				const el = document.createElement('div');
 				el.className = 'toggle-item';
 				el.dataset.feature = f.key;
-				el.innerHTML = `<span class="toggle-dot ${f.on ? 'on' : 'off'}"></span><span>${f.label}</span>`;
+				el.innerHTML = `<span class="toggle-dot ${f.on ? 'on' : 'off'}"></span><span>${escapeHtml(f.label)}</span>`;
 				if (f.on) el.innerHTML += '<span style="margin-left:auto;font-size:10px;color:var(--success);">' + ki('check') + '</span>';
 				togglesEl.appendChild(el);
 			});
 
 			// Context preview
-			document.getElementById('contextPreview').textContent = d.contextPreview || '（打开工作区后将自动生成 Wiki + Memory 上下文）';
+			document.getElementById('contextPreview').textContent = d.contextPreview || '{{l10n:(Wiki + Memory context will be generated automatically when a workspace is opened)}}';
 
 			// Learning timeline
 			const learnEl = document.getElementById('recentLearning');
@@ -574,11 +583,11 @@
 				d.recentLearning.forEach(item => {
 					const el = document.createElement('div');
 					el.className = 'timeline-item';
-					el.innerHTML = `<span class="tl-cat ${item.category}">${item.category}</span><span style="flex:1;min-width:0;">${item.content}</span><span class="tl-date">${item.date}</span>`;
+					el.innerHTML = `<span class="tl-cat ${escapeHtml(item.category)}">${escapeHtml(item.category)}</span><span style="flex:1;min-width:0;">${escapeHtml(item.content)}</span><span class="tl-date">${escapeHtml(item.date)}</span>`;
 					learnEl.appendChild(el);
 				});
 			} else {
-				learnEl.innerHTML = '<div class="empty-note">暂无学习记录 — 完成 Agent 任务后将自动蒸馏，或按 Ctrl+Shift+Alt+M 手动沉淀</div>';
+				learnEl.innerHTML = '<div class="empty-note">{{l10n:No learning records yet — knowledge is distilled automatically after Agent tasks complete, or press Ctrl+Shift+Alt+M to capture it manually}}</div>';
 			}
 		}
 
@@ -589,7 +598,7 @@
 				icon.className = 'codicon codicon-location';
 				icon.setAttribute('aria-hidden', 'true');
 				intentPreview.appendChild(icon);
-				intentPreview.appendChild(document.createTextNode(` 检测意图 → ${msg.label}（${msg.reason || ''}）`));
+				intentPreview.appendChild(document.createTextNode(' ' + fmt('{{l10n:Detected intent → {0} ({1})}}', msg.label, msg.reason || '')));
 			}
 			intentPreview.classList.toggle('active', !!msg.label);
 		}

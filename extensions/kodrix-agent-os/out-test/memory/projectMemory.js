@@ -41,7 +41,6 @@ exports.showMemory = showMemory;
 exports.captureMemoryFromSelection = captureMemoryFromSelection;
 exports.injectMemoryIntoInstructions = injectMemoryIntoInstructions;
 exports.registerMemory = registerMemory;
-exports.getMemoryContext = getMemoryContext;
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const vscode_1 = require("vscode");
@@ -69,8 +68,8 @@ async function captureMemoryFromSelection() {
     const editor = vscode.window.activeTextEditor;
     const selection = editor?.document.getText(editor.selection);
     const input = selection || await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('输入要记住的项目知识（架构、约定、陷阱等）'),
-        placeHolder: vscode_1.l10n.t('此项目使用 pnpm，测试框架为 vitest'),
+        prompt: vscode_1.l10n.t('Enter project knowledge to remember (architecture, conventions, pitfalls, etc.)'),
+        placeHolder: vscode_1.l10n.t('This project uses pnpm; the test framework is vitest'),
     });
     if (!input?.trim()) {
         return;
@@ -80,7 +79,7 @@ async function captureMemoryFromSelection() {
         // 不强制 category，交由 recordLearning 按内容推断（inferLearningCategory）
         (0, learningEngine_1.recordLearning)(input.trim(), { source: 'capture' });
     }
-    vscode.window.showInformationMessage(vscode_1.l10n.t('已写入项目 Memory 并同步到 Agent 上下文'));
+    vscode.window.showInformationMessage(vscode_1.l10n.t('Written to Project Memory and synced to the Agent context'));
 }
 async function injectMemoryIntoInstructions() {
     const enabled = vscode.workspace.getConfiguration('kodrix.features').get('memory', true);
@@ -106,13 +105,5 @@ function registerMemory(context) {
             void injectMemoryIntoInstructions();
         }, 3000);
         context.subscriptions.push({ dispose: () => clearTimeout(injectTimer) });
-    }
-}
-function getMemoryContext() {
-    try {
-        return (0, memoryHelpers_1.readMemoryContent)().slice(0, 2000);
-    }
-    catch {
-        return '';
     }
 }

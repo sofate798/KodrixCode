@@ -47,9 +47,7 @@
 	"linuxIconName": "kodrix",
 	"quality": "dev",
 	"builtInExtensions": [],
-	"builtInExtensionsEnabledWithAutoUpdates": [
-		"GitHub.copilot-chat"
-	],
+	"builtInExtensionsEnabledWithAutoUpdates": [],
 	"extensionsGallery": {
 		"serviceUrl": "https://open-vsx.org/vscode/gallery",
 		"itemUrl": "https://open-vsx.org/vscode/item",

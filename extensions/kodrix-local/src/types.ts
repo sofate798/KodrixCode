@@ -27,6 +27,9 @@ export interface StoredProvider {
 	model: string;
 	models: string[];
 	groupName: string;
+	/** 该供应商在 Copilot BYOK 里注册的 vendor 与组名；仅经预设流程注册时存在，面板内新增的没有 */
+	byokVendor?: string;
+	byokGroupName?: string;
 	needs_api_key: boolean;
 	pendingApiKey?: boolean;
 	registeredAt: number;

@@ -43,22 +43,27 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SUBAGENT_MAX_TASKS = void 0;
 exports.runSubagents = runSubagents;
 exports.renderSubagentReport = renderSubagentReport;
 exports.registerSubagent = registerSubagent;
 const vscode = __importStar(require("vscode"));
+const vscode_1 = require("vscode");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const agentLoop_1 = require("./agentLoop");
 const logger_1 = require("../logger");
+const crewParallel_1 = require("../utils/crewParallel");
+/** 单次派生的子任务硬上限：每个子任务都是完整 Agent 循环，规模必须有界 */
+exports.SUBAGENT_MAX_TASKS = 20;
 const constants_1 = require("../shared/constants");
 // ── 核心：并行派生 ─────────────────────────────────────────────
 /**
  * 将主任务拆为多个子任务并行执行，每个子任务独立 Agent 会话（独立上下文）。
- * 并发上限 maxParallel（默认 3），全部完成后返回汇总批次。
+ * 并发上限取 kodrix.crew.maxParallel（默认 3，与 Crew 共用钳制规则），全部完成后返回汇总批次。
  */
 async function runSubagents(opts) {
-    const maxParallel = Math.max(1, opts.maxParallel ?? 3);
+    const maxParallel = (0, crewParallel_1.resolveCrewMaxParallel)(opts.maxParallel);
     const batch = {
         id: `sub-${new Date().toISOString().replace(/[:.]/g, '-')}`,
         createdAt: new Date().toISOString(),
@@ -69,8 +74,9 @@ async function runSubagents(opts) {
     async function worker() {
         while (true) {
             const i = next++;
-            if (i >= opts.tasks.length)
+            if (i >= opts.tasks.length) {
                 return;
+            }
             const st = opts.tasks[i];
             opts.onUpdate?.(i, st.title, 'running');
             const start = Date.now();
@@ -79,6 +85,7 @@ async function runSubagents(opts) {
                     task: `${st.prompt}\n\n（父任务背景：${opts.parentTask}）`,
                     workspace: opts.workspace,
                     model: st.model,
+                    cancellationToken: opts.token,
                     onUpdate: (phase, detail) => opts.onUpdate?.(i, st.title, `${phase}: ${detail.slice(0, 80)}`),
                 });
                 batch.subagents[i] = {
@@ -110,13 +117,13 @@ async function runSubagents(opts) {
 /** 汇总报告（Markdown） */
 function renderSubagentReport(batch) {
     const lines = [
-        `# Subagent 并行执行报告`,
+        vscode_1.l10n.t('# Subagent Parallel Run Report'),
         ``,
-        `- 批次：\`${batch.id}\``,
-        `- 时间：${batch.createdAt}`,
-        `- 父任务：${batch.parentTask}`,
+        `- ${vscode_1.l10n.t('Batch')}: \`${batch.id}\``,
+        `- ${vscode_1.l10n.t('Time')}: ${batch.createdAt}`,
+        `- ${vscode_1.l10n.t('Parent task')}: ${batch.parentTask}`,
         ``,
-        `| # | 子任务 | 状态 | 迭代 | 耗时 | 检查点 |`,
+        `| # | ${vscode_1.l10n.t('Subtask')} | ${vscode_1.l10n.t('Status')} | ${vscode_1.l10n.t('Iterations')} | ${vscode_1.l10n.t('Duration')} | ${vscode_1.l10n.t('Checkpoint')} |`,
         `|---|--------|------|------|------|--------|`,
     ];
     batch.subagents.forEach((s, i) => {
@@ -126,9 +133,9 @@ function renderSubagentReport(batch) {
     for (const [i, s] of batch.subagents.entries()) {
         lines.push(`## ${i + 1}. ${s.title}`, ``);
         if (s.error) {
-            lines.push(`**失败**：${s.error}`, ``);
+            lines.push(`**${vscode_1.l10n.t('Failed')}**: ${s.error}`, ``);
         }
-        lines.push(s.output.trim() || '（无输出）', ``);
+        lines.push(s.output.trim() || vscode_1.l10n.t('(no output)'), ``);
     }
     return lines.join('\n');
 }
@@ -138,64 +145,94 @@ function registerSubagent(context) {
     context.subscriptions.push(vscode.commands.registerCommand(constants_1.COMMANDS.subagentRun, async () => {
         const folder = vscode.workspace.workspaceFolders?.[0];
         if (!folder) {
-            void vscode.window.showWarningMessage('请先打开一个工作区');
+            void vscode.window.showWarningMessage(vscode_1.l10n.t('Please open a workspace first'));
             return;
         }
         const parentTask = await vscode.window.showInputBox({
-            prompt: '父任务描述（拆分的背景）',
-            placeHolder: '例如：为 Kodrix 新增 /health 健康检查接口',
+            prompt: vscode_1.l10n.t('Parent task description (context for the split)'),
+            placeHolder: vscode_1.l10n.t('e.g., add a /health check endpoint to Kodrix'),
         });
-        if (!parentTask)
+        if (!parentTask) {
             return;
+        }
         const list = await vscode.window.showInputBox({
-            prompt: '子任务列表（每行一个，将各自独立上下文并行执行）',
-            placeHolder: '第一行：设计接口与路由\n第二行：实现控制器\n第三行：补充单元测试',
+            prompt: vscode_1.l10n.t('Subtask list (one per line; each runs in parallel with its own context)'),
+            placeHolder: vscode_1.l10n.t('Line 1: Design the interfaces and routes\\nLine 2: Implement the controllers\\nLine 3: Add unit tests'),
         });
-        if (!list)
+        if (!list) {
             return;
+        }
         const tasks = list
             .split(/\r?\n/)
             .map(s => s.trim())
             .filter(Boolean)
+            // 硬上限：粘贴 50 行需求 = 50 个完整 Agent 循环并发盲写同一批文件（后写覆盖先写）
+            .slice(0, exports.SUBAGENT_MAX_TASKS)
             .map((t, _i) => ({ title: t.length > 30 ? `${t.slice(0, 30)}…` : t, prompt: t }));
-        if (!tasks.length)
+        if (!tasks.length) {
             return;
+        }
+        const requestedCount = list.split(/\r?\n/).map(s => s.trim()).filter(Boolean).length;
+        if (requestedCount > exports.SUBAGENT_MAX_TASKS) {
+            const continueLabel = vscode_1.l10n.t('Continue');
+            const proceed = await vscode.window.showWarningMessage(vscode_1.l10n.t('Subtask count {0} exceeds the limit of {1}; only the first {1} will run. Consider splitting into multiple batches to avoid concurrent writes overwriting each other.', requestedCount, exports.SUBAGENT_MAX_TASKS), { modal: true }, continueLabel, vscode_1.l10n.t('Cancel'));
+            if (proceed !== continueLabel) {
+                return;
+            }
+        }
         const ws = folder.uri.fsPath;
         const runDir = path.join(ws, constants_1.WORKSPACE_KODRIX_DIR, constants_1.SUBAGENTS_DIR);
         fs.mkdirSync(runDir, { recursive: true });
-        void vscode.window.showInformationMessage(`Subagent 并行执行中（${tasks.length} 个子任务）…完成后自动打开报告`);
-        const batch = await runSubagents({
-            parentTask,
-            tasks,
-            workspace: ws,
-            onUpdate: (_i, title, phase) => {
-                logger_1.logger.info(`[Subagent] #${_i + 1}「${title}」${phase}`);
-            },
+        // 可取消进度：多个子 Agent 并行跑分钟级任务，此前只有一条"执行中"通知，看不到进展也无法中断
+        const batch = await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: vscode_1.l10n.t('Kodrix Subagent: running {0} subtasks in parallel', tasks.length),
+            cancellable: true,
+        }, async (progress, token) => {
+            const done = new Set();
+            return runSubagents({
+                parentTask,
+                tasks,
+                workspace: ws,
+                token,
+                onUpdate: (i, title, phase) => {
+                    logger_1.logger.info(`[Subagent] #${i + 1}「${title}」${phase}`);
+                    // 同一子任务只报一次增量，避免进度条抖动
+                    const key = `${i}:${phase.split(':')[0]}`;
+                    if (!done.has(key)) {
+                        done.add(key);
+                        progress.report({ message: `#${i + 1} ${title}` });
+                    }
+                },
+            });
         });
         await saveBatch(runDir, batch);
         const docPath = path.join(runDir, `${batch.id}.md`);
         const doc = await vscode.workspace.openTextDocument(docPath);
         await vscode.window.showTextDocument(doc, { preview: false });
-        void vscode.window.showInformationMessage(`Subagent 批次完成：${batch.subagents.filter(s => s.status === 'completed').length}/${tasks.length} 成功`);
+        void vscode.window.showInformationMessage(vscode_1.l10n.t('Subagent batch completed: {0}/{1} succeeded', batch.subagents.filter(s => s.status === 'completed').length, tasks.length));
     }), 
     // 查看历史批次
     vscode.commands.registerCommand(constants_1.COMMANDS.subagentList, async () => {
         const folder = vscode.workspace.workspaceFolders?.[0];
-        if (!folder)
+        if (!folder) {
+            void vscode.window.showWarningMessage(vscode_1.l10n.t('Please open a workspace first'));
             return;
+        }
         const runDir = path.join(folder.uri.fsPath, constants_1.WORKSPACE_KODRIX_DIR, constants_1.SUBAGENTS_DIR);
         if (!fs.existsSync(runDir)) {
-            void vscode.window.showInformationMessage('暂无 Subagent 运行记录');
+            void vscode.window.showInformationMessage(vscode_1.l10n.t('No Subagent runs yet'));
             return;
         }
         const files = fs.readdirSync(runDir).filter(f => f.endsWith('.md')).sort().reverse();
         if (!files.length) {
-            void vscode.window.showInformationMessage('暂无 Subagent 运行记录');
+            void vscode.window.showInformationMessage(vscode_1.l10n.t('No Subagent runs yet'));
             return;
         }
-        const picked = await vscode.window.showQuickPick(files.slice(0, 20), { placeHolder: '选择要查看的 Subagent 批次报告' });
-        if (!picked)
+        const picked = await vscode.window.showQuickPick(files.slice(0, 20), { placeHolder: vscode_1.l10n.t('Select a Subagent batch report to view') });
+        if (!picked) {
             return;
+        }
         const doc = await vscode.workspace.openTextDocument(path.join(runDir, picked));
         await vscode.window.showTextDocument(doc, { preview: false });
     }));

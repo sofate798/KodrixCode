@@ -57,13 +57,15 @@ export function computeLayers(tasks: VizTask[]): Map<string, number> {
 			return 0; // 环保护
 		}
 		const task = byId.get(id);
-		if (!task || !task.dependencies.length) {
+		// 兼容手工编辑过的 crew.json：缺 dependencies 时按"无前置"处理，而不是抛错导致整页渲染失败
+		const deps = task?.dependencies ?? [];
+		if (!task || !deps.length) {
 			depth.set(id, 0);
 			return 0;
 		}
 		seen.add(id);
 		let maxDep = -1;
-		for (const depId of task.dependencies) {
+		for (const depId of deps) {
 			maxDep = Math.max(maxDep, visit(depId, seen));
 		}
 		seen.delete(id);
@@ -98,27 +100,31 @@ export function layoutNodes(tasks: VizTask[], layers: Map<string, number>): Map<
 	return pos;
 }
 
-function escapeHtml(s: string): string {
-	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function escapeHtml(s: string | undefined | null): string {
+	// 手工编辑过的 crew.json 可能缺 description 等字段：容错成空串而不是整页渲染失败
+	return String(s ?? '')
+		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /** 渲染 Crew DAG 为自包含 HTML（纯函数） */
 export function renderCrewDagHtml(crew: VizCrew): string {
-	const layers = computeLayers(crew.tasks);
-	const pos = layoutNodes(crew.tasks, layers);
-	const maxLayer = Math.max(0, ...crew.tasks.map(t => layers.get(t.id) ?? 0));
-	const maxCol = Math.max(0, ...crew.tasks.map(t => (pos.get(t.id)?.y ?? 0) + NODE_H));
+	// 容错：crew.json 允许被手工编辑，缺 tasks 时渲染空图而不是抛错
+	const tasks: VizTask[] = crew.tasks ?? [];
+	const layers = computeLayers(tasks);
+	const pos = layoutNodes(tasks, layers);
+	const maxLayer = Math.max(0, ...tasks.map(t => layers.get(t.id) ?? 0));
+	const maxCol = Math.max(0, ...tasks.map(t => (pos.get(t.id)?.y ?? 0) + NODE_H));
 	const width = (maxLayer + 1) * (NODE_W + H_GAP) + 20;
 	const height = maxCol + 20;
 
 	// 边（依赖 → 任务）
 	const edges: string[] = [];
-	for (const t of crew.tasks) {
+	for (const t of tasks) {
 		const to = pos.get(t.id);
 		if (!to) {
 			continue;
 		}
-		for (const depId of t.dependencies) {
+		for (const depId of t.dependencies ?? []) {
 			const from = pos.get(depId);
 			if (!from) {
 				continue;
@@ -135,7 +141,7 @@ export function renderCrewDagHtml(crew: VizCrew): string {
 	}
 
 	// 节点
-	const nodes = crew.tasks.map(t => {
+	const nodes = tasks.map(t => {
 		const p = pos.get(t.id);
 		if (!p) {
 			return '';
@@ -166,8 +172,8 @@ export function renderCrewDagHtml(crew: VizCrew): string {
 </style>
 </head>
 <body>
-	<h1>Crew「${escapeHtml(crew.name)}」— Agent 编排 DAG</h1>
-	<div class="sub">共 ${crew.tasks.length} 个任务 · 依赖边 → 表示前置 · 状态着色见图例（对标 Cursor Agent 执行可视化）</div>
+	<h1>${l10n.t('Crew "{0}" — Agent orchestration DAG', escapeHtml(crew.name))}</h1>
+	<div class="sub">${l10n.t('{0} tasks in total · dependency arrows point from prerequisite to task · status colors follow the legend (comparable to Cursor agent execution visualization)', tasks.length)}</div>
 	<div class="legend">${legend}</div>
 	<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
 		<defs>
@@ -200,26 +206,41 @@ export function registerCrewVisualizer(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.crewVisualize, async () => {
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			if (!folder) {
-				await vscode.window.showErrorMessage(l10n.t('请先打开工作区'));
+				await vscode.window.showErrorMessage(l10n.t('Please open a workspace first'));
 				return;
 			}
+			// 实际数据位置：Crew 写入的是 `.kodrix/crew.json`（单文件）；
+			// 此前只扫 `.kodrix/crews/`，导致刚建完 Crew 打开可视化仍报"尚未创建 Crew"（功能等于不存在）。
+			const candidates: string[] = [];
+			const singleCrew = path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, 'crew.json');
+			if (fs.existsSync(singleCrew)) {
+				candidates.push(singleCrew);
+			}
+			// 兼容旧位置/多 Crew 目录
 			const crewsDir = path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, 'crews');
-			if (!fs.existsSync(crewsDir)) {
-				await vscode.window.showInformationMessage(l10n.t('尚未创建 Crew（.kodrix/crews/）。可先通过「Kodrix: 新建 Agent Crew」创建。'));
+			if (fs.existsSync(crewsDir)) {
+				for (const f of fs.readdirSync(crewsDir).filter(f => f.endsWith('.json'))) {
+					candidates.push(path.join(crewsDir, f));
+				}
+			}
+			if (!candidates.length) {
+				await vscode.window.showInformationMessage(l10n.t('No Crew created yet (.kodrix/crew.json). Create one via "Kodrix: New Agent Crew" first.'));
 				return;
 			}
-			const files = fs.readdirSync(crewsDir).filter(f => f.endsWith('.json'));
-			if (!files.length) {
-				await vscode.window.showInformationMessage(l10n.t('.kodrix/crews/ 下没有 Crew 文件'));
-				return;
+			let crewPath = candidates[0];
+			if (candidates.length > 1) {
+				const picked = await vscode.window.showQuickPick(
+					candidates.map(c => path.relative(folder.uri.fsPath, c).replace(/\\/g, '/')),
+					{ placeHolder: l10n.t('Select a Crew file to visualize') },
+				);
+				if (!picked) {
+					return;
+				}
+				crewPath = path.join(folder.uri.fsPath, picked);
 			}
-			const picked = await vscode.window.showQuickPick(files, { placeHolder: l10n.t('选择要可视化的 Crew 文件') });
-			if (!picked) {
-				return;
-			}
-			const html = await renderCrewFileToHtml(path.join(crewsDir, picked));
+			const html = await renderCrewFileToHtml(crewPath);
 			if (!html) {
-				await vscode.window.showErrorMessage(l10n.t('Crew 文件解析失败'));
+				await vscode.window.showErrorMessage(l10n.t('Failed to parse Crew file'));
 				return;
 			}
 			const doc = await vscode.workspace.openTextDocument({ content: html, language: 'html' });

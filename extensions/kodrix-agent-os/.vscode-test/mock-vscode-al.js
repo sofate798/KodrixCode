@@ -2,7 +2,7 @@
 const __pool = [];
 module.exports = {
 	workspace: {
-		workspaceFolders: [{ uri: { fsPath: "C:\\Users\\Deto\\AppData\\Local\\Temp\\kodrix-al-OGJmib\\ws" } }],
+		workspaceFolders: [{ uri: { fsPath: "C:\\Users\\Deto\\AppData\\Local\\Temp\\kodrix-al-FKKWtx\\ws" } }],
 		getConfiguration: (section) => ({
 			get: (key, def) => {
 				const o = global.__kodrixAlConfig || {};

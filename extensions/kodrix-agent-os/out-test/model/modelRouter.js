@@ -58,6 +58,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const logger_1 = require("../logger");
 const constants_1 = require("../shared/constants");
+const panelTracker_1 = require("../utils/panelTracker");
 /** 各档位模型族（按可用性顺序） */
 const TIER_FAMILIES = {
     smart: constants_1.MODEL_ROUTER_TIERS.smart,
@@ -167,11 +168,13 @@ async function getModelCandidates(options = {}) {
     const out = [];
     const seen = new Set();
     const push = (m, tier) => {
-        if (!m)
+        if (!m) {
             return;
+        }
         const key = m.id || m.name;
-        if (seen.has(key))
+        if (seen.has(key)) {
             return;
+        }
         seen.add(key);
         out.push({ model: m, tier });
     };
@@ -190,8 +193,9 @@ async function getModelCandidates(options = {}) {
         for (const family of TIER_FAMILIES[t]) {
             try {
                 const found = await vscode.lm.selectChatModels({ family });
-                for (const m of found)
+                for (const m of found) {
                     push(m, t);
+                }
             }
             catch { /* ignore */ }
         }
@@ -200,8 +204,9 @@ async function getModelCandidates(options = {}) {
     if (!out.length) {
         try {
             const all = await vscode.lm.selectChatModels({});
-            for (const m of all)
+            for (const m of all) {
                 push(m, 'balanced');
+            }
         }
         catch { /* ignore */ }
     }
@@ -272,11 +277,13 @@ function getRouterStatus() {
     for (const u of usage) {
         const cur = counts.get(u.modelName) ?? { count: 0, okCount: 0, totalMs: 0 };
         cur.count++;
-        if (u.ok !== false)
+        if (u.ok !== false) {
             cur.okCount++;
+        }
         cur.totalMs += u.durationMs;
-        if (u.ok === false)
+        if (u.ok === false) {
             cur.lastError = u.error ?? '调用失败';
+        }
         cur.lastAt = u.timestamp;
         counts.set(u.modelName, cur);
     }
@@ -347,13 +354,22 @@ ${rows}
 <script>const vscode=acquireVsCodeApi();function refresh(){vscode.postMessage({command:'refresh'})}</script>
 </body></html>`;
 }
+let _healthPanel;
 function registerModelRouter(context) {
     context.subscriptions.push(vscode.commands.registerCommand(constants_1.COMMANDS.modelRouterStatus, async () => {
-        const panel = vscode.window.createWebviewPanel('kodrix.modelHealth', '模型健康面板', vscode.ViewColumn.Active, { enableScripts: true });
+        if (_healthPanel) {
+            _healthPanel.reveal(vscode.ViewColumn.Active);
+            _healthPanel.webview.html = renderHealthHtml(getRouterStatus());
+            return;
+        }
+        const panel = (0, panelTracker_1.createTrackedPanel)(context, 'kodrix.modelHealth', '模型健康面板', vscode.ViewColumn.Active, { enableScripts: true });
+        _healthPanel = panel;
         panel.webview.html = renderHealthHtml(getRouterStatus());
+        panel.onDidDispose(() => { _healthPanel = undefined; });
         panel.webview.onDidReceiveMessage(msg => {
-            if (msg?.command === 'refresh')
+            if (msg?.command === 'refresh') {
                 panel.webview.html = renderHealthHtml(getRouterStatus());
+            }
         });
     }));
 }

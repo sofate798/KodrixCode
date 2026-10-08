@@ -44,6 +44,7 @@ import { IAgentHostTerminalManager } from '../../node/agentHostTerminalManager.j
 import { IAgentHostOTelService } from '../../common/otel/agentHostOTelService.js';
 import { AgentHostCompletions, IAgentHostCompletions } from '../../node/agentHostCompletions.js';
 import { COPILOT_AGENT_HOST_SYSTEM_MESSAGE, CopilotAgent, getCopilotWorktreeName, getCopilotWorktreesRoot, migrateEnablementKeys, rebaseUnder } from '../../node/copilot/copilotAgent.js';
+import { COPILOT_AGENT_HOST_IDENTITY } from '../../node/copilot/prompts/systemMessage.js';
 import { NULL_CHECKPOINT_SERVICE } from '../../common/agentHostCheckpointService.js';
 import { CopilotAgentSession } from '../../node/copilot/copilotAgentSession.js';
 import { CopilotBranchNameGenerator, ICopilotBranchNameGenerator, getCopilotBranchNameHintFromMessage, normalizeCopilotBranchName } from '../../node/copilot/copilotBranchNameGenerator.js';
@@ -2108,7 +2109,7 @@ suite('CopilotAgent', () => {
 				assert.strictEqual(systemMessage.sections?.identity?.action, 'replace');
 				assert.strictEqual(
 					systemMessage.sections?.identity?.content,
-					'You are an AI assistant using Copilot CLI runtime in VS Code. You help users with software engineering tasks. When asked about your identity, you must state that you are an AI assistant using Copilot CLI runtime in VS Code.'
+					COPILOT_AGENT_HOST_IDENTITY
 				);
 			} finally {
 				await disposeAgent(agent);

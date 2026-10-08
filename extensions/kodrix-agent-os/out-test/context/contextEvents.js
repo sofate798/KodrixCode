@@ -38,10 +38,15 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onContextChanged = void 0;
 exports.notifyContextChanged = notifyContextChanged;
+exports.disposeContextEvents = disposeContextEvents;
 const vscode = __importStar(require("vscode"));
 const CONTEXT_CHANGE_EVENT = new vscode.EventEmitter();
 /** 订阅上下文变更（返回 Disposable，可直接 push 到 subscriptions） */
 exports.onContextChanged = CONTEXT_CHANGE_EVENT.event;
 function notifyContextChanged() {
     CONTEXT_CHANGE_EVENT.fire();
+}
+/** 释放模块级上下文变更事件（在 deactivate 时调用） */
+function disposeContextEvents() {
+    CONTEXT_CHANGE_EVENT.dispose();
 }

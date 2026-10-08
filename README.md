@@ -9,31 +9,21 @@
 
 当前基线：VS Code **1.128.0** · Electron **42.x** · Node **24.17+**（同 major 且 ≥ [`.nvmrc`](.nvmrc)）· 协议 **MIT**
 
-## 目录
+## 我是使用者：安装与上手
 
-- [功能概览](#功能概览)
-- [快速开始](#快速开始)
-- [项目结构](#项目结构)
-- [关键配置](#关键配置)
-- [构建注意](#构建注意)
-- [相关文档](#相关文档)
-- [上游与许可](#上游与许可)
+> 用已发布的安装包即可开始，**不需要** Node.js / npm / 源码。
 
-## 功能概览
+1. **下载**：获取维护者发布的 Windows 安装包并安装（首次运行如遇 SmartScreen 警告，见 [已知问题](docs/KNOWN-ISSUES.md)；当前尚无自动更新通道）。
+2. **首次启动**：跟随自动弹出的 "Welcome to Kodrix" 向导；随时可用命令面板 "Kodrix: Open Welcome Wizard" 重新打开。
+3. **配置模型（BYOK，自带 API Key）**：命令面板运行 **"Kodrix: AI Provider Management"**，从 13 家供应商预设中选择（本地 Ollama / llama.cpp 免 Key，云端填 Key），运行连接测试后激活。
+4. **开始使用**：`Ctrl+L` Chat · `Ctrl+I` Agent · `Ctrl+K` 内联编辑 · `@Codebase` 代码库问答 · Skill 市场。
 
-| 能力 | 说明 |
-|------|------|
-| Tab 补全 / Ctrl+K | Copilot Inline + NES；可选本地 Tab/FIM（默认关） |
-| Composer / Agent | 多文件编辑与 Agent 协作（编排至 Copilot） |
-| @Codebase | 双路径：Copilot `#codebase` · 本地 `kodrix.codebase` |
-| 模型路由 | 多供应商预设（13）与 BYOK |
-| Idea Flow / Agent OS | Spec、看板、记忆、Crew 等本地 Agent 能力 |
-| Skill 市场 | 目录 / GitHub / URL；仓库内 `marketplace/packages` |
-| 中文界面 | 官方 zh-cn 语言包注入 |
+- 完整图文上手（含 Ollama / llama.cpp / 云端配置示例、快捷键表、FAQ）：[**docs/AI个人开发者上手与使用说明.md**](docs/AI个人开发者上手与使用说明.md)
+- 从 Cursor / Cursormini 迁过来：[**MIGRATION.md**](MIGRATION.md)
+- 已知限制与隐私说明：[**docs/KNOWN-ISSUES.md**](docs/KNOWN-ISSUES.md)（遥测默认关闭、无崩溃上报端点）
+- 版本变更：[**CHANGELOG.md**](CHANGELOG.md)
 
-自定义扩展：`kodrix-local` · `kodrix-agent-os` · `kodrix-skills`（另含内置 Copilot 等）。从 Cursor / Cursormini 迁过来见 [`MIGRATION.md`](MIGRATION.md)。
-
-## 快速开始
+## 我是贡献者：从源码构建
 
 ### 环境要求
 
@@ -66,6 +56,20 @@ npm run package:win32        # 打 Windows EXE
 npm run compile              # 编译客户端 + Copilot
 ```
 
+## 功能概览
+
+| 能力 | 说明 |
+|------|------|
+| Tab 补全 / Ctrl+K | Copilot Inline + NES；可选本地 Tab/FIM（默认关） |
+| Composer / Agent | 多文件编辑与 Agent 协作（编排至 Copilot） |
+| @Codebase | 双路径：Copilot `#codebase` · 本地 `kodrix.codebase` |
+| 模型路由 | 多供应商预设（13）与 BYOK |
+| Idea Flow / Agent OS | Spec、看板、记忆、Crew 等本地 Agent 能力 |
+| Skill 市场 | 目录 / GitHub / URL；仓库内 `marketplace/packages` |
+| 中文界面 | 官方 zh-cn 语言包注入 |
+
+自定义扩展：`kodrix-local` · `kodrix-agent-os` · `kodrix-skills`（另含内置 Copilot 等）。从 Cursor / Cursormini 迁过来见 [`MIGRATION.md`](MIGRATION.md)。
+
 ## 项目结构
 
 ```
@@ -77,7 +81,7 @@ kodrix/
 ├── scripts/             # 开发 / 打包 / 修复脚本
 ├── patches/             # VSCodium 上游补丁
 ├── test/                # unit / smoke / mcp
-├── docs/                # 文档与体检 / 审计报告
+├── docs/                # 文档（用户指南 + 内部质量记录）
 ├── out/                 # 编译输出 (dev)
 └── .build/              # 构建缓存（electron / 扩展等）
 ```
@@ -105,14 +109,27 @@ kodrix/
 
 ## 相关文档
 
+### 面向使用者
+
 | 文档 | 用途 |
 |------|------|
-| [`AGENTS.md`](AGENTS.md) | AI / 开发者项目导读 |
-| [`REPAIR-NOTES.md`](REPAIR-NOTES.md) | 启动卡死、native 模块、语言包等排障 |
+| [`docs/AI个人开发者上手与使用说明.md`](docs/AI个人开发者上手与使用说明.md) | 安装 → 配置模型 → 核心能力 → 快捷键 → FAQ |
+| [`MIGRATION.md`](MIGRATION.md) | Cursor / Cursormini 迁移 |
+| [`docs/KNOWN-ISSUES.md`](docs/KNOWN-ISSUES.md) | 已知限制 |
+| [`CHANGELOG.md`](CHANGELOG.md) | 变更记录 |
+| [`docs/个人开发者首次使用与发布验收.md`](docs/个人开发者首次使用与发布验收.md) | 首次使用路径与发布验收 |
 | [`SECURITY.md`](SECURITY.md) | 漏洞报告与安全实践 |
-| [`docs/项目总共已更新修复完善的全部内容.md`](docs/项目总共已更新修复完善的全部内容.md) | 已更新/修复/完善（含日期） |
-| [`docs/项目新发现待修复的缺陷问题审计总报告.md`](docs/项目新发现待修复的缺陷问题审计总报告.md) | 待修复缺陷总报告 |
-| [`docs/项目非常有必要新实现的核心功能总报告.md`](docs/项目非常有必要新实现的核心功能总报告.md) | 必做核心新功能 |
+
+### 内部质量记录（面向维护者，非用户文档）
+
+以下 `docs/` 条目为内部审计/对标记录，含大量未完成项与内部口径，**不代表对用户的功能承诺**，外部读者请以上面的使用者文档为准：
+
+| 文档 | 性质 |
+|------|------|
+| [`docs/kodrix体检与Cursor对标差距文档.html`](docs/kodrix体检与Cursor对标差距文档.html) | 体检与对标差距 |
+| [`docs/项目总共已更新修复完善的全部内容.md`](docs/项目总共已更新修复完善的全部内容.md) | 已更新/修复/完善记录（含日期） |
+| [`docs/项目新发现待修复的缺陷问题审计总报告.md`](docs/项目新发现待修复的缺陷问题审计总报告.md) | 待修复缺陷审计 |
+| [`docs/项目非常有必要新实现的核心功能总报告.md`](docs/项目非常有必要新实现的核心功能总报告.md) | 拟实现核心功能规划 |
 
 ## 上游与许可
 

@@ -169,9 +169,9 @@ export async function getModelCandidates(options: ModelRoutingOptions = {}): Pro
 	const out: RoutedModel[] = [];
 	const seen = new Set<string>();
 	const push = (m: vscode.LanguageModelChat | undefined, tier: ModelTier) => {
-		if (!m) return;
+		if (!m) {return;}
 		const key = m.id || m.name;
-		if (seen.has(key)) return;
+		if (seen.has(key)) {return;}
 		seen.add(key);
 		out.push({ model: m, tier });
 	};
@@ -191,7 +191,7 @@ export async function getModelCandidates(options: ModelRoutingOptions = {}): Pro
 		for (const family of TIER_FAMILIES[t]) {
 			try {
 				const found = await vscode.lm.selectChatModels({ family });
-				for (const m of found) push(m, t);
+				for (const m of found) {push(m, t);}
 			} catch { /* ignore */ }
 		}
 	}
@@ -200,7 +200,7 @@ export async function getModelCandidates(options: ModelRoutingOptions = {}): Pro
 	if (!out.length) {
 		try {
 			const all = await vscode.lm.selectChatModels({});
-			for (const m of all) push(m, 'balanced');
+			for (const m of all) {push(m, 'balanced');}
 		} catch { /* ignore */ }
 	}
 	return out;
@@ -274,9 +274,9 @@ export function getRouterStatus(): { pools: Record<ModelTier, string[]>; usage: 
 	for (const u of usage) {
 		const cur = counts.get(u.modelName) ?? { count: 0, okCount: 0, totalMs: 0 };
 		cur.count++;
-		if (u.ok !== false) cur.okCount++;
+		if (u.ok !== false) {cur.okCount++;}
 		cur.totalMs += u.durationMs;
-		if (u.ok === false) cur.lastError = u.error ?? '调用失败';
+		if (u.ok === false) {cur.lastError = u.error ?? '调用失败';}
 		cur.lastAt = u.timestamp;
 		counts.set(u.modelName, cur);
 	}
@@ -365,7 +365,7 @@ export function registerModelRouter(context: vscode.ExtensionContext): void {
 			panel.webview.html = renderHealthHtml(getRouterStatus());
 			panel.onDidDispose(() => { _healthPanel = undefined; });
 			panel.webview.onDidReceiveMessage(msg => {
-				if (msg?.command === 'refresh') panel.webview.html = renderHealthHtml(getRouterStatus());
+				if (msg?.command === 'refresh') {panel.webview.html = renderHealthHtml(getRouterStatus());}
 			});
 		}),
 	);

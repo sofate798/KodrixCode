@@ -1,6 +1,5 @@
 {
 	"description": "Local LLM and cloud API provider configuration with Cursor-style shortcuts and one-click import",
-
 	"command.migrateConfig.title": "Migrate Configuration (Cursormini / Kodrix)",
 	"command.openProviderPresets.title": "Browse Model Provider Presets",
 	"command.openProviderWorkbench.title": "AI Provider Management",
@@ -20,13 +19,16 @@
 	"command.openAgentsWindow.title": "Open Agents Window",
 	"command.openWorkspaceInAgentsWindow.title": "Open Current Workspace in Agents Window",
 	"command.onboardingOpen.title": "Open Welcome Wizard",
-
+	"command.checkForUpdates.title": "Check for Updates",
 	"config.migrateOnFirstRun.description": "Automatically migrate model and agent configuration from ~/.cursormini or ~/.kodrix on first launch",
 	"config.importCursorOnFirstRun.description": "Automatically import Rules, MCP and Skills from Cursor on first launch (if ~/.cursor exists)",
+	"config.updateCheck.enabled.description": "Periodically check the release feed for a newer Kodrix version. Sends no device or account information; only reads the release manifest.",
+	"config.updateCheck.intervalHours.description": "Minimum interval between release checks, in hours.",
+	"config.updateCheck.feedUrl.description": "Release manifest URL (GitHub Releases API by default). Point it at your own feed for self-hosted distribution.",
+	"config.updateCheck.includePrerelease.description": "Also notify about pre-release versions.",
 	"config.modelRoutes.description": "Multi-model routing (plan / agent / code / fast), each entry uses only the model field",
 	"config.modelRoutes.model.description": "Model ID (must be available in Manage Models)",
 	"config.implementAgentModel.description": "Model for Implement Agent after Plan handoff (registered by Kodrix when Copilot does not contribute this key, for writing to user settings)",
-	"config.tabCompletion.description": "Enable Cursor Tab-level experience: Copilot completion + Next Edit Suggestions (NES)",
 	"config.backgroundAgents.description": "Enable Background Agent (Copilot CLI background tasks)",
 	"config.cloudAgents.description": "Enable Cloud Agent (Copilot Coding Agent)",
 	"config.composerUI.description": "Enable Composer-style multi-file UI: session sidebar, checkpoints, diff review",

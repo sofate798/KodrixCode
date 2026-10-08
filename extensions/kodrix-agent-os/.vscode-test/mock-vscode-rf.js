@@ -1,7 +1,7 @@
 'use strict';
 module.exports = {
 	workspace: {
-		workspaceFolders: [{ uri: { fsPath: "C:\\Users\\Deto\\AppData\\Local\\Temp\\kodrix-rf-J31vJ1\\ws" } }],
+		workspaceFolders: [{ uri: { fsPath: "C:\\Users\\Deto\\AppData\\Local\\Temp\\kodrix-rf-Cu0j6r\\ws" } }],
 		textDocuments: [],
 		getConfiguration: (section) => ({
 			get: (key, def) => {

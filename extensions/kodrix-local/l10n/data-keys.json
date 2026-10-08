@@ -1,0 +1,20 @@
+[
+	"llama.cpp",
+	"Ollama",
+	"LM Studio",
+	"DeepSeek",
+	"OpenAI",
+	"Anthropic",
+	"Google Gemini",
+	"OpenRouter",
+	"SiliconFlow",
+	"Zhipu AI",
+	"Qwen (Alibaba)",
+	"Custom",
+	"Custom Local",
+	"Start llama-server first (default port 8080); requires an OpenAI-compatible /v1/chat/completions service",
+	"Start the local server in LM Studio; models will be auto-detected",
+	"OpenAI: https://api.deepseek.com ; Anthropic: https://api.deepseek.com/anthropic. Multiple model names can be added",
+	"Custom endpoint: choose an OpenAI or Anthropic base_url; multiple model names can be added",
+	"Local endpoints also support both OpenAI / Anthropic base_url styles"
+]

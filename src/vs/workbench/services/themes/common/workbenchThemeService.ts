@@ -60,9 +60,12 @@ export function migrateThemeSettingsId(settingsId: string): string {
 		case 'Default Dark+': return 'Dark+';
 		case 'Default Light+': return 'Light+';
 		case 'Experimental Dark':
+		// 上游（VS Code）时代的旧 ID：改名后仍要能迁移，否则升级用户的配色设置会失效
+		case 'VS Code Dark':
 		case 'Kodrix Code Dark':
 			return ThemeSettingDefaults.COLOR_THEME_DARK;
 		case 'Experimental Light':
+		case 'VS Code Light':
 		case 'Kodrix Code Light':
 			return ThemeSettingDefaults.COLOR_THEME_LIGHT;
 	}

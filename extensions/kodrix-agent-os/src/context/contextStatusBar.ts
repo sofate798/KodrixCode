@@ -11,8 +11,13 @@ import { COMMANDS, CONFIG_FEATURES } from '../shared/constants';
 /** 上下文层级键 */
 type ContextLayerKey = 'wiki' | 'memory' | 'learning' | 'semantic';
 
-const CONTEXT_LAYERS_KEY = 'kodrix.contextEnabledLayers' as const;
-const ALL_LAYERS: ContextLayerKey[] = ['wiki', 'memory', 'learning', 'semantic'];
+/** 层级 → kodrix.features.* 配置键（唯一写入目标；装配侧读的就是这些键） */
+const LAYER_CONFIG_KEYS: Record<ContextLayerKey, string> = {
+	wiki: 'wiki',
+	memory: 'memory',
+	learning: 'learning',
+	semantic: 'semanticMemory',
+};
 
 let _statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -43,14 +48,14 @@ function updateStatusBar(): void {
 	// 紧凑格式：🧠 W·M·L·S ≈ tokens
 	_statusBarItem.text = `$(brain) W${summary.wikiKB.toFixed(1)}k·M${summary.memoryCount}·L${summary.learningCount}·S${summary.semanticVectors} ≈${summary.estimatedTokens}t`;
 	_statusBarItem.tooltip = new vscode.MarkdownString(
-		`**${l10n.t('Kodrix 上下文摘要')}**\n\n` +
-		`| ${l10n.t('层级')} | ${l10n.t('内容')} |\n|------|------|\n` +
+		`**${l10n.t('Kodrix Context Summary')}**\n\n` +
+		`| ${l10n.t('Layers')} | ${l10n.t('Content')} |\n|------|------|\n` +
 		`| Wiki | ${summary.wikiKB.toFixed(1)} KB |\n` +
-		`| Memory | ${summary.memoryCount} ${l10n.t('条')} |\n` +
-		`| Learning | ${summary.learningCount} ${l10n.t('条')} |\n` +
-		`| Semantic | ${summary.semanticVectors} ${l10n.t('向量')} |\n` +
-		`| **${l10n.t('估算 Token')}** | **~${summary.estimatedTokens}** |\n\n` +
-		`_${l10n.t('点击切换各层上下文开关')}_`,
+		`| Memory | ${summary.memoryCount} ${l10n.t('items')} |\n` +
+		`| Learning | ${summary.learningCount} ${l10n.t('items')} |\n` +
+		`| Semantic | ${summary.semanticVectors} ${l10n.t('Vectors')} |\n` +
+		`| **${l10n.t('Estimated Tokens')}** | **~${summary.estimatedTokens}** |\n\n` +
+		`_${l10n.t('Click to toggle each context layer on/off')}_`,
 	);
 	_statusBarItem.show();
 }
@@ -63,7 +68,7 @@ export function registerToggleContextLayersCommand(context: vscode.ExtensionCont
 			const currentEnabled = getEnabledLayers(features);
 
 			const layerItems: { label: string; key: ContextLayerKey; picked: boolean }[] = [
-				{ label: `$(book) ${l10n.t('Wiki 上下文')}`, key: 'wiki', picked: currentEnabled.includes('wiki') },
+				{ label: `$(book) ${l10n.t('Wiki Context')}`, key: 'wiki', picked: currentEnabled.includes('wiki') },
 				{ label: `$(brain) ${l10n.t('Project Memory')}`, key: 'memory', picked: currentEnabled.includes('memory') },
 				{ label: `$(mortar-board) ${l10n.t('Learning')}`, key: 'learning', picked: currentEnabled.includes('learning') },
 				{ label: `$(search) ${l10n.t('Semantic Memory')}`, key: 'semantic', picked: currentEnabled.includes('semantic') },
@@ -71,12 +76,12 @@ export function registerToggleContextLayersCommand(context: vscode.ExtensionCont
 
 			const picked = await vscode.window.showQuickPick(
 				layerItems.map(l => ({ label: l.label, picked: l.picked, key: l.key })),
-				{ canPickMany: true, placeHolder: l10n.t('选择要注入的上下文层级') },
+				{ canPickMany: true, placeHolder: l10n.t('Select the context levels to inject') },
 			);
 
 			if (picked) {
 				const selectedKeys = picked.map(p => p.key);
-				await saveEnabledLayers(context, selectedKeys);
+				await applyEnabledLayers(selectedKeys);
 				updateStatusBar();
 			}
 		}),
@@ -85,17 +90,27 @@ export function registerToggleContextLayersCommand(context: vscode.ExtensionCont
 
 function getEnabledLayers(features: vscode.WorkspaceConfiguration): ContextLayerKey[] {
 	const enabled: ContextLayerKey[] = [];
-	if (features.get<boolean>('wiki')) { enabled.push('wiki'); }
-	if (features.get<boolean>('memory')) { enabled.push('memory'); }
-	if (features.get<boolean>('learning')) { enabled.push('learning'); }
-	if (features.get<boolean>('semanticMemory') !== false) { enabled.push('semantic'); }
+	for (const layer of Object.keys(LAYER_CONFIG_KEYS) as ContextLayerKey[]) {
+		// 默认开启：只有显式 false 才算关闭（semanticMemory 历史上也允许 undefined 表示开启）
+		if (features.get<boolean>(LAYER_CONFIG_KEYS[layer]) !== false) {
+			enabled.push(layer);
+		}
+	}
 	return enabled;
 }
 
-async function saveEnabledLayers(context: vscode.ExtensionContext, layers: ContextLayerKey[]): Promise<void> {
-	await context.workspaceState.update(CONTEXT_LAYERS_KEY, layers);
-}
-
-export function getEnabledContextLayers(context: vscode.ExtensionContext): ContextLayerKey[] {
-	return context.workspaceState.get<ContextLayerKey[]>(CONTEXT_LAYERS_KEY) ?? ALL_LAYERS;
+/**
+ * 把勾选结果写回 `kodrix.features.*`（唯一事实来源）。
+ * 此前写的是 workspaceState 的自定义键，而装配侧读的是配置项、且那个键全仓无消费者，
+ * 于是"取消勾选"完全无效 —— 现在开关真的能关掉对应层的注入。
+ */
+async function applyEnabledLayers(layers: ContextLayerKey[]): Promise<void> {
+	const features = vscode.workspace.getConfiguration(CONFIG_FEATURES);
+	for (const layer of Object.keys(LAYER_CONFIG_KEYS) as ContextLayerKey[]) {
+		const key = LAYER_CONFIG_KEYS[layer];
+		const shouldEnable = layers.includes(layer);
+		if (features.get<boolean>(key, true) !== shouldEnable) {
+			await features.update(key, shouldEnable, vscode.ConfigurationTarget.Global);
+		}
+	}
 }

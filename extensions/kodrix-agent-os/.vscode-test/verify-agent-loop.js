@@ -183,7 +183,7 @@ function reset(seq, extraCfg = {}) {
 	console.log('\n[L] 轨迹渲染');
 	const md = al.renderTraceMarkdown('测试任务', r1);
 	check('含任务与状态', md.includes('测试任务') && md.includes('completed'));
-	check('含轨迹与成果', md.includes('轨迹') && md.includes('最终成果'));
+	check('含轨迹与成果', md.includes('Trace') && md.includes('Final Output'));
 
 	console.log('\n[M] 命令注册');
 	const ctx = { subscriptions: [] };

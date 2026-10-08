@@ -42,7 +42,10 @@ exports.cancelBootstrapTimers = cancelBootstrapTimers;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
+const vscode_1 = require("vscode");
+const logger_1 = require("../logger");
 const instructionRegistry_1 = require("../context/instructionRegistry");
+const paths_1 = require("../paths");
 const contextEvents_1 = require("../context/contextEvents");
 const statusBar_1 = require("../experience/statusBar");
 const repoWiki_1 = require("../wiki/repoWiki");
@@ -57,6 +60,18 @@ async function bootstrapWorkspace(context) {
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (!folder) {
         return;
+    }
+    // 不受信任工作区：预热会构建索引 / 写工作区 .kodrix/，一律跳过（能力声明为 limited）
+    if (vscode.workspace.isTrusted === false) {
+        logger_1.logger.warn('[WorkspaceBootstrap] 工作区未受信任，跳过自动预热与索引构建');
+        return;
+    }
+    // 工作区 .kodrix/ 就位并写好 .gitignore：会话记录/运行记录属本机私有数据，不该被提交
+    try {
+        (0, paths_1.ensureWorkspaceKodrixDir)();
+    }
+    catch (err) {
+        logger_1.logger.warn(`[WorkspaceBootstrap] 初始化 .kodrix 目录失败：${err instanceof Error ? err.message : String(err)}`);
     }
     const cfg = vscode.workspace.getConfiguration('kodrix');
     const autoBootstrap = cfg.get('experience.autoBootstrap', true);
@@ -110,11 +125,15 @@ async function bootstrapWorkspace(context) {
         if (showTip) {
             tipTimer = setTimeout(() => {
                 tipTimer = undefined;
-                void vscode.window.showInformationMessage('Kodrix 已为当前工作区预热 Agent 上下文（Wiki · Memory · Learning）', '打开 Hub', '智能路由').then(choice => {
-                    if (choice === '打开 Hub') {
+                // 按钮文案必须与"比较用的常量"同源：此前把中文字面量写在两处并直接 `===` 比较，
+                // 一旦接入 l10n（按钮显示译文）比较就永远不成立 —— 按钮点了没反应。
+                const openHub = vscode_1.l10n.t('Open Hub');
+                const smartRoute = vscode_1.l10n.t('Smart Routing');
+                void vscode.window.showInformationMessage(vscode_1.l10n.t('Kodrix prewarmed the Agent context for the current workspace (Wiki · Memory · Learning)'), openHub, smartRoute).then(choice => {
+                    if (choice === openHub) {
                         void vscode.commands.executeCommand('kodrix.hub.open');
                     }
-                    else if (choice === '智能路由') {
+                    else if (choice === smartRoute) {
                         void vscode.commands.executeCommand('kodrix.router.route');
                     }
                 });

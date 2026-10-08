@@ -30,6 +30,12 @@ import {
 export interface CheckpointFile {
 	relPath: string;
 	content: string;
+	/**
+	 * 该文件在快照时是否已存在。
+	 * `false` 表示"快照时还不存在、由 Agent 新建"——回滚时应删除它，否则删不掉 Agent 新建的文件。
+	 * 缺省视为 true（兼容既有 manifest）。
+	 */
+	existed?: boolean;
 }
 
 /** 操作日志条目 */
@@ -159,7 +165,7 @@ export async function createCheckpoint(label?: string): Promise<string | undefin
 
 	const manifest: CheckpointManifest = {
 		id,
-		label: label?.trim() || '手动检查点',
+		label: label?.trim() || l10n.t('Manual checkpoint'),
 		createdAt: new Date().toISOString(),
 		files,
 	};
@@ -168,9 +174,64 @@ export async function createCheckpoint(label?: string): Promise<string | undefin
 	return id;
 }
 
-/** 列出检查点（新→旧） */
-export async function listCheckpoints(): Promise<CheckpointSummary[]> {
+/**
+ * 在写入之前，把若干文件的原内容补进指定检查点的快照。
+ *
+ * 背景：`createCheckpoint` 只快照"当前已打开的文档"，而 Agent 会新建/修改从未在编辑器里打开的
+ * 文件（CI 配置、脚本、新模块）。不补这一步，"可回滚 Agent 改动"的承诺就是假的。
+ *
+ * @returns 实际新增的快照条目数
+ */
+export async function snapshotFilesIntoCheckpoint(id: string | undefined, absPaths: string[]): Promise<number> {
+	if (!id || absPaths.length === 0) {
+		return 0;
+	}
 	const root = getCheckpointRoot();
+	if (!root) {
+		return 0;
+	}
+	const manifest = await readManifest(id);
+	if (!manifest) {
+		return 0;
+	}
+	const existing = new Set(manifest.files.map(f => f.relPath));
+	let added = 0;
+	for (const abs of absPaths) {
+		const rel = workspaceRelative(abs);
+		if (!rel || isKodrixInternal(rel) || existing.has(rel)) {
+			continue;
+		}
+		try {
+			if (fs.existsSync(abs)) {
+				const stat = await fs.promises.stat(abs);
+				if (stat.size > CHECKPOINT_MAX_FILE_BYTES) {
+					logger.warn(`[Checkpoint] 文件过大未纳入快照：${rel}`);
+					continue;
+				}
+				manifest.files.push({ relPath: rel, content: await fs.promises.readFile(abs, 'utf-8'), existed: true });
+			} else {
+				// 尚不存在：记录"由 Agent 新建"，回滚时删除
+				manifest.files.push({ relPath: rel, content: '', existed: false });
+			}
+			existing.add(rel);
+			added++;
+		} catch (err) {
+			logger.warn(`[Checkpoint] 补快照失败：${rel} — ${err instanceof Error ? err.message : String(err)}`);
+		}
+	}
+	if (added > 0) {
+		try {
+			await fs.promises.writeFile(path.join(root, id, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
+			logger.info(`[Checkpoint] 已为「${manifest.label}」补入 ${added} 个文件快照（共 ${manifest.files.length}）`);
+		} catch (err) {
+			logger.warn(`[Checkpoint] 写回 manifest 失败：${err instanceof Error ? err.message : String(err)}`);
+		}
+	}
+	return added;
+}
+
+/** 列出检查点（新→旧） */
+export async function listCheckpoints(): Promise<CheckpointSummary[]> {	const root = getCheckpointRoot();
 	if (!root) {
 		return [];
 	}
@@ -190,7 +251,7 @@ export async function listCheckpoints(): Promise<CheckpointSummary[]> {
 			if (m && m.files.length > 0) {
 				results.push({
 					id: name,
-					label: m.label ?? '（无标签）',
+					label: m.label ?? l10n.t('(no label)'),
 					createdAt: m.createdAt ?? name,
 					fileCount: m.files.length,
 				});
@@ -212,11 +273,11 @@ export async function getCheckpointFiles(id: string): Promise<CheckpointFile[]> 
 export async function restoreCheckpoint(id: string): Promise<{ restored: number; skipped: number }> {
 	const manifest = await readManifest(id);
 	if (!manifest) {
-		throw new Error(`检查点不存在：${id}`);
+		throw new Error(l10n.t('Checkpoint not found: {0}', id));
 	}
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		throw new Error('没有打开的工作区');
+		throw new Error(l10n.t('Please open a workspace first'));
 	}
 	let restored = 0;
 	let skipped = 0;
@@ -228,6 +289,14 @@ export async function restoreCheckpoint(id: string): Promise<{ restored: number;
 			continue;
 		}
 		try {
+			// 快照时该文件还不存在 → 它是 Agent 新建的，回滚应删除
+			if (f.existed === false) {
+				if (fs.existsSync(abs)) {
+					await fs.promises.unlink(abs);
+				}
+				restored++;
+				continue;
+			}
 			await fs.promises.mkdir(path.dirname(abs), { recursive: true });
 			await fs.promises.writeFile(abs, f.content, 'utf-8');
 			restored++;
@@ -322,6 +391,14 @@ export function autoCaptureFileSave(doc: vscode.TextDocument): void {
 	void doAutoCaptureFileSave(doc, rel, root);
 }
 
+/** 取消自动捕获节流定时器（在 deactivate 时调用；触发时机不变） */
+export function disposeCheckpointThrottle(): void {
+	if (_autoCaptureThrottle) {
+		clearTimeout(_autoCaptureThrottle);
+		_autoCaptureThrottle = null;
+	}
+}
+
 async function doAutoCaptureFileSave(doc: vscode.TextDocument, rel: string, root: string): Promise<void> {
 	try {
 		const autoDir = path.join(root, 'auto');
@@ -361,12 +438,12 @@ async function showCheckpointFilesPreview(id: string): Promise<void> {
 	const manifest = await readManifest(id);
 	const doc = await vscode.workspace.openTextDocument({
 		content: [
-			`# 检查点：${manifest?.label ?? id}`,
+			l10n.t('# Checkpoint: {0}', manifest?.label ?? id),
 			'',
-			`创建时间：${manifest?.createdAt ?? ''}`,
-			`文件数：${files.length}`,
+			l10n.t('Created: {0}', manifest?.createdAt ?? ''),
+			l10n.t('Files: {0}', files.length),
 			'',
-			'## 文件清单',
+			l10n.t('## File List'),
 			'',
 			...files.map(f => `- \`${f.relPath}\``),
 		].join('\n'),
@@ -410,9 +487,9 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMANDS.checkpointCreate, async () => {
 			const label = await vscode.window.showInputBox({
-				title: l10n.t('创建检查点'),
-				prompt: l10n.t('为当前代码状态打一个可回滚的标记（可留空）'),
-				placeHolder: l10n.t('例如：Idea Flow 构建前'),
+				title: l10n.t('Create Checkpoint'),
+				prompt: l10n.t('Create a rollback marker for the current code state (optional)'),
+				placeHolder: l10n.t('e.g., before an Idea Flow build'),
 				ignoreFocusOut: true,
 			});
 			if (label === undefined) {
@@ -420,9 +497,9 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 			}
 			const id = await createCheckpoint(label);
 			if (id) {
-				vscode.window.showInformationMessage(l10n.t('已创建检查点：{0}', label?.trim() || l10n.t('手动检查点')));
+				vscode.window.showInformationMessage(l10n.t('Checkpoint created: {0}', label?.trim() || l10n.t('Manual checkpoint')));
 			} else {
-				vscode.window.showWarningMessage(l10n.t('创建检查点失败：请先打开工作区'));
+				vscode.window.showWarningMessage(l10n.t('Failed to create checkpoint: open a workspace first'));
 			}
 		}),
 	);
@@ -432,16 +509,16 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.checkpointList, async () => {
 			const list = await listCheckpoints();
 			if (!list.length) {
-				vscode.window.showInformationMessage(l10n.t('暂无检查点。使用「Kodrix: 创建检查点」，或保存文件自动捕获'));
+				vscode.window.showInformationMessage(l10n.t('No checkpoints yet. Use "Kodrix: Create Checkpoint", or save a file to capture one automatically'));
 				return;
 			}
 			const qp = vscode.window.createQuickPick<vscode.QuickPickItem & { cid: string }>();
-			qp.title = l10n.t('检查点列表');
-			qp.placeholder = l10n.t('选择检查点');
+			qp.title = l10n.t('Checkpoint list');
+			qp.placeholder = l10n.t('Select a checkpoint');
 			qp.items = list.map(c => ({
 				cid: c.id,
 				label: `${formatTime(c.createdAt)} — ${c.label}`,
-				description: l10n.t('{0} 个文件', c.fileCount),
+				description: l10n.t('{0} files', c.fileCount),
 			}));
 			qp.onDidAccept(async () => {
 				const pick = qp.activeItems[0] as (vscode.QuickPickItem & { cid: string }) | undefined;
@@ -450,25 +527,25 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 				}
 				qp.hide();
 				const choice = await vscode.window.showQuickPick(
-					[l10n.t('$(debug-restart) 回滚到该检查点'), l10n.t('$(files) 查看文件清单')],
-					{ title: l10n.t('检查点：{0}', pick.label), placeHolder: l10n.t('选择操作') },
+					[l10n.t('$(debug-restart) Roll Back to This Checkpoint'), l10n.t('$(files) View File List')],
+					{ title: l10n.t('Checkpoint: {0}', pick.label), placeHolder: l10n.t('Select an action') },
 				);
-				if (choice?.includes(l10n.t('回滚'))) {
+				if (choice?.includes(l10n.t('Roll Back'))) {
 					const ok = await vscode.window.showWarningMessage(
-						l10n.t('确定回滚到「{0}」？将覆盖 {1}', pick.label, pick.description ?? ''),
+						l10n.t('Roll back to "{0}"? This will overwrite {1}', pick.label, pick.description ?? ''),
 						{ modal: true },
-						l10n.t('回滚'),
+						l10n.t('Roll Back'),
 					);
-					if (ok !== l10n.t('回滚')) {
+					if (ok !== l10n.t('Roll Back')) {
 						return;
 					}
 					try {
 						const r = await restoreCheckpoint(pick.cid);
-						vscode.window.showInformationMessage(l10n.t('回滚完成：恢复 {0} 个文件{1}', r.restored, r.skipped ? l10n.t('，跳过 {0}', r.skipped) : ''));
+						vscode.window.showInformationMessage(l10n.t('Rollback complete: restored {0} files{1}', r.restored, r.skipped ? l10n.t(', skipped {0}', r.skipped) : ''));
 					} catch (err) {
-						vscode.window.showErrorMessage(l10n.t('回滚失败：{0}', err instanceof Error ? err.message : String(err)));
+						vscode.window.showErrorMessage(l10n.t('Rollback failed: {0}', err instanceof Error ? err.message : String(err)));
 					}
-				} else if (choice?.includes(l10n.t('查看'))) {
+				} else if (choice?.includes(l10n.t('View'))) {
 					await showCheckpointFilesPreview(pick.cid);
 				}
 			});
@@ -482,33 +559,35 @@ export function registerCheckpoints(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.checkpointRestore, async () => {
 			const list = await listCheckpoints();
 			if (!list.length) {
-				vscode.window.showInformationMessage(l10n.t('暂无检查点可回滚'));
+				vscode.window.showInformationMessage(l10n.t('No checkpoints to roll back to'));
 				return;
 			}
 			const pick = await vscode.window.showQuickPick(
 				list.map(c => ({
 					label: `${formatTime(c.createdAt)} — ${c.label}`,
-					description: `${c.fileCount} 个文件`,
+					description: l10n.t('{0} files', c.fileCount),
 					cid: c.id,
 				})),
-				{ title: l10n.t('回滚到检查点') },
+				{ title: l10n.t('Roll Back to Checkpoint') },
 			);
 			if (!pick) {
 				return;
 			}
+			const rollbackLabel = l10n.t('Roll Back');
 			const ok = await vscode.window.showWarningMessage(
-				l10n.t('确定回滚到「{0}」？将覆盖 {1}', pick.label, pick.description ?? ''),
+				l10n.t('Roll back to "{0}"? This will overwrite {1}', pick.label, pick.description ?? ''),
 				{ modal: true },
-				l10n.t('回滚'),
+				rollbackLabel,
+				l10n.t('Cancel'),
 			);
-			if (ok !== l10n.t('回滚')) {
+			if (ok !== rollbackLabel) {
 				return;
 			}
 			try {
 				const r = await restoreCheckpoint((pick as { cid: string }).cid);
-				vscode.window.showInformationMessage(l10n.t('回滚完成：恢复 {0} 个文件{1}', r.restored, r.skipped ? l10n.t('，跳过 {0}', r.skipped) : ''));
+				vscode.window.showInformationMessage(l10n.t('Rollback complete: restored {0} files{1}', r.restored, r.skipped ? l10n.t(', skipped {0}', r.skipped) : ''));
 			} catch (err) {
-				vscode.window.showErrorMessage(l10n.t('回滚失败：{0}', err instanceof Error ? err.message : String(err)));
+				vscode.window.showErrorMessage(l10n.t('Rollback failed: {0}', err instanceof Error ? err.message : String(err)));
 			}
 		}),
 	);

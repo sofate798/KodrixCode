@@ -48,9 +48,9 @@ async function scanImport(context: vscode.ExtensionContext): Promise<{ items: st
 				|| fs.existsSync(path.join(dir, 'plugins'));
 			const already = context.globalState.get<boolean>('kodrix.configMigrated', false);
 			if (already) {
-				notes.push(l10n.t('Cursormini / Kodrix 配置已在首次启动时自动迁移'));
+				notes.push(l10n.t('Cursormini / Kodrix settings were migrated automatically on first launch'));
 			} else if (hasLegacy) {
-				notes.push(l10n.t('检测到 {0} — 将在后台自动迁移（或运行「Kodrix: 迁移配置」）', dir));
+				notes.push(l10n.t('Detected {0} — it will be migrated automatically in the background (or run "Kodrix: Migrate Config")', dir));
 			}
 			importScanCache = { items: cursor.items, notes };
 		} catch (err) {
@@ -59,6 +59,39 @@ async function scanImport(context: vscode.ExtensionContext): Promise<{ items: st
 		}
 	}
 	return importScanCache;
+}
+
+/** `{{l10n:源文案}}` 占位（与 agent-os webviewHtml.ts 同一约定），文案里允许 {0}~{9} 运行时占位符 */
+const L10N_PLACEHOLDER_RE = /\{\{l10n:((?:[^{}]|\{\d+\})*)\}\}/g;
+
+function localizeWebviewText(source: string): string {
+	const text = source.trim();
+	if (!text) { return ''; }
+	try {
+		return l10n.t(text);
+	} catch {
+		return text;
+	}
+}
+
+/** webview 脚本侧动态文案字典：宿主侧本地化后经 `{{l10nDict}}` 注入（键名与 onboarding-welcome.html 的 L10N.* 对应） */
+function buildWebviewL10nDict(): Record<string, string> {
+	return {
+		envIncomplete: l10n.t('Environment scan incomplete'),
+		envUnavailable: l10n.t('No usable development environment found (the scan returned no results). You can click "Continue" to use Kodrix anyway, or install dev tools such as Git / Python and reopen the wizard.'),
+		envComplete: l10n.t('Environment scan complete'),
+		envNoDevTools: l10n.t('No development environment found (no Git / Python / Docker / Ollama detected). You can continue with cloud APIs, or install the tools and reopen the wizard.'),
+		notDetected: l10n.t('Not detected'),
+		installed: l10n.t('Installed'),
+		notInstalled: l10n.t('Not installed'),
+		installedNoModels: l10n.t('Installed (no models)'),
+		unknown: l10n.t('Unknown'),
+		continueBtn: l10n.t('Continue'),
+		noImportables: l10n.t('No Cursor importables detected. (You can run Kodrix: Import from Cursor later)'),
+		moreItems: l10n.t('… {0} more'),
+		itemsImportable: l10n.t('Cursor configuration items available for import'),
+		importedCount: l10n.t('Imported {0} configuration items.'),
+	};
 }
 
 function getHtml(webview: vscode.Webview, extensionPath: string): string {
@@ -72,16 +105,20 @@ function getHtml(webview: vscode.Webview, extensionPath: string): string {
 		const logoUri = webview.asWebviewUri(
 			vscode.Uri.file(path.join(resourcesDir, 'kodrix-logo.png')),
 		);
+		const l10nDictJson = JSON.stringify(buildWebviewL10nDict()).replace(/</g, '\\u003c');
 		return html
 			.replace(/\{\{cspSource\}\}/g, webview.cspSource)
 			.replace(/\{\{codiconsCssUri\}\}/g, codiconsCssUri.toString())
-			.replace(/\{\{logoUri\}\}/g, logoUri.toString());
+			.replace(/\{\{logoUri\}\}/g, logoUri.toString())
+			.replace(/\{\{htmlLang\}\}/g, vscode.env.language)
+			.replace(/\{\{l10nDict\}\}/g, l10nDictJson)
+			.replace(L10N_PLACEHOLDER_RE, (_m, source: string) => localizeWebviewText(source));
 	} catch (err) {
 		logger.warn('加载 onboarding HTML 资源失败', err);
-		return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`
+		return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>`
 			+ `<body style="font-family:sans-serif;padding:24px">`
-			+ `<h2>Welcome to Kodrix</h2>`
-			+ `<p>${l10n.t('欢迎向导资源加载失败。你仍可通过命令面板使用全部功能。')}</p></body></html>`;
+			+ `<h2>${l10n.t('Welcome to Kodrix')}</h2>`
+			+ `<p>${l10n.t('Failed to load the welcome wizard resources. All features are still available from the Command Palette.')}</p></body></html>`;
 	}
 }
 

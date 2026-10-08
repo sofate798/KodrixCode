@@ -67,12 +67,12 @@ export function readSpecBundle(slug: string): SpecBundle {
 export async function pickSpecSlug(placeHolder?: string): Promise<string | undefined> {
 	const slugs = listSpecSlugs();
 	if (!slugs.length) {
-		vscode.window.showWarningMessage(l10n.t('尚无 Spec，请先创建'));
+		vscode.window.showWarningMessage(l10n.t('No Spec yet, please create one first'));
 		return undefined;
 	}
 	const picked = await vscode.window.showQuickPick(
 		slugs.map(s => ({ label: s, description: `.kodrix/specs/${s}/` })),
-		{ placeHolder: placeHolder || l10n.t('选择 Spec') },
+		{ placeHolder: placeHolder || l10n.t('Select Spec') },
 	);
 	return picked?.label;
 }
@@ -84,7 +84,7 @@ export async function openSpecFile(slug: string, file: SpecFileName): Promise<vo
 	}
 	const p = path.join(dir, file);
 	if (!fs.existsSync(p)) {
-		vscode.window.showWarningMessage(l10n.t('文件不存在：{0}', file));
+		vscode.window.showWarningMessage(l10n.t('File does not exist: {0}', file));
 		return;
 	}
 	const doc = await vscode.workspace.openTextDocument(p);
@@ -215,7 +215,7 @@ export function tasksTemplate(feature: string, slug: string): string {
 export async function createSpecFiles(feature: string, description: string): Promise<string | undefined> {
 	const specsDir = getSpecsDir();
 	if (!specsDir) {
-		vscode.window.showWarningMessage(l10n.t('请先打开工作区'));
+		vscode.window.showWarningMessage(l10n.t('Please open a workspace first'));
 		return undefined;
 	}
 	const slug = slugify(feature);
@@ -224,7 +224,7 @@ export async function createSpecFiles(feature: string, description: string): Pro
 	// 同名 Spec 已存在时不静默覆盖，先征求用户确认
 	if (fs.existsSync(specDir)) {
 		const choice = await vscode.window.showWarningMessage(
-			l10n.t('Spec「{0}」已存在，是否覆盖三件套？', slug),
+			l10n.t('Spec "{0}" already exists. Overwrite the three files?', slug),
 			{ modal: true },
 			'覆盖',
 			'取消',
@@ -241,7 +241,7 @@ export async function createSpecFiles(feature: string, description: string): Pro
 		fs.writeFileSync(path.join(specDir, 'tasks.md'), tasksTemplate(feature, slug), 'utf-8');
 		return specDir;
 	} catch (err) {
-		vscode.window.showErrorMessage(l10n.t('创建 Spec 失败：{0}', err instanceof Error ? err.message : String(err)));
+		vscode.window.showErrorMessage(l10n.t('Failed to create Spec: {0}', err instanceof Error ? err.message : String(err)));
 		return undefined;
 	}
 }

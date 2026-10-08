@@ -43,6 +43,9 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("assert"));
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
+const os = __importStar(require("os"));
 const vscodeMock = require('./vscode-mock');
 const acpRegistry = require('../acp/acpRegistry');
 suite('acpRegistry', () => {
@@ -75,7 +78,7 @@ suite('acpRegistry', () => {
             };
             const result = await acpRegistry.dispatchAcpTask(agent, 'timeout test', 500);
             assert.strictEqual(result.status, 'timeout');
-            assert.ok(result.error?.includes('超时'));
+            assert.ok(result.error?.includes('Timed out'));
         });
         test('失败命令返回 failed 状态', async () => {
             const agent = {
@@ -89,28 +92,42 @@ suite('acpRegistry', () => {
             const result = await acpRegistry.dispatchAcpTask(agent, 'fail test', 10000);
             assert.strictEqual(result.status, 'failed');
         });
-        test('JSONL 跨 chunk 行缓冲：多行 JSON 输出正确解析', async () => {
-            // 输出多行 JSONL，验证每行都被正确解析 content 字段
-            const lines = [
-                '{"content":"line1"}',
-                '{"content":"line2"}',
-                '{"content":"line3"}',
-            ];
-            const cmd = process.platform === 'win32'
-                ? `powershell -Command "${lines.map(l => l.replace(/"/g, '\\"')).join('; ')}"`
-                : `printf '${lines.join('\\n')}\n'`;
+        test('JSONL 跨 chunk 行缓冲：被拆分的 JSON 行仍能正确解析', async () => {
+            // 用一个 Node 脚本故意把每行 JSON 拆成多次 write（模拟跨 chunk），
+            // 若没有行缓冲，残缺片段会被当纯文本、content 字段不会被解析出来。
+            const script = path.join(os.tmpdir(), `kodrix-acp-jsonl-${Date.now()}-${process.pid}.js`);
+            const scriptSource = `const out = process.stdout;
+const write = (s) => out.write(s);
+write('{"con');
+setTimeout(() => {
+  write('tent":"line1"}\\n');
+  write('{"content":"li');
+  setTimeout(() => {
+    write('ne2"}\\n');
+    write('{"content":"line3"}\\n');
+    setTimeout(() => process.exit(0), 50);
+  }, 40);
+}, 40);
+`;
+            fs.writeFileSync(script, scriptSource, 'utf-8');
             const agent = {
                 id: 'jsonl-agent',
                 name: 'JSONL Agent',
-                command: cmd,
+                command: `node "${script}"`,
                 protocol: 'acp',
                 enabled: true,
                 registeredAt: new Date().toISOString(),
             };
-            const result = await acpRegistry.dispatchAcpTask(agent, 'jsonl test', 10000);
-            assert.ok(result.output.includes('line1'));
-            assert.ok(result.output.includes('line2'));
-            assert.ok(result.output.includes('line3'));
+            try {
+                const result = await acpRegistry.dispatchAcpTask(agent, 'jsonl test', 10000);
+                assert.strictEqual(result.status, 'completed', `实际状态：${result.status} / ${result.error}`);
+                assert.ok(result.output.includes('line1'), `实际输出：${result.output}`);
+                assert.ok(result.output.includes('line2'), `实际输出：${result.output}`);
+                assert.ok(result.output.includes('line3'), `实际输出：${result.output}`);
+            }
+            finally {
+                fs.rmSync(script, { force: true });
+            }
         });
     });
     // ── listAcpRuns ────────────────────────────────────────────────

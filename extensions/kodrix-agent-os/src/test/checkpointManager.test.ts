@@ -171,7 +171,7 @@ suite('checkpointManager', () => {
 				assert.fail('Should have thrown');
 			} catch (err) {
 				assert.ok(err instanceof Error);
-				assert.ok(err.message.includes('不存在'));
+				assert.ok(err.message.includes('Checkpoint not found'));
 			}
 		});
 	});

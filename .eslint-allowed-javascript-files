@@ -84,12 +84,18 @@ extensions/vscode-api-tests/testWorkspace/worker.js
 extensions/vscode-colorize-tests/test/colorize-fixtures/test.js
 extensions/vscode-colorize-tests/test/colorize-fixtures/test6916.js
 extensions/yaml/build/update-grammar.js
+.github/workflows/_shared/check-kodrix-command-contract.mjs
+.github/workflows/_shared/check-kodrix-contributions.mjs
+.github/workflows/_shared/check-kodrix-import-contract.mjs
+.github/workflows/_shared/kodrix-smoke-suite.cjs
+.github/workflows/_shared/kodrix-workbench-smoke.mjs
 gulpfile.mjs
 scripts/chat-simulation/common/perf-scenarios.js
 scripts/chat-simulation/common/utils.js
 scripts/chat-simulation/merge-ci-summary.js
 scripts/chat-simulation/test-chat-mem-leaks.js
 scripts/chat-simulation/test-chat-perf-regression.js
+scripts/apply-release-zh-langpack.mjs
 scripts/apply-zh-langpack.mjs
 scripts/code-agent-host.js
 scripts/code-perf.js
@@ -97,8 +103,11 @@ scripts/code-server.js
 scripts/code-sessions-web.js
 scripts/code-web.js
 scripts/copy-native-modules.mjs
+scripts/fill-skill-catalog-hashes.mjs
 scripts/fix-product-json.mjs
 scripts/fix-wms.mjs
+scripts/generate-sbom.mjs
+scripts/measure-index-perf.mjs
 scripts/restore-pw-shim.mjs
 scripts/sync-marketplace-catalog.mjs
 scripts/xterm-update.js
@@ -163,3 +172,4 @@ test/unit/electron/renderer.js
 test/unit/fullJsonStreamReporter.js
 test/unit/node/index.js
 test/unit/reporter.js
+scripts/kodrix-l10n.mjs

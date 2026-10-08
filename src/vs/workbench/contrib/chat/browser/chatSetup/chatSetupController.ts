@@ -43,7 +43,7 @@ const defaultChat = {
 	},
 	providerUriSetting: product.defaultChatAgent?.providerUriSetting ?? '',
 	completionsAdvancedSetting: product.defaultChatAgent?.completionsAdvancedSetting ?? '',
-}
+};
 
 export interface IChatSetupControllerOptions {
 	readonly forceSignIn?: boolean;

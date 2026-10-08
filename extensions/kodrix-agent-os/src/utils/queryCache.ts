@@ -13,7 +13,7 @@ export class QueryCache<V> {
 
 	get(key: string): V | undefined {
 		const entry = this._cache.get(key);
-		if (!entry) return undefined;
+		if (!entry) {return undefined;}
 		if (Date.now() > entry.expiry) {
 			this._cache.delete(key);
 			return undefined;
@@ -28,7 +28,7 @@ export class QueryCache<V> {
 		// 如果已满，删除最旧的（Map 第一个）
 		if (this._cache.size >= this._maxEntries) {
 			const firstKey = this._cache.keys().next().value;
-			if (firstKey !== undefined) this._cache.delete(firstKey);
+			if (firstKey !== undefined) {this._cache.delete(firstKey);}
 		}
 		this._cache.set(key, { value, expiry: Date.now() + this._ttlMs });
 	}

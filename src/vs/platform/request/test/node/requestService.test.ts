@@ -15,7 +15,15 @@ suite('Request Service', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
 	// Kerberos module fails to load on local macOS and Linux CI.
-	(isWindows ? test : test.skip)('Kerberos lookup', async () => {
+	// 另外：原生绑定未构建时（例如可选依赖没编译出 kerberos.node）也跳过——
+	// 否则报出来的是 "Could not locate the bindings file"，看起来像产品缺陷而非环境问题。
+	(isWindows ? test : test.skip)('Kerberos lookup', async function () {
+		try {
+			await import('kerberos');
+		} catch {
+			// 原生绑定不可用：跳过（this.skip() 抛出 Pending，后续代码不会执行）
+			return this.skip();
+		}
 		try {
 			const logService = store.add(new NullLogService());
 			const response = await lookupKerberosAuthorization('http://localhost:9999', undefined, logService, 'requestService.test.ts');

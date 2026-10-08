@@ -51,9 +51,13 @@ export const FEATURE_FLAGS = {
 	sessionLearning: 'sessionLearning',
 	semanticMemory: 'semanticMemory',
 	contextInjection: 'contextInjection',
+	contextIntelligence: 'contextIntelligence',
 	ideaFlow: 'ideaFlow',
 	codebaseIntelligence: 'codebaseIntelligence',
 	terminalAI: 'terminalAI',
+	hooks: 'hooks',
+	acp: 'acp',
+	propertyTests: 'propertyTests',
 } as const;
 
 // Experience config (kodrix.experience.*)
@@ -99,17 +103,6 @@ export const COMMANDS = {
 	simpleBrowserShow: 'simpleBrowser.show',
 	explorerFocus: 'workbench.view.explorer',
 
-	// Local Extension
-	openProviderWorkbench: 'kodrix.openProviderWorkbench',
-	openAgentsWindow: 'kodrix.openAgentsWindow',
-	openProviderPresets: 'kodrix.openProviderPresets',
-	applyPreset: 'kodrix.applyPreset',
-	welcome: 'kodrix.welcome',
-	importCursor: 'kodrix.importCursor',
-	migrateConfig: 'kodrix.migrateConfig',
-
-	// Skills Extension
-	skillsOpenMarketplace: 'kodrix.skills.openMarketplace',
 	skillsRefresh: 'kodrix.skills.refresh',
 	skillsFocusMarketplace: 'kodrix.skillsMarketplace.focus',
 	skillsInstall: 'kodrix.skills.install',
@@ -271,6 +264,20 @@ export const CREW_CONFIG_KEYS = {
 /** 默认最大并发任务数（对标 Cursor Subagent 并行派生，默认 3 路避免资源爆炸） */
 export const CREW_DEFAULT_MAX_PARALLEL = 3;
 
+/** Crew 并发上限（与 package.json kodrix.crew.maxParallel 的 maximum 保持一致） */
+export const CREW_MAX_PARALLEL_LIMIT = 10;
+
+/**
+ * 钳制 Crew/Subagent 并发数：非法值（NaN/非数字）回退默认，越界值收敛到 [1, CREW_MAX_PARALLEL_LIMIT]。
+ * Crew 并行调度与 Subagent 派生共用，保证设置项 kodrix.crew.maxParallel 在两条链路行为一致。
+ */
+export function clampCrewParallel(value: unknown, fallback: number = CREW_DEFAULT_MAX_PARALLEL): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return Math.min(CREW_MAX_PARALLEL_LIMIT, Math.max(1, Math.floor(fallback)));
+	}
+	return Math.min(CREW_MAX_PARALLEL_LIMIT, Math.max(1, Math.floor(value)));
+}
+
 /** 单任务默认超时（毫秒），与 IdeaFlow LLM 分析超时保持一致 */
 export const CREW_TASK_TIMEOUT_MS = 180_000;
 
@@ -352,6 +359,21 @@ export const CHECKPOINT_MAX_FILES_PER_SNAPSHOT = 100;
 /** 单个文件超过该字节数不入快照（二进制 / 大文件跳过） */
 export const CHECKPOINT_MAX_FILE_BYTES = 1_000_000;
 
+// ── Agent Kanban 显示设置 ─────────────────────────────────────────
+
+/** Kanban 配置段 */
+export const KANBAN_CONFIG = 'kodrix.kanban' as const;
+
+/** Kanban 配置键（kodrix.kanban.*） */
+export const KANBAN_CONFIG_KEYS = {
+	showCompleted: 'showCompleted',
+} as const;
+
+// ── setContext 上下文键（package.json views/keybindings when 子句消费） ──
+
+/** 是否已打开工作区（kodrix.checkpoints 视图可见性依赖此键） */
+export const HAS_WORKSPACE_CONTEXT_KEY = 'kodrix.hasWorkspace' as const;
+
 // ── 多文件 Apply + diff 确认（对标 Cursor 多文件 Apply） ──------------------------------
 
 /** 变更提案目录名（工作区 .kodrix/apply） */
@@ -370,6 +392,7 @@ export const AGENT_LOOP_CONFIG_KEYS = {
 	maxIterations: 'maxIterations',
 	timeoutMs: 'timeoutMs',
 	allowCommands: 'allowCommands',
+	allowDangerousCommands: 'allowDangerousCommands',
 	checkpoint: 'checkpoint',
 } as const;
 
@@ -378,6 +401,46 @@ export const AGENT_LOOP_DEFAULT_MAX_ITERATIONS = 20;
 
 /** 默认总超时（ms） */
 export const AGENT_LOOP_DEFAULT_TIMEOUT_MS = 600000;
+
+/** 迭代轮数硬上限：设置项没有 maximum 时，工作区里的 .vscode/settings.json 可以写成天文数字 */
+export const AGENT_LOOP_MAX_ITERATIONS_LIMIT = 100;
+
+/** 总超时硬上限（1 小时）：同上，防止"跑飞" */
+export const AGENT_LOOP_TIMEOUT_MS_LIMIT = 3_600_000;
+
+/** 危险命令默认拦截（可在设置中显式放开） */
+export const AGENT_LOOP_DEFAULT_ALLOW_DANGEROUS_COMMANDS = false;
+
+/** 自动索引的文件数上限（默认值；可被 kodrix.codebase.maxAutoIndexFiles 覆盖，与设置说明一致） */
+export const MAX_AUTO_INDEX_FILES = 50_000;
+
+/** 自动索引上限的允许区间 */
+export const MAX_AUTO_INDEX_FILES_MIN = 100;
+export const MAX_AUTO_INDEX_FILES_MAX = 1_000_000;
+
+/** 钳制自动索引文件数上限（非法值回退默认） */
+export function clampMaxAutoIndexFiles(value: unknown, fallback: number = MAX_AUTO_INDEX_FILES): number {
+	const base = (typeof value === 'number' && Number.isFinite(value)) ? value : fallback;
+	return Math.min(MAX_AUTO_INDEX_FILES_MAX, Math.max(MAX_AUTO_INDEX_FILES_MIN, Math.floor(base)));
+}
+
+/**
+ * 超限时抛出的错误前缀：启动路径据此给出"跳过自动索引 + 提供手动入口"的可操作提示，
+ * 而不是把它当成普通失败（UI 文案承诺了 50k 上限，代码必须真的拦住）。
+ */
+export const INDEX_TOO_MANY_FILES_PREFIX = 'INDEX_TOO_MANY_FILES';
+
+/** 钳制 Agent 迭代轮数到 [1, AGENT_LOOP_MAX_ITERATIONS_LIMIT]（非法值回退默认） */
+export function clampAgentIterations(value: unknown, fallback: number = AGENT_LOOP_DEFAULT_MAX_ITERATIONS): number {
+	const base = (typeof value === 'number' && Number.isFinite(value)) ? value : fallback;
+	return Math.min(AGENT_LOOP_MAX_ITERATIONS_LIMIT, Math.max(1, Math.floor(base)));
+}
+
+/** 钳制 Agent 总超时到 [5s, AGENT_LOOP_TIMEOUT_MS_LIMIT]（非法值回退默认） */
+export function clampAgentTimeoutMs(value: unknown, fallback: number = AGENT_LOOP_DEFAULT_TIMEOUT_MS): number {
+	const base = (typeof value === 'number' && Number.isFinite(value)) ? value : fallback;
+	return Math.min(AGENT_LOOP_TIMEOUT_MS_LIMIT, Math.max(5_000, Math.floor(base)));
+}
 
 /** 默认运行前自动创建检查点（可回滚 Agent 改动） */
 export const AGENT_LOOP_DEFAULT_CHECKPOINT = true;
@@ -419,7 +482,7 @@ export const TAB_COMPLETION_CONFIG = 'kodrix.tabCompletion' as const;
 export const TAB_COMPLETION_CONFIG_KEYS = {
 	enabled: 'enabled',
 	mode: 'mode',
-	fimProvider: 'fimProvider',
+	fimEnabled: 'fimEnabled',
 	fimEndpoint: 'fimEndpoint',
 	fimApiKey: 'fimApiKey',
 	fimModel: 'fimModel',
@@ -429,9 +492,9 @@ export const TAB_COMPLETION_CONFIG_KEYS = {
 /** Tab 补全模式：fim = 专用 FIM 通道；fast = 通用模型通道 */
 export const TAB_COMPLETION_MODE_FIM = 'fim' as const;
 export const TAB_COMPLETION_MODE_FAST = 'fast' as const;
-/** FIM 提供方：deepseek（默认）或 custom（自定义端点） */
-export const FIM_PROVIDER_DEEPSEEK = 'deepseek' as const;
-export const FIM_PROVIDER_CUSTOM = 'custom' as const;
+/** FIM 专线开关默认值（false 时完全跳过 FIM 通道，直连 fast） */
+export const TAB_COMPLETION_FIM_ENABLED_DEFAULT = true;
+/** FIM 默认端点（可被 kodrix.tabCompletion.fimEndpoint 覆盖；上游 beta 接口时效性存疑，4xx 后本会话自动跳过） */
 export const FIM_DEFAULT_ENDPOINT = 'https://api.deepseek.com/beta/fim/completions';
 export const FIM_DEFAULT_MODEL = 'deepseek-chat';
 /** DeepSeek FIM 前后缀分隔标记（FIM 指南：prompt 以 <｜fim▁end｜> 结尾，suffix 参数独立传） */

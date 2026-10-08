@@ -137,7 +137,7 @@ suite('migrateConfig', () => {
 			// 临时目录为空，无 config.json / providers.json / plugins/
 			const result = await migrateConfig.migrateFromLegacy([], {});
 			assert.strictEqual(result.migrated, false);
-			assert.ok(result.message.includes('未找到'));
+			assert.ok(result.message.includes('No migratable configuration found'));
 		});
 
 		test('空 config.json + 无 providers/plugins 时 migrated=false', async () => {
@@ -171,7 +171,7 @@ suite('migrateConfig', () => {
 				// 由于 inspect 返回 globalValue !== undefined，applyIfUnset 应跳过
 				// settingsApplied 中不应包含"原生工具"相关项（因为所有键都已被"设置"）
 				const hasNativeTools = result.settingsApplied.some(
-					(s: string) => s.includes('原生工具')
+					(s: string) => s.includes('Native tools')
 				);
 				assert.strictEqual(hasNativeTools, false, 'Should not overwrite already-set keys');
 			} finally {

@@ -2953,4 +2953,15 @@ export default defineConfig(
 		rules: {
 			'local/code-no-new-javascript-files': 'error',
 		},
+	},
+	// Kodrix 自有扩展（extensions/kodrix-*）不是微软代码，使用项目自己的文件头约定
+	// （`/*--- Kodrix — … ---*/`），因此不套用 VS Code 上游的微软版权头规则。
+	// 该规则对其余所有目录仍然生效；如需恢复，删除本覆盖块即可。
+	{
+		files: [
+			'extensions/kodrix-*/**/*.{ts,tsx,mts,cts}',
+		],
+		rules: {
+			'header/header': 'off',
+		},
 	});

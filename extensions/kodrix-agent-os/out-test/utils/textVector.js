@@ -72,8 +72,9 @@ function tokenize(text) {
             for (let i = 0; i < w.length - 1; i++) {
                 tokens.push(w.slice(i, i + 2));
             }
-            if (w.length === 1)
+            if (w.length === 1) {
                 tokens.push(w);
+            }
         }
         else {
             // 英文 stopwords 过滤（使用模块级常量集合）
@@ -99,8 +100,9 @@ function tokenToIndices(token, dim) {
 function encodeText(text, dim) {
     const tokens = tokenize(text);
     const vec = new Array(dim).fill(0);
-    if (tokens.length === 0)
+    if (tokens.length === 0) {
         return vec;
+    }
     // TF 计数
     const tf = {};
     for (const tok of tokens) {
@@ -118,8 +120,9 @@ function encodeText(text, dim) {
     // L2 归一化
     const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0));
     if (norm > 0) {
-        for (let i = 0; i < dim; i++)
+        for (let i = 0; i < dim; i++) {
             vec[i] /= norm;
+        }
     }
     return vec;
 }
@@ -131,7 +134,8 @@ function cosineSimilarity(a, b) {
         na += a[i] * a[i];
         nb += b[i] * b[i];
     }
-    if (na === 0 || nb === 0)
+    if (na === 0 || nb === 0) {
         return 0;
+    }
     return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }

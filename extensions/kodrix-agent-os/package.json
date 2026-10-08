@@ -15,9 +15,17 @@
 	"activationEvents": [
 		"onStartupFinished"
 	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": "limited",
+			"description": "在不受信任的工作区中禁用 ACP 委派与终端命令执行；索引、看板等只读功能仍可用。"
+		}
+	},
+	"l10n": "./l10n",
 	"main": "./out/extension",
 	"enabledApiProposals": [
-		"chatContextProvider"
+		"chatContextProvider",
+		"settingsEditorRenderer"
 	],
 	"contributes": {
 		"settingsEditorRenderers": [
@@ -72,17 +80,110 @@
 					"name": "%view.agentKanban.name%",
 					"icon": "$(organization)",
 					"when": "config.kodrix.features.kanban"
-				}
-			],
-			"kodrix.checkpoints": [
+				},
 				{
 					"id": "kodrix.checkpoints",
 					"name": "%view.checkpoints.name%",
 					"icon": "$(history)",
 					"when": "kodrix.hasWorkspace"
 				}
+			],
+			"kodrix": [
+				{
+					"id": "kodrix.launcher",
+					"name": "%view.kodrix.launcher.name%"
+				}
 			]
 		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "kodrix",
+					"title": "%viewsContainer.kodrix.title%",
+					"icon": "resources/kodrix-activity.svg"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "kodrix.launcher",
+				"contents": "%viewsWelcome.kodrix.launcher.contents%"
+			},
+			{
+				"view": "kodrix.checkpoints",
+				"when": "kodrix.hasWorkspace",
+				"contents": "%viewsWelcome.kodrix.checkpoints.contents%"
+			},
+			{
+				"view": "kodrix.agentKanban",
+				"when": "kodrix.hasWorkspace",
+				"contents": "%viewsWelcome.kodrix.agentKanban.contents%"
+			}
+		],
+		"walkthroughs": [
+			{
+				"id": "kodrix.getStarted",
+				"title": "%walkthrough.kodrix.getStarted.title%",
+				"description": "%walkthrough.kodrix.getStarted.description%",
+				"steps": [
+					{
+						"id": "kodrix.getStarted.models",
+						"title": "%walkthrough.kodrix.models.title%",
+						"description": "%walkthrough.kodrix.models.description%",
+						"media": {
+							"markdown": "%walkthrough.kodrix.models.media%"
+						},
+						"completionEvents": [
+							"onCommand:kodrix.openProviderWorkbench"
+						]
+					},
+					{
+						"id": "kodrix.getStarted.index",
+						"title": "%walkthrough.kodrix.index.title%",
+						"description": "%walkthrough.kodrix.index.description%",
+						"media": {
+							"markdown": "%walkthrough.kodrix.index.media%"
+						},
+						"completionEvents": [
+							"onCommand:kodrix.codebase.indexManager.open"
+						]
+					},
+					{
+						"id": "kodrix.getStarted.agent",
+						"title": "%walkthrough.kodrix.agent.title%",
+						"description": "%walkthrough.kodrix.agent.description%",
+						"media": {
+							"markdown": "%walkthrough.kodrix.agent.media%"
+						},
+						"completionEvents": [
+							"onCommand:kodrix.agent.run"
+						]
+					},
+					{
+						"id": "kodrix.getStarted.context",
+						"title": "%walkthrough.kodrix.context.title%",
+						"description": "%walkthrough.kodrix.context.description%",
+						"media": {
+							"markdown": "%walkthrough.kodrix.context.media%"
+						},
+						"completionEvents": [
+							"onCommand:kodrix.learn.capture"
+						]
+					},
+					{
+						"id": "kodrix.getStarted.safety",
+						"title": "%walkthrough.kodrix.safety.title%",
+						"description": "%walkthrough.kodrix.safety.description%",
+						"media": {
+							"markdown": "%walkthrough.kodrix.safety.media%"
+						},
+						"completionEvents": [
+							"onCommand:kodrix.checkpoint.create"
+						]
+					}
+				]
+			}
+		],
 		"commands": [
 			{
 				"command": "kodrix.wiki.generate",
@@ -240,6 +341,11 @@
 				"category": "Kodrix"
 			},
 			{
+				"command": "kodrix.router.naturalInput",
+				"title": "%command.router.naturalInput.title%",
+				"category": "Kodrix"
+			},
+			{
 				"command": "kodrix.crew.create",
 				"title": "%command.crew.create.title%",
 				"category": "Kodrix"
@@ -312,17 +418,20 @@
 			{
 				"command": "kodrix.codebase.search",
 				"title": "%command.codebase.search.title%",
-				"category": "Kodrix"
+				"category": "Kodrix",
+				"enablement": "config.kodrix.features.codebaseIntelligence"
 			},
 			{
 				"command": "kodrix.codebase.buildIndex",
 				"title": "%command.codebase.buildIndex.title%",
-				"category": "Kodrix"
+				"category": "Kodrix",
+				"enablement": "config.kodrix.features.codebaseIntelligence"
 			},
 			{
 				"command": "kodrix.codebase.stats",
 				"title": "%command.codebase.stats.title%",
-				"category": "Kodrix"
+				"category": "Kodrix",
+				"enablement": "config.kodrix.features.codebaseIntelligence"
 			},
 			{
 				"command": "kodrix.codebase.indexManager.open",
@@ -353,6 +462,18 @@
 				"command": "kodrix.checkpoint.restore",
 				"title": "%command.checkpoint.restore.title%",
 				"category": "Kodrix"
+			},
+			{
+				"command": "kodrix.checkpoint.restoreFromTree",
+				"title": "%command.checkpoint.restoreFromTree.title%",
+				"category": "Kodrix",
+				"icon": "$(history)"
+			},
+			{
+				"command": "kodrix.checkpoint.deleteFromTree",
+				"title": "%command.checkpoint.deleteFromTree.title%",
+				"category": "Kodrix",
+				"icon": "$(trash)"
 			},
 			{
 				"command": "kodrix.checkpoint.refreshTimeline",
@@ -579,7 +700,12 @@
 					"group": "inline"
 				},
 				{
-					"command": "kodrix.checkpoint.restore",
+					"command": "kodrix.checkpoint.restoreFromTree",
+					"when": "view == kodrix.checkpoints && viewItem == checkpoint",
+					"group": "inline"
+				},
+				{
+					"command": "kodrix.checkpoint.deleteFromTree",
 					"when": "view == kodrix.checkpoints && viewItem == checkpoint",
 					"group": "inline"
 				}
@@ -792,6 +918,13 @@
 					"default": true,
 					"description": "%config.codebase.grepIndex.description%"
 				},
+				"kodrix.codebase.maxAutoIndexFiles": {
+					"type": "number",
+					"default": 50000,
+					"minimum": 100,
+					"maximum": 1000000,
+					"description": "%config.codebase.maxAutoIndexFiles.description%"
+				},
 				"kodrix.features.terminalAI": {
 					"type": "boolean",
 					"default": true,
@@ -827,17 +960,26 @@
 				"kodrix.agentLoop.maxIterations": {
 					"type": "number",
 					"default": 20,
+					"minimum": 1,
+					"maximum": 100,
 					"description": "%config.agentLoop.maxIterations.description%"
 				},
 				"kodrix.agentLoop.timeoutMs": {
 					"type": "number",
 					"default": 600000,
+					"minimum": 5000,
+					"maximum": 3600000,
 					"description": "%config.agentLoop.timeoutMs.description%"
 				},
 				"kodrix.agentLoop.allowCommands": {
 					"type": "boolean",
 					"default": true,
 					"description": "%config.agentLoop.allowCommands.description%"
+				},
+				"kodrix.agentLoop.allowDangerousCommands": {
+					"type": "boolean",
+					"default": false,
+					"description": "%config.agentLoop.allowDangerousCommands.description%"
 				},
 				"kodrix.tabCompletion.mode": {
 					"type": "string",
@@ -855,11 +997,19 @@
 						"custom"
 					],
 					"default": "deepseek",
+					"deprecationMessage": "已废弃：FIM 端点统一由 kodrix.tabCompletion.fimEndpoint 配置（默认值即原 DeepSeek FIM 端点）。",
 					"markdownDescription": "%config.tabCompletion.fimProvider.markdownDescription%"
+				},
+				"kodrix.tabCompletion.fimEnabled": {
+					"type": "boolean",
+					"default": true,
+					"scope": "window",
+					"markdownDescription": "%config.tabCompletion.fimEnabled.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimEndpoint": {
 					"type": "string",
 					"default": "https://api.deepseek.com/beta/fim/completions",
+					"scope": "window",
 					"markdownDescription": "%config.tabCompletion.fimEndpoint.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimApiKey": {

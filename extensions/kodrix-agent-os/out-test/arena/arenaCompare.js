@@ -66,7 +66,7 @@ async function runModelPrompt(model, prompt, label) {
                 text += chunk.value;
             }
         }
-        return text || `（${label} 无响应）`;
+        return text || vscode_1.l10n.t('({0} no response)', label);
     }
     finally {
         cts.dispose();
@@ -76,19 +76,19 @@ async function compareModels(prompt) {
     const enabled = vscode.workspace.getConfiguration(constants_1.CONFIG_FEATURES)
         .get(constants_1.FEATURE_FLAGS.arena, true);
     if (!enabled) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('Arena 已关闭。可在设置中启用 {0}', `${constants_1.CONFIG_FEATURES}.${constants_1.FEATURE_FLAGS.arena}`));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('Arena is off. Enable {0} in settings', `${constants_1.CONFIG_FEATURES}.${constants_1.FEATURE_FLAGS.arena}`));
         return;
     }
     const userPrompt = prompt || await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('Arena：输入同一 prompt，将并行对比两个模型'),
-        placeHolder: vscode_1.l10n.t('如何实现 JWT 刷新 token？'),
+        prompt: vscode_1.l10n.t('Arena: enter the same prompt to compare two models in parallel'),
+        placeHolder: vscode_1.l10n.t('How do I implement JWT refresh tokens?'),
     });
     if (!userPrompt?.trim()) {
         return;
     }
     const models = await vscode.lm.selectChatModels({});
     if (models.length < 1) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('无可用语言模型。请在 Manage Models 中配置。'));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('No language model available. Configure one in Manage Models.'));
         return;
     }
     const cfg = vscode.workspace.getConfiguration(constants_1.CONFIG_ARENA);
@@ -101,18 +101,18 @@ async function compareModels(prompt) {
         ? models.find(m => m.name.includes(modelBName) || m.id.includes(modelBName))
         : models[1];
     if (!modelA) {
-        const picked = await vscode.window.showQuickPick(models.map(m => ({ label: m.name, model: m })), { placeHolder: vscode_1.l10n.t('选择模型 A') });
+        const picked = await vscode.window.showQuickPick(models.map(m => ({ label: m.name, model: m })), { placeHolder: vscode_1.l10n.t('Select model A') });
         modelA = picked?.model;
     }
     if (!modelB) {
-        const picked = await vscode.window.showQuickPick(models.filter(m => m !== modelA).map(m => ({ label: m.name, model: m })), { placeHolder: vscode_1.l10n.t('选择模型 B') });
+        const picked = await vscode.window.showQuickPick(models.filter(m => m !== modelA).map(m => ({ label: m.name, model: m })), { placeHolder: vscode_1.l10n.t('Select model B') });
         modelB = picked?.model;
     }
     if (!modelA || !modelB) {
-        vscode.window.showWarningMessage(vscode_1.l10n.t('需要两个不同模型才能对比'));
+        vscode.window.showWarningMessage(vscode_1.l10n.t('Two different models are required for comparison'));
         return;
     }
-    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode_1.l10n.t('Arena 对比中…') }, async () => {
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode_1.l10n.t('Arena comparing…') }, async () => {
         const [resultA, resultB] = await Promise.all([
             runModelPrompt(modelA, userPrompt, 'A'),
             runModelPrompt(modelB, userPrompt, 'B'),
@@ -122,27 +122,27 @@ async function compareModels(prompt) {
         (0, paths_1.ensureDir)(arenaDir);
         const stamp = new Date().toISOString().replace(/[:.]/g, '-');
         const outPath = path.join(arenaDir, `compare-${stamp}.md`);
-        const md = `# Arena 对比
+        const md = `${vscode_1.l10n.t('# Arena Comparison')}
 
 > Prompt: ${userPrompt}
 
-## 模型 A — ${modelA.name}
+## ${vscode_1.l10n.t('Model A — {0}', modelA.name)}
 
 ${resultA}
 
 ---
 
-## 模型 B — ${modelB.name}
+## ${vscode_1.l10n.t('Model B — {0}', modelB.name)}
 
 ${resultB}
 
 ---
 
-## 你的选择
+## ${vscode_1.l10n.t('Your Choice')}
 
-- [ ] 模型 A 更好
-- [ ] 模型 B 更好
-- [ ] 各取所长，合并方案
+- [ ] ${vscode_1.l10n.t('Model A is better')}
+- [ ] ${vscode_1.l10n.t('Model B is better')}
+- [ ] ${vscode_1.l10n.t('Each has strengths; merge the two')}
 `;
         // 原子写入：先写临时文件，再 rename（防止进程崩溃产生不完整文件）
         const tmpPath = outPath + '.tmp';
@@ -150,7 +150,7 @@ ${resultB}
         fs.renameSync(tmpPath, outPath);
         const doc = await vscode.workspace.openTextDocument(outPath);
         await vscode.window.showTextDocument(doc);
-        vscode.window.showInformationMessage(vscode_1.l10n.t('Arena 对比完成：{0}', path.basename(outPath)));
+        vscode.window.showInformationMessage(vscode_1.l10n.t('Arena comparison finished: {0}', path.basename(outPath)));
     });
 }
 function registerArena(context) {

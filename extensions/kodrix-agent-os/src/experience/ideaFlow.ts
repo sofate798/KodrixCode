@@ -108,11 +108,13 @@ let _pollInterval: ReturnType<typeof setInterval> | undefined;
 let _lastBuildProgress = '';
 let _maxTimeout: ReturnType<typeof setTimeout> | undefined;
 let _previewTimeout: ReturnType<typeof setTimeout> | undefined;
+let _startDelayTimeout: ReturnType<typeof setTimeout> | undefined;
 
 function cleanupTimers(): void {
 	if (_pollInterval !== undefined) { clearInterval(_pollInterval); _pollInterval = undefined; }
 	if (_maxTimeout !== undefined) { clearTimeout(_maxTimeout); _maxTimeout = undefined; }
 	if (_previewTimeout !== undefined) { clearTimeout(_previewTimeout); _previewTimeout = undefined; }
+	if (_startDelayTimeout !== undefined) { clearTimeout(_startDelayTimeout); _startDelayTimeout = undefined; }
 }
 
 function getOrCreateEmitter(): vscode.EventEmitter<IdeaFlowState> {
@@ -140,7 +142,7 @@ function getIdeaFlowPath(): string | undefined {
 
 function persistState(): void {
 	const p = getIdeaFlowPath();
-	if (!p) return;
+	if (!p) {return;}
 	ensureDir(path.dirname(p));
 	try {
 		fs.writeFileSync(p, JSON.stringify(currentState, null, 2), 'utf-8');
@@ -150,7 +152,7 @@ function persistState(): void {
 }
 
 function pushLog(msg: string): void {
-	if (!currentState) return;
+	if (!currentState) {return;}
 	currentState.buildLogs.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
 	if (currentState.buildLogs.length > IDEA_FLOW_MAX_LOGS) {
 		currentState.buildLogs = currentState.buildLogs.slice(-IDEA_FLOW_MAX_LOGS);
@@ -160,7 +162,7 @@ function pushLog(msg: string): void {
 }
 
 function updateState(partial: Partial<IdeaFlowState>): void {
-	if (!currentState) return;
+	if (!currentState) {return;}
 	currentState = { ...currentState, ...partial, updatedAt: new Date().toISOString() };
 	persistState();
 	_onStateChanged?.fire(currentState);
@@ -169,7 +171,7 @@ function updateState(partial: Partial<IdeaFlowState>): void {
 
 function loadState(): IdeaFlowState | undefined {
 	const p = getIdeaFlowPath();
-	if (!p || !fs.existsSync(p)) return undefined;
+	if (!p || !fs.existsSync(p)) {return undefined;}
 	try {
 		return JSON.parse(fs.readFileSync(p, 'utf-8')) as IdeaFlowState;
 	} catch { return undefined; }
@@ -206,7 +208,7 @@ body{font-family:var(--vscode-font-family,sans-serif);font-size:13px;background:
 <body>
 <div class="wrap">
 <h2>Idea Canvas</h2>
-<p>资源文件加载失败。请编译扩展后重试。</p>
+<p>${l10n.t('Failed to load the resource file. Compile the extension and try again.')}</p>
 </div>
 <script>var vscode=acquireVsCodeApi();vscode.postMessage({command:'ready'});</script>
 </body>
@@ -257,7 +259,7 @@ export async function openIdeaCanvas(context: vscode.ExtensionContext): Promise<
 }
 
 function pushStateToCanvas(): void {
-	if (!activeCanvas || !currentState) return;
+	if (!activeCanvas || !currentState) {return;}
 	activeCanvas.webview.postMessage({ type: 'stateUpdate', state: currentState });
 }
 
@@ -313,7 +315,7 @@ export async function startIdeaFlow(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
 	if (isFlowRunning) {
-		vscode.window.showWarningMessage(l10n.t('Idea Flow 正在进行中，请等待完成或使用「重置 Idea Flow」重新开始。'));
+		vscode.window.showWarningMessage(l10n.t('Idea Flow is in progress. Wait for it to finish, or use "Reset Idea Flow" to start over.'));
 		return;
 	}
 	isFlowRunning = true;
@@ -328,7 +330,7 @@ export async function startIdeaFlow(
 			buildLogs: [],
 		};
 
-		pushLog(`收到想法：「${idea.slice(0, 80)}${idea.length > 80 ? '…' : ''}」`);
+		pushLog(l10n.t('Idea received: "{0}"', idea.slice(0, 80) + (idea.length > 80 ? '…' : '')));
 
 		if (deepAnalyze) {
 			await performIdeaAnalysis(idea);
@@ -344,7 +346,7 @@ export async function startIdeaFlow(
 				suggestedCrewRoles: ['architect', 'coder', 'tester'],
 				workflowType: 'sequential',
 			};
-			pushLog('跳过深度分析，使用快速规划模式');
+			pushLog(l10n.t('Deep analysis skipped, using fast planning mode'));
 			updateState({ phase: 'auto-planning' });
 		}
 
@@ -353,9 +355,9 @@ export async function startIdeaFlow(
 
 	} catch (err: unknown) {
 		const errMsg = err instanceof Error ? err.message : String(err);
-		pushLog(`错误: ${errMsg}`);
+		pushLog(l10n.t('Error: {0}', errMsg));
 		updateState({ phase: 'error' });
-		vscode.window.showErrorMessage(l10n.t('Idea Flow 出错: {0}', errMsg));
+		vscode.window.showErrorMessage(l10n.t('Idea Flow error: {0}', errMsg));
 	} finally {
 		isFlowRunning = false;
 	}
@@ -366,7 +368,7 @@ export async function startIdeaFlow(
  */
 async function performIdeaAnalysis(idea: string): Promise<void> {
 	updateState({ phase: 'idea-analysis' });
-	pushLog('AI 正在深度分析你的想法…');
+	pushLog(l10n.t('AI is analyzing your idea in depth…'));
 
 	const systemPrompt = `你是一个顶级产品架构师和 CTO。分析用户的软件想法并输出 JSON 分析结果。
 请严格按以下 JSON 格式返回，不要包含其他内容：
@@ -394,7 +396,7 @@ async function performIdeaAnalysis(idea: string): Promise<void> {
 	}
 
 	if (!model) {
-		pushLog('未找到可用 LLM 模型，使用启发式分析');
+		pushLog(l10n.t('No LLM model available, using heuristic analysis'));
 		requireCurrentState().analysis = generateBasicAnalysis(idea);
 		updateState({ analysis: requireCurrentState().analysis });
 		return;
@@ -403,7 +405,7 @@ async function performIdeaAnalysis(idea: string): Promise<void> {
 	const cts = new vscode.CancellationTokenSource();
 	const timeoutId = setTimeout(() => {
 		cts.cancel();
-		pushLog('LLM 分析超时（3分钟），将使用启发式分析');
+		pushLog(l10n.t('LLM analysis timed out (3 minutes), falling back to heuristic analysis'));
 	}, IDEA_FLOW_LLM_TIMEOUT_MS);
 
 	try {
@@ -434,10 +436,10 @@ async function performIdeaAnalysis(idea: string): Promise<void> {
 		};
 		requireCurrentState().analysis = analysis;
 		updateState({ analysis });
-		pushLog(`分析完成！项目：${analysis.appName} (${analysis.complexity}复杂度，约${analysis.estimatedFiles}个文件)`);
+		pushLog(l10n.t('Analysis complete! Project: {0} ({1} complexity, about {2} files)', analysis.appName, analysis.complexity, analysis.estimatedFiles));
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
-		pushLog(`LLM 分析失败: ${msg}，使用启发式分析`);
+		pushLog(l10n.t('LLM analysis failed: {0}, using heuristic analysis', msg));
 		requireCurrentState().analysis = generateBasicAnalysis(idea);
 		updateState({ analysis: requireCurrentState().analysis });
 	} finally {
@@ -452,15 +454,15 @@ async function performIdeaAnalysis(idea: string): Promise<void> {
  */
 function extractBalancedJson(text: string): string {
 	const start = text.indexOf('{');
-	if (start === -1) throw new Error('No JSON object found in LLM response');
+	if (start === -1) {throw new Error('No JSON object found in LLM response');}
 	let depth = 0;
 	let inString = false;
 	for (let i = start; i < text.length; i++) {
 		const ch = text[i];
-		if (ch === '"' && (i === 0 || text[i - 1] !== '\\')) inString = !inString;
+		if (ch === '"' && (i === 0 || text[i - 1] !== '\\')) {inString = !inString;}
 		if (!inString) {
-			if (ch === '{') depth++;
-			else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+			if (ch === '{') {depth++;}
+			else if (ch === '}') { depth--; if (depth === 0) {return text.slice(start, i + 1);} }
 		}
 	}
 	throw new Error('Unbalanced JSON braces in LLM response');
@@ -488,24 +490,24 @@ function extractFeaturesQuick(idea: string): string[] {
 	const lower = idea.toLowerCase();
 
 	const patterns: [RegExp, string][] = [
-		[/markdown/i, 'Markdown 编辑与渲染'],
-		[/blog|博客/i, '博客文章管理'],
-		[/auth|登录|user|用户/i, '用户认证与管理'],
-		[/search|搜索/i, '全文搜索'],
-		[/chat|聊天|ai|对话/i, 'AI 对话界面'],
-		[/drag|拖拽|dnd/i, '拖拽交互'],
+		[/markdown/i, l10n.t('Markdown editing and rendering')],
+		[/blog|博客/i, l10n.t('Blog post management')],
+		[/auth|登录|user|用户/i, l10n.t('User authentication and management')],
+		[/search|搜索/i, l10n.t('Full-text search')],
+		[/chat|聊天|ai|对话/i, l10n.t('AI chat interface')],
+		[/drag|拖拽|dnd/i, l10n.t('Drag-and-drop interactions')],
 		[/api|rest/i, 'REST API'],
-		[/dark|暗色|theme|主题/i, '暗色/亮色主题切换'],
-		[/notif|通知/i, '实时通知'],
-		[/payment|支付/i, '支付集成'],
-		[/email|邮件/i, '邮件服务'],
-		[/export|导出/i, '数据导出'],
-		[/import|导入/i, '数据导入'],
-		[/chart|图表|dashboard|仪表盘/i, '数据可视化'],
-		[/comment|评论/i, '评论系统'],
-		[/tag|标签|categor|分类/i, '标签与分类'],
-		[/share|分享/i, '社交分享'],
-		[/mobile|响应|responsive/i, '响应式移动端适配'],
+		[/dark|暗色|theme|主题/i, l10n.t('Dark/light theme switching')],
+		[/notif|通知/i, l10n.t('Real-time notifications')],
+		[/payment|支付/i, l10n.t('Payment integration')],
+		[/email|邮件/i, l10n.t('Email service')],
+		[/export|导出/i, l10n.t('Data export')],
+		[/import|导入/i, l10n.t('Data import')],
+		[/chart|图表|dashboard|仪表盘/i, l10n.t('Data visualization')],
+		[/comment|评论/i, l10n.t('Comment system')],
+		[/tag|标签|categor|分类/i, l10n.t('Tags and categories')],
+		[/share|分享/i, l10n.t('Social sharing')],
+		[/mobile|响应|responsive/i, l10n.t('Responsive mobile adaptation')],
 	];
 
 	for (const [regex, feature] of patterns) {
@@ -515,9 +517,9 @@ function extractFeaturesQuick(idea: string): string[] {
 	}
 
 	if (features.length === 0) {
-		features.push('核心功能模块');
-		features.push('用户界面');
-		features.push('数据存储');
+		features.push(l10n.t('Core feature modules'));
+		features.push(l10n.t('User interface'));
+		features.push(l10n.t('Data storage'));
 	}
 
 	return features.slice(0, IDEA_FLOW_FEATURES_MAX);
@@ -530,27 +532,27 @@ async function autoPlan(): Promise<void> {
 	updateState({ phase: 'auto-planning' });
 	const state = requireCurrentState();
 	const analysis = state.analysis;
-	if (!analysis) return;
+	if (!analysis) {return;}
 
-	pushLog('正在自动生成产品规划…');
+	pushLog(l10n.t('Generating the product plan automatically…'));
 
 	try {
 		const specDir = await createSpecFiles(analysis.appName, analysis.description);
 		if (specDir) {
 			requireCurrentState().specDir = specDir;
-			pushLog(`Spec 已生成: ${specDir}`);
+			pushLog(l10n.t('Spec generated: {0}', specDir));
 		}
 
 		const crew = await autoGenerateCrew(analysis);
 		if (crew) {
 			requireCurrentState().crewConfig = crew;
 			saveCrew(crew);
-			pushLog(`Agent Crew 已创建: ${crew.agents.length} 个角色, ${crew.tasks.length} 个任务`);
+			pushLog(l10n.t('Agent Crew created: {0} roles, {1} tasks', crew.agents.length, crew.tasks.length));
 		}
 
 		updateState({ phase: 'crew-building' });
 	} catch (err: unknown) {
-		pushLog(`自动规划部分失败: ${err instanceof Error ? err.message : String(err)}，继续执行构建`);
+		pushLog(l10n.t('Auto-planning partially failed: {0}, continuing with the build', err instanceof Error ? err.message : String(err)));
 		updateState({ phase: 'crew-building' });
 	}
 }
@@ -560,7 +562,7 @@ async function autoPlan(): Promise<void> {
  */
 async function autoGenerateCrew(analysis: IdeaAnalysis): Promise<CrewConfig | undefined> {
 	const roles = analysis.suggestedCrewRoles;
-	if (!roles.length) return undefined;
+	if (!roles.length) {return undefined;}
 
 	const now = new Date().toISOString();
 	const name = `idea-${analysis.appName}-${Date.now().toString(36)}`;
@@ -604,7 +606,7 @@ async function autoGenerateCrew(analysis: IdeaAnalysis): Promise<CrewConfig | un
 	// Architect task first (no dependencies)
 	const architectTask: CrewTask = {
 		id: `task-arch-${Date.now().toString(36)}`,
-		title: `架构设计：${analysis.appName}`,
+		title: l10n.t('Architecture design: {0}', analysis.appName),
 		description: `设计 ${analysis.appName} 的整体架构。技术选型：${analysis.techStack.join(', ')}。架构风格：${analysis.architecture}。核心功能：${analysis.features.join('、')}。`,
 		assignedRole: 'architect' as AgentRole,
 		dependencies: [],
@@ -618,7 +620,7 @@ async function autoGenerateCrew(analysis: IdeaAnalysis): Promise<CrewConfig | un
 	// Tester task at end (depends on all feature tasks)
 	const testerTask: CrewTask = {
 		id: `task-test-${Date.now().toString(36)}`,
-		title: `测试验证：${analysis.appName}`,
+		title: l10n.t('Test verification: {0}', analysis.appName),
 		description: `为 ${analysis.appName} 生成测试用例并验证功能完整性。需覆盖：${analysis.features.join('、')}。`,
 		assignedRole: 'tester' as AgentRole,
 		dependencies: tasks.filter(t => t.assignedRole !== 'tester').map(t => t.id),
@@ -631,7 +633,7 @@ async function autoGenerateCrew(analysis: IdeaAnalysis): Promise<CrewConfig | un
 
 	return {
 		name: analysis.appName,
-		description: `Idea Flow 自动生成：${analysis.description.slice(0, 100)}`,
+		description: l10n.t('Idea Flow auto-generated: {0}', analysis.description.slice(0, 100)),
 		workflow: analysis.workflowType || 'sequential',
 		agents,
 		tasks,
@@ -642,12 +644,12 @@ async function autoGenerateCrew(analysis: IdeaAnalysis): Promise<CrewConfig | un
 
 function getRoleDisplayName(role: AgentRole): string {
 	const names: Record<AgentRole, string> = {
-		architect: '架构师',
-		coder: '开发者',
-		reviewer: '审查者',
-		tester: '测试者',
+		architect: l10n.t('Architect'),
+		coder: l10n.t('Developer'),
+		reviewer: l10n.t('Reviewer'),
+		tester: l10n.t('Tester'),
 		devops: 'DevOps',
-		custom: '自定义 Agent',
+		custom: l10n.t('Custom Agent'),
 	};
 	return names[role] || role;
 }
@@ -684,21 +686,21 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 	const crew = currentState?.crewConfig;
 	if (!crew || !crew.tasks.length) {
 		if (!vscode.workspace.workspaceFolders?.length) {
-			pushLog('请先打开一个工作区文件夹');
-			vscode.window.showWarningMessage(l10n.t('Idea Flow 需要一个打开的工作区才能构建项目。请先打开文件夹。'));
+			pushLog(l10n.t('Open a workspace folder first'));
+			vscode.window.showWarningMessage(l10n.t('Idea Flow needs an open workspace to build the project. Please open a folder first.'));
 			return;
 		}
-		pushLog('无 Agent Crew 配置，直接打开 Agent 模式');
+		pushLog(l10n.t('No Agent Crew configuration, opening Agent mode directly'));
 		await vscode.commands.executeCommand(COMMANDS.chatOpen, {
 			mode: 'agent',
 			query: `[Idea Flow] 构建项目：${currentState?.idea}\n\n## 项目描述\n${currentState?.idea}\n\n## 技术栈\n${currentState?.analysis?.techStack.join(', ') || 'React + Vite + Tailwind'}\n\n## 核心功能\n${currentState?.analysis?.features.map(f => `- ${f}`).join('\n') || ''}\n\n请从零开始构建这个项目。先进行架构设计，然后逐步实现所有功能。完成后运行 dev server 以便预览。`,
 			isPartialQuery: false,
 		});
-		pushLog('Agent 模式已启动 — 请在聊天中查看进度');
+		pushLog(l10n.t('Agent mode started — check the chat for progress'));
 		return;
 	}
 
-	pushLog(`启动 Agent Crew「${crew.name}」共 ${crew.tasks.length} 个任务`);
+	pushLog(l10n.t('Starting Agent Crew "{0}" with {1} tasks', crew.name, crew.tasks.length));
 
 	const autoExecute = vscode.workspace.getConfiguration(IDEA_FLOW_CONFIG)
 		.get<boolean>(IDEA_FLOW_CONFIG_KEYS.autoExecute, true);
@@ -713,7 +715,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 
 	const firstTask = crew.tasks.find(t => t.status === 'pending');
 	if (!firstTask) {
-		pushLog('所有任务已完成或已在运行');
+		pushLog(l10n.t('All tasks are completed or already running'));
 		updateState({ phase: 'preview-ready' });
 		return;
 	}
@@ -721,7 +723,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 	firstTask.status = 'running';
 	firstTask.updatedAt = new Date().toISOString();
 	saveCrew(crew);
-	pushLog(`执行任务: ${firstTask.title} (${getRoleDisplayName(firstTask.assignedRole)})`);
+	pushLog(l10n.t('Executing task: {0} ({1})', firstTask.title, getRoleDisplayName(firstTask.assignedRole)));
 
 	const agent = crew.agents.find(a => a.role === firstTask.assignedRole);
 	const rolePrompt = agent?.systemPrompt || `执行任务：${firstTask.title}`;
@@ -732,13 +734,13 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 		isPartialQuery: false,
 	});
 
-	pushLog(`任务 1/${crew.tasks.length}: 「${firstTask.title}」已启动 — 完成后请执行「Kodrix: 标记 Crew 任务完成」继续`);
+	pushLog(l10n.t('Task 1/{0}: "{1}" started — run "Kodrix: Mark Crew Task Complete" to continue', crew.tasks.length, firstTask.title));
 
 	vscode.window.showInformationMessage(
-		l10n.t('Idea Flow: 「{0}」已启动 (1/{1})', firstTask.title, crew.tasks.length),
-		l10n.t('查看 Crew 状态'),
+		l10n.t('Idea Flow: "{0}" started (1/{1})', firstTask.title, crew.tasks.length),
+		l10n.t('View Crew Status'),
 	).then(async choice => {
-		if (choice === l10n.t('查看 Crew 状态')) {
+		if (choice === l10n.t('View Crew Status')) {
 			await Promise.resolve(vscode.commands.executeCommand(COMMANDS.crewStatus)).catch(() => {});
 		}
 	}, () => {});
@@ -746,7 +748,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 	// Poll for task completion
 	_pollInterval = setInterval(() => {
 		const updatedCrew = loadCrew();
-		if (!updatedCrew) return;
+		if (!updatedCrew) {return;}
 
 		const running = updatedCrew.tasks.filter(t => t.status === 'running');
 		const pending = updatedCrew.tasks.filter(t => t.status === 'pending');
@@ -758,7 +760,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 			nextTask.updatedAt = new Date().toISOString();
 			saveCrew(updatedCrew);
 			requireCurrentState().crewConfig = updatedCrew;
-			pushLog(`自动推进到下一个任务: ${nextTask.title}`);
+			pushLog(l10n.t('Auto-advancing to the next task: {0}', nextTask.title));
 
 			const nextAgent = updatedCrew.agents.find(a => a.role === nextTask.assignedRole);
 			const nextRolePrompt = nextAgent?.systemPrompt || `执行任务：${nextTask.title}`;
@@ -768,7 +770,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 				query: `[Idea Flow - ${crew.name}]\n\n## 任务 (${completed.length + 1}/${crew.tasks.length}): ${nextTask.title}\n${nextTask.description ? `\n${nextTask.description}\n` : ''}\n## 角色指令\n${nextRolePrompt}\n\n## 项目背景\n${currentState?.idea}\n\n完成后请执行「Kodrix: 标记 Crew 任务完成」。`,
 				isPartialQuery: false,
 			});
-			pushLog(`任务 ${completed.length + 1}/${crew.tasks.length}: 「${nextTask.title}」已启动`);
+			pushLog(l10n.t('Task {0}/{1}: "{2}" started', completed.length + 1, crew.tasks.length, nextTask.title));
 		}
 
 		if (completed.length === updatedCrew.tasks.length && running.length === 0) {
@@ -785,7 +787,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 			_pollInterval = undefined;
 		}
 		if (!(currentState && currentState.phase === 'product-intelligence')) {
-			pushLog('构建超时（30分钟），可继续通过 Crew 命令完成任务');
+			pushLog(l10n.t('Build timed out (30 minutes); finish the remaining tasks with Crew commands'));
 		}
 	}, IDEA_FLOW_MAX_BUILD_MS);
 }
@@ -796,17 +798,17 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
  * 轮询完成状态（进度节流）→ 全部完成 / 失败后触发预览
  */
 async function startAutoBuild(crew: CrewConfig): Promise<void> {
-	const ck = await createCheckpoint(`Idea Flow 构建前（${crew.name}）`);
+	const ck = await createCheckpoint(l10n.t('Idea Flow pre-build ({0})', crew.name));
 	if (ck) {
 		recordOperation({ type: 'idea-flow', detail: `创建构建前检查点：${crew.name}`, timestamp: new Date().toISOString() });
-		pushLog('已创建构建前检查点，可随时回滚');
+		pushLog(l10n.t('Pre-build checkpoint created; you can roll back at any time'));
 	}
 
 	void runAllRunnableTasks(crew).catch(err => {
-		pushLog(`自动构建异常: ${err instanceof Error ? err.message : String(err)}`);
+		pushLog(l10n.t('Auto build error: {0}', err instanceof Error ? err.message : String(err)));
 		logger.error('Idea Flow auto build failed', err);
 	});
-	pushLog(`端到端自动构建已启动（${crew.tasks.length} 个任务自动执行，可随时查看 Crew 状态）`);
+	pushLog(l10n.t('End-to-end auto build started ({0} tasks executing automatically; check Crew status anytime)', crew.tasks.length));
 
 	_pollInterval = setInterval(() => {
 		const updatedCrew = loadCrew();
@@ -823,7 +825,9 @@ async function startAutoBuild(crew: CrewConfig): Promise<void> {
 			const cur = `${completed}/${failed}/${active}`;
 			if (cur !== _lastBuildProgress) {
 				_lastBuildProgress = cur;
-				pushLog(`构建进度：${completed}/${updatedCrew.tasks.length} 完成${failed ? `，${failed} 失败` : ''}${active ? `，${active} 进行中` : ''}`);
+				pushLog(l10n.t('Build progress: {0}/{1} completed', completed, updatedCrew.tasks.length)
+					+ (failed ? l10n.t(', {0} failed', failed) : '')
+					+ (active ? l10n.t(', {0} in progress', active) : ''));
 			}
 			return;
 		}
@@ -831,7 +835,7 @@ async function startAutoBuild(crew: CrewConfig): Promise<void> {
 		clearInterval(_pollInterval!);
 		_pollInterval = undefined;
 		if (failed > 0) {
-			pushLog(`${failed} 个任务失败，可查看 Crew 状态定位原因`);
+			pushLog(l10n.t('{0} tasks failed; check Crew status for details', failed));
 		}
 		void handleBuildComplete();
 	}, IDEA_FLOW_POLL_INTERVAL_MS);
@@ -842,22 +846,22 @@ async function startAutoBuild(crew: CrewConfig): Promise<void> {
 			_pollInterval = undefined;
 		}
 		if (!(currentState && currentState.phase === 'product-intelligence')) {
-			pushLog('构建超时（30分钟），可继续通过 Crew 命令完成任务');
+			pushLog(l10n.t('Build timed out (30 minutes); finish the remaining tasks with Crew commands'));
 		}
 	}, IDEA_FLOW_MAX_BUILD_MS);
 }
 
 async function handleBuildComplete(): Promise<void> {
-	pushLog('所有任务已完成！正在准备预览…');
+	pushLog(l10n.t('All tasks completed! Preparing the preview…'));
 	updateState({ phase: 'preview-ready' });
 
 	const devChoice = await vscode.window.showInformationMessage(
-		l10n.t('构建完成！是否启动开发服务器查看预览？'),
-		l10n.t('启动 Dev Server'),
-		l10n.t('稍后手动启动'),
+		l10n.t('Build complete! Start the dev server to view the preview?'),
+		l10n.t('Start Dev Server'),
+		l10n.t('Start manually later'),
 	);
 
-	if (devChoice === l10n.t('启动 Dev Server')) {
+	if (devChoice === l10n.t('Start Dev Server')) {
 		const folder = vscode.workspace.workspaceFolders?.[0];
 		if (folder) {
 			const hasPackageJson = fs.existsSync(path.join(folder.uri.fsPath, 'package.json'));
@@ -865,10 +869,16 @@ async function handleBuildComplete(): Promise<void> {
 				|| fs.existsSync(path.join(folder.uri.fsPath, 'vite.config.js'));
 
 			if (hasPackageJson) {
-				const term = vscode.window.createTerminal({ name: 'Idea Flow Dev Server' });
-				term.show();
-				term.sendText(hasViteConfig ? 'npm run dev' : 'npm start');
-				pushLog('Dev Server 已启动');
+				// 不受信任工作区：package.json 的 dev/start 脚本来自工作区内容，未经信任不执行
+				if (vscode.workspace.isTrusted === false) {
+					pushLog(l10n.t('Workspace is not trusted; Dev Server startup was skipped'));
+					void vscode.window.showWarningMessage(l10n.t('Workspace is not trusted: automatic Dev Server startup was skipped (trust the workspace first, or run npm run dev manually).'));
+				} else {
+					const term = vscode.window.createTerminal({ name: 'Idea Flow Dev Server' });
+					term.show();
+					term.sendText(hasViteConfig ? 'npm run dev' : 'npm start');
+					pushLog(l10n.t('Dev Server started'));
+				}
 
 				const previewUrl = hasViteConfig
 					? `http://localhost:${DEFAULT_PREVIEW_PORT}`
@@ -879,7 +889,7 @@ async function handleBuildComplete(): Promise<void> {
 				_previewTimeout = setTimeout(async () => {
 					try {
 						await vscode.commands.executeCommand(COMMANDS.simpleBrowserShow, previewUrl);
-						pushLog(`预览已打开: ${previewUrl}`);
+						pushLog(l10n.t('Preview opened: {0}', previewUrl));
 					} catch {
 						await Promise.resolve(vscode.env.openExternal(vscode.Uri.parse(previewUrl))).catch(() => {});
 					}
@@ -897,38 +907,41 @@ async function handleBuildComplete(): Promise<void> {
 async function captureProductIntelligence(): Promise<void> {
 	updateState({ phase: 'product-intelligence' });
 	const analysis = currentState?.analysis;
-	if (!analysis) return;
+	if (!analysis) {return;}
 
-	pushLog('正在沉淀产品知识…');
+	pushLog(l10n.t('Capturing product knowledge…'));
 
 	try {
 		await recordLearning(
-			`项目【${analysis.appName}】使用 ${analysis.techStack.join(', ')} 构建，架构为 ${analysis.architecture}，包含 ${analysis.features.length} 个核心功能。复杂度：${analysis.complexity}。`,
+			l10n.t('Project [{0}] built with {1}, architecture: {2}, with {3} core features. Complexity: {4}.',
+				analysis.appName, analysis.techStack.join(', '), analysis.architecture, analysis.features.length, analysis.complexity),
 			{ source: 'auto', category: 'pattern' },
 		);
 
 		await recordLearning(
-			`Idea Flow 自动生成项目：${analysis.appName}。技术选型：${analysis.techStack.join(', ')}。预估 ${analysis.estimatedFiles} 个文件。`,
+			l10n.t('Idea Flow auto-generated project: {0}. Tech stack: {1}. Estimated {2} files.',
+				analysis.appName, analysis.techStack.join(', '), analysis.estimatedFiles),
 			{ source: 'auto', category: 'architecture' },
 		);
 
-		pushLog('产品知识已沉淀到 Learning Engine');
+		pushLog(l10n.t('Product knowledge captured to the Learning Engine'));
 
 		if (activeCanvas) {
 			activeCanvas.webview.postMessage({
 				type: 'intelUpdate',
-				content: `已自动沉淀项目知识。\n技术栈: ${analysis.techStack.join(', ')}\n架构: ${analysis.architecture}\n复杂度: ${analysis.complexity}\n\n建议下一步：\n- 运行「Kodrix: 查看上下文状态」查看注入的知识\n- 使用 Arena 双模型对比优化代码\n- 使用「Kodrix: 智能路由」继续增量开发`,
+				content: l10n.t('Project knowledge captured automatically.\nTech stack: {0}\nArchitecture: {1}\nComplexity: {2}\n\nSuggested next steps:\n- Run "Kodrix: View Context Status" to see the injected knowledge\n- Use Arena dual-model comparison to refine the code\n- Use "Kodrix: Smart Routing" to continue incremental development',
+					analysis.techStack.join(', '), analysis.architecture, analysis.complexity),
 			});
 		}
 
 		vscode.window.showInformationMessage(
-			l10n.t('项目【{0}】知识已沉淀！越用越聪明。', analysis.appName),
+			l10n.t('Knowledge for project [{0}] captured! It gets smarter with use.', analysis.appName),
 		);
 	} catch (err: unknown) {
-		pushLog(`产品智能沉淀部分失败: ${err instanceof Error ? err.message : String(err)}`);
+		pushLog(l10n.t('Product intelligence capture partially failed: {0}', err instanceof Error ? err.message : String(err)));
 	}
 
-	pushLog(`Idea Flow 完成！项目「${analysis.appName}」已就绪。`);
+	pushLog(l10n.t('Idea Flow complete! Project "{0}" is ready.', analysis.appName));
 }
 
 /**
@@ -937,7 +950,7 @@ async function captureProductIntelligence(): Promise<void> {
 async function openIdeaPreview(): Promise<void> {
 	const url = currentState?.previewUrl;
 	if (!url) {
-		vscode.window.showWarningMessage(l10n.t('尚无可用预览。请先完成构建。'));
+		vscode.window.showWarningMessage(l10n.t('No preview available. Complete the build first.'));
 		return;
 	}
 
@@ -957,44 +970,44 @@ export function getCurrentIdeaState(): IdeaFlowState | undefined {
 export async function showIdeaFlowStatus(): Promise<void> {
 	const state = currentState || loadState();
 	if (!state) {
-		vscode.window.showWarningMessage(l10n.t('尚无进行中的 Idea Flow。按 Ctrl+Shift+I 或从 Hub 启动。'));
+		vscode.window.showWarningMessage(l10n.t('No Idea Flow in progress. Press Ctrl+Shift+I or start from the Hub.'));
 		return;
 	}
 
 	const analysis = state.analysis;
 	const lines = [
-		'# Idea Flow 状态',
+		l10n.t('# Idea Flow Status'),
 		'',
-		`**想法**: ${state.idea}`,
-		`**阶段**: ${state.phase}`,
-		`**开始**: ${state.startedAt.slice(0, 19)}`,
-		`**更新**: ${state.updatedAt.slice(0, 19)}`,
+		`${l10n.t('**Idea**')}: ${state.idea}`,
+		`${l10n.t('**Phase**')}: ${state.phase}`,
+		`${l10n.t('**Started**')}: ${state.startedAt.slice(0, 19)}`,
+		`${l10n.t('**Updated**')}: ${state.updatedAt.slice(0, 19)}`,
 		'',
 	];
 
 	if (analysis) {
 		lines.push(
-			'## 项目分析',
+			l10n.t('## Project Analysis'),
 			'',
-			`- **名称**: ${analysis.appName}`,
-			`- **技术栈**: ${analysis.techStack.join(', ')}`,
-			`- **架构**: ${analysis.architecture}`,
-			`- **复杂度**: ${analysis.complexity}`,
-			`- **预估文件**: ${analysis.estimatedFiles}`,
-			`- **核心功能**: ${analysis.features.length > 0 ? analysis.features.join('、') : '（待分析）'}`,
+			`${l10n.t('- **Name**')}: ${analysis.appName}`,
+			`${l10n.t('- **Tech stack**')}: ${analysis.techStack.join(', ')}`,
+			`${l10n.t('- **Architecture**')}: ${analysis.architecture}`,
+			`${l10n.t('- **Complexity**')}: ${analysis.complexity}`,
+			`${l10n.t('- **Estimated files**')}: ${analysis.estimatedFiles}`,
+			`${l10n.t('- **Core features**')}: ${analysis.features.length > 0 ? analysis.features.join(', ') : l10n.t('(pending analysis)')}`,
 			'',
 		);
 	}
 
 	if (state.previewUrl) {
-		lines.push(`- **预览**: ${state.previewUrl}`);
+		lines.push(`${l10n.t('- **Preview**')}: ${state.previewUrl}`);
 	}
 
 	lines.push(
 		'',
-		'## 构建日志',
+		l10n.t('## Build Log'),
 		'',
-		...(state.buildLogs.length > 0 ? state.buildLogs.map(l => `- ${l}`) : ['（暂无日志）']),
+		...(state.buildLogs.length > 0 ? state.buildLogs.map(l => `- ${l}`) : [l10n.t('(no logs yet)')]),
 	);
 
 	const doc = await vscode.workspace.openTextDocument({
@@ -1015,17 +1028,18 @@ export function registerIdeaFlow(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(COMMANDS.ideaOpen, () => openIdeaCanvas(context)),
 		vscode.commands.registerCommand(COMMANDS.ideaStart, async (promptArg?: string) => {
 			const idea = promptArg?.trim() || await vscode.window.showInputBox({
-				prompt: l10n.t('描述你的想法，AI 将全自动将其变为现实'),
-				placeHolder: l10n.t('一个 AI 驱动的知识管理工具，支持双向链接和图谱视图…'),
+				prompt: l10n.t('Describe your idea, and AI will turn it into reality fully automatically'),
+				placeHolder: l10n.t('An AI-powered knowledge management tool with bidirectional links and a graph view…'),
 				ignoreFocusOut: true,
 			});
 			if (idea?.trim()) {
 				// Reset any stale state before starting fresh
 				if (!isFlowRunning) {
-					pushLog('重置之前的状态');
+					pushLog(l10n.t('Resetting previous state'));
 				}
 				await openIdeaCanvas(context);
-				setTimeout(() => {
+				_startDelayTimeout = setTimeout(() => {
+					_startDelayTimeout = undefined;
 					void startIdeaFlow(idea.trim(), true, context);
 				}, IDEA_FLOW_CANVAS_LAUNCH_DELAY_MS);
 			}

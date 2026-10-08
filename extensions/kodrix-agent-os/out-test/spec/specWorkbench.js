@@ -89,14 +89,14 @@ function setupSpecWatcher(panel, _context) {
 }
 async function createSpecFromWorkbench() {
     const feature = await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('功能名称'),
+        prompt: vscode_1.l10n.t('Feature name'),
         placeHolder: 'user-authentication',
     });
     if (!feature) {
         return undefined;
     }
     const description = await vscode.window.showInputBox({
-        prompt: vscode_1.l10n.t('简要描述'),
+        prompt: vscode_1.l10n.t('Short description'),
     }) || '（待补充）';
     const specDir = await (0, specHelpers_1.createSpecFiles)(feature, description);
     if (specDir) {
@@ -139,7 +139,7 @@ async function handleMessage(msg, panel, context) {
         }
         case 'implement': {
             if (!currentSlug) {
-                vscode.window.showWarningMessage(vscode_1.l10n.t('请先选择 Spec'));
+                vscode.window.showWarningMessage(vscode_1.l10n.t('Select a spec first'));
                 break;
             }
             const dir = (0, specHelpers_1.getSpecDir)(currentSlug);

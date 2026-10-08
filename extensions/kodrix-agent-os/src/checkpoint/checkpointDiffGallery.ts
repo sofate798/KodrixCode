@@ -11,6 +11,7 @@
 
 import * as vscode from 'vscode';
 import { l10n } from 'vscode';
+import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -70,7 +71,7 @@ class DiffGalleryPanel {
 
 		const panel = vscode.window.createWebviewPanel(
 			'kodrixCheckpointDiffGallery',
-			l10n.t('检查点 Diff 画廊'),
+			l10n.t('Checkpoint Diff Gallery'),
 			vscode.ViewColumn.One,
 			{
 				enableScripts: true,
@@ -214,8 +215,8 @@ class DiffGalleryPanel {
 		await fs.promises.writeFile(tempA, entry.contentA, 'utf-8');
 		await fs.promises.writeFile(tempB, entry.contentB, 'utf-8');
 
-		const labelA = this._galleryData.checkpointA?.label ?? l10n.t('检查点 A');
-		const labelB = this._galleryData.checkpointB?.label ?? l10n.t('检查点 B');
+		const labelA = this._galleryData.checkpointA?.label ?? l10n.t('Checkpoint A');
+		const labelB = this._galleryData.checkpointB?.label ?? l10n.t('Checkpoint B');
 		await vscode.commands.executeCommand(
 			'vscode.diff',
 			vscode.Uri.file(tempA),
@@ -228,7 +229,7 @@ class DiffGalleryPanel {
 		const manifestA = await readCheckpointManifest(idA);
 		const manifestB = await readCheckpointManifest(idB);
 		if (!manifestA || !manifestB) {
-			vscode.window.showErrorMessage(l10n.t('检查点不存在'));
+			vscode.window.showErrorMessage(l10n.t('Checkpoint not found'));
 			return;
 		}
 		this._galleryData = {
@@ -242,12 +243,12 @@ class DiffGalleryPanel {
 	private async _loadComparisonWithWorkspace(idA: string): Promise<void> {
 		const manifestA = await readCheckpointManifest(idA);
 		if (!manifestA) {
-			vscode.window.showErrorMessage(l10n.t('检查点不存在'));
+			vscode.window.showErrorMessage(l10n.t('Checkpoint not found'));
 			return;
 		}
 		const folder = vscode.workspace.workspaceFolders?.[0];
 		if (!folder) {
-			vscode.window.showErrorMessage(l10n.t('请先打开工作区'));
+			vscode.window.showErrorMessage(l10n.t('Please open a workspace first'));
 			return;
 		}
 		// 构建"当前工作区"虚拟 manifest
@@ -263,14 +264,14 @@ class DiffGalleryPanel {
 		}
 		const workspaceManifest: CheckpointManifest = {
 			id: '__workspace__',
-			label: l10n.t('当前工作区'),
+			label: l10n.t('Current workspace'),
 			createdAt: new Date().toISOString(),
 			files: currentFiles,
 		};
 		this._galleryData = {
 			files: buildFileEntries(manifestA, workspaceManifest),
 			checkpointA: { id: manifestA.id, label: manifestA.label },
-			checkpointB: { id: '__workspace__', label: l10n.t('当前工作区') },
+			checkpointB: { id: '__workspace__', label: l10n.t('Current workspace') },
 		};
 		await this._update();
 	}
@@ -278,21 +279,23 @@ class DiffGalleryPanel {
 	private async _rollbackTo(checkpointId: string): Promise<void> {
 		const manifest = await readCheckpointManifest(checkpointId);
 		const label = manifest?.label ?? checkpointId;
+		const rollbackLabel = l10n.t('Roll Back');
 		const ok = await vscode.window.showWarningMessage(
-			l10n.t('确定回滚到「{0}」？将覆盖 {1}', label, `${manifest?.files.length ?? 0} ${l10n.t('个文件')}`),
+			l10n.t('Roll back to "{0}"? This will overwrite {1}', label, `${manifest?.files.length ?? 0} ${l10n.t('files')}`),
 			{ modal: true },
-			l10n.t('回滚'),
+			rollbackLabel,
+			l10n.t('Cancel'),
 		);
-		if (ok !== l10n.t('回滚')) {
+		if (ok !== rollbackLabel) {
 			return;
 		}
 		try {
 			const r = await restoreCheckpoint(checkpointId);
 			vscode.window.showInformationMessage(
-				l10n.t('回滚完成：恢复 {0} 个文件{1}', r.restored, r.skipped ? l10n.t('，跳过 {0}', r.skipped) : ''),
+				l10n.t('Rollback complete: restored {0} files{1}', r.restored, r.skipped ? l10n.t(', skipped {0}', r.skipped) : ''),
 			);
 		} catch (err) {
-			vscode.window.showErrorMessage(l10n.t('回滚失败：{0}', err instanceof Error ? err.message : String(err)));
+			vscode.window.showErrorMessage(l10n.t('Rollback failed: {0}', err instanceof Error ? err.message : String(err)));
 		}
 	}
 
@@ -304,25 +307,30 @@ class DiffGalleryPanel {
 		const data = this._galleryData;
 		const checkpoints = await listCheckpoints();
 
-		const filesJson = JSON.stringify(data.files.map(f => ({
+		// 每次渲染生成一次性 nonce：内联脚本只有匹配该 nonce 才会被执行
+		const nonce = randomBytes(16).toString('base64');
+		const cspSource = this._panel.webview.cspSource;
+
+		const filesJson = escapeJsonForScript(JSON.stringify(data.files.map(f => ({
 			relPath: f.relPath,
 			status: f.status,
 			accepted: f.accepted,
-		})));
+		}))));
 
-		const checkpointsJson = JSON.stringify(checkpoints.map(c => ({
+		const checkpointsJson = escapeJsonForScript(JSON.stringify(checkpoints.map(c => ({
 			id: c.id,
 			label: c.label,
 			createdAt: c.createdAt,
 			fileCount: c.fileCount,
-		})));
+		}))));
 
 		return /* html */ `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>${escapeHtml(l10n.t('检查点 Diff 画廊'))}</title>
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+	<title>${escapeHtml(l10n.t('Checkpoint Diff Gallery'))}</title>
 	<style>
 		body {
 			font-family: var(--vscode-font-family);
@@ -507,47 +515,47 @@ class DiffGalleryPanel {
 </head>
 <body>
 	<div class="toolbar">
-		<select id="selectA" title="${escapeHtml(l10n.t('选择检查点 A'))}">
-			<option value="">${escapeHtml(l10n.t('— 选择检查点 A —'))}</option>
+		<select id="selectA" title="${escapeHtml(l10n.t('Select checkpoint A'))}">
+			<option value="">${escapeHtml(l10n.t('— Select Checkpoint A —'))}</option>
 		</select>
 		<span>↔</span>
-		<select id="selectB" title="${escapeHtml(l10n.t('选择检查点 B'))}">
-			<option value="">${escapeHtml(l10n.t('— 选择检查点 B —'))}</option>
-			<option value="__workspace__">${escapeHtml(l10n.t('当前工作区'))}</option>
+		<select id="selectB" title="${escapeHtml(l10n.t('Select checkpoint B'))}">
+			<option value="">${escapeHtml(l10n.t('— Select Checkpoint B —'))}</option>
+			<option value="__workspace__">${escapeHtml(l10n.t('Current workspace'))}</option>
 		</select>
-		<button id="btnCompare">${escapeHtml(l10n.t('对比'))}</button>
+		<button id="btnCompare">${escapeHtml(l10n.t('Compare'))}</button>
 		<span style="flex:1"></span>
-		<button id="btnRefresh" class="secondary">${escapeHtml(l10n.t('刷新'))}</button>
+		<button id="btnRefresh" class="secondary">${escapeHtml(l10n.t('Refresh'))}</button>
 	</div>
 
 	<div class="main">
 		<div class="file-list">
 			<div class="file-list-header">
-				<span>${escapeHtml(l10n.t('文件列表'))}</span>
+				<span>${escapeHtml(l10n.t('File list'))}</span>
 				<span id="fileCount"></span>
 			</div>
 			<div id="fileListBody"></div>
 		</div>
 		<div class="diff-panel" id="diffPanel">
 			<div class="empty-state" id="emptyState">
-				${escapeHtml(l10n.t('选择两个检查点进行对比，或检查点 vs 当前工作区'))}
+				${escapeHtml(l10n.t('Select two checkpoints to compare, or a checkpoint vs the current workspace'))}
 			</div>
 		</div>
 	</div>
 
 	<div class="batch-actions">
-		<button id="btnAcceptAll" class="secondary">${escapeHtml(l10n.t('全部接受'))}</button>
-		<button id="btnRejectAll" class="danger">${escapeHtml(l10n.t('全部拒绝'))}</button>
+		<button id="btnAcceptAll" class="secondary">${escapeHtml(l10n.t('Accept All'))}</button>
+		<button id="btnRejectAll" class="danger">${escapeHtml(l10n.t('Reject All'))}</button>
 		<span style="flex:1"></span>
-		<button id="btnRollback" class="danger">${escapeHtml(l10n.t('回滚到检查点 B'))}</button>
+		<button id="btnRollback" class="danger">${escapeHtml(l10n.t('Roll Back to Checkpoint B'))}</button>
 	</div>
 
-	<script>
+	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
 		const filesData = ${filesJson};
 		const checkpointsData = ${checkpointsJson};
-		const cpA = ${JSON.stringify(data.checkpointA)};
-		const cpB = ${JSON.stringify(data.checkpointB)};
+		const cpA = ${escapeJsonForScript(JSON.stringify(data.checkpointA))};
+		const cpB = ${escapeJsonForScript(JSON.stringify(data.checkpointB))};
 
 		let selectedFile = null;
 
@@ -576,7 +584,7 @@ class DiffGalleryPanel {
 			const body = document.getElementById('fileListBody');
 			const countEl = document.getElementById('fileCount');
 			if (!filesData.length) {
-				body.innerHTML = '<div class="empty-state">${escapeHtml(l10n.t('无文件差异'))}</div>';
+				body.innerHTML = '<div class="empty-state">' + escapeHtml(${escapeJsonForScript(JSON.stringify(l10n.t('No file diff')))}) + '</div>';
 				countEl.textContent = '';
 				return;
 			}
@@ -619,8 +627,8 @@ class DiffGalleryPanel {
 		document.getElementById('btnCompare').addEventListener('click', function() {
 			const idA = selectA.value;
 			const idB = selectB.value;
-			if (!idA) { alert('${escapeHtml(l10n.t('请选择检查点 A'))}'); return; }
-			if (!idB) { alert('${escapeHtml(l10n.t('请选择检查点 B'))}'); return; }
+			if (!idA) { alert(${escapeJsonForScript(JSON.stringify(l10n.t('Please select checkpoint A')))}); return; }
+			if (!idB) { alert(${escapeJsonForScript(JSON.stringify(l10n.t('Please select checkpoint B')))}); return; }
 			if (idB === '__workspace__') {
 				vscode.postMessage({ command: 'compareWithWorkspace', checkpointId: idA });
 			} else {
@@ -645,7 +653,7 @@ class DiffGalleryPanel {
 		document.getElementById('btnRollback').addEventListener('click', function() {
 			const idB = selectB.value;
 			if (!idB || idB === '__workspace__') {
-				alert('${escapeHtml(l10n.t('请选择检查点 B'))}');
+				alert(${escapeJsonForScript(JSON.stringify(l10n.t('Please select checkpoint B')))});
 				return;
 			}
 			vscode.postMessage({ command: 'rollbackTo', checkpointId: idB });
@@ -669,6 +677,14 @@ class DiffGalleryPanel {
 
 function escapeHtml(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * 把 JSON.stringify 的结果安全嵌入客户端 <script>：先转义为 JS 字面量（引号 / 反斜杠安全），
+ * 再把 `<` 转成 `\u003c`，避免文案或数据里的 `</script>` 提前闭合脚本元素。
+ */
+function escapeJsonForScript(json: string): string {
+	return json.replace(/</g, '\\u003c');
 }
 
 function buildFileEntries(

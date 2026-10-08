@@ -5,7 +5,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
+import { logger } from '../logger';
 import { registerInstructionFolders } from '../context/instructionRegistry';
+import { ensureWorkspaceKodrixDir } from '../paths';
 import { notifyContextChanged } from '../context/contextEvents';
 import { updateStatusBar } from '../experience/statusBar';
 import { generateRepoWiki } from '../wiki/repoWiki';
@@ -22,6 +25,19 @@ export async function bootstrapWorkspace(context: vscode.ExtensionContext): Prom
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
 		return;
+	}
+
+	// 不受信任工作区：预热会构建索引 / 写工作区 .kodrix/，一律跳过（能力声明为 limited）
+	if (vscode.workspace.isTrusted === false) {
+		logger.warn('[WorkspaceBootstrap] 工作区未受信任，跳过自动预热与索引构建');
+		return;
+	}
+
+	// 工作区 .kodrix/ 就位并写好 .gitignore：会话记录/运行记录属本机私有数据，不该被提交
+	try {
+		ensureWorkspaceKodrixDir();
+	} catch (err) {
+		logger.warn(`[WorkspaceBootstrap] 初始化 .kodrix 目录失败：${err instanceof Error ? err.message : String(err)}`);
 	}
 
 	const cfg = vscode.workspace.getConfiguration('kodrix');
@@ -81,14 +97,18 @@ export async function bootstrapWorkspace(context: vscode.ExtensionContext): Prom
 		if (showTip) {
 			tipTimer = setTimeout(() => {
 				tipTimer = undefined;
+				// 按钮文案必须与"比较用的常量"同源：此前把中文字面量写在两处并直接 `===` 比较，
+				// 一旦接入 l10n（按钮显示译文）比较就永远不成立 —— 按钮点了没反应。
+				const openHub = l10n.t('Open Hub');
+				const smartRoute = l10n.t('Smart Routing');
 				void vscode.window.showInformationMessage(
-					'Kodrix 已为当前工作区预热 Agent 上下文（Wiki · Memory · Learning）',
-					'打开 Hub',
-					'智能路由',
+					l10n.t('Kodrix prewarmed the Agent context for the current workspace (Wiki · Memory · Learning)'),
+					openHub,
+					smartRoute,
 				).then(choice => {
-					if (choice === '打开 Hub') {
+					if (choice === openHub) {
 						void vscode.commands.executeCommand('kodrix.hub.open');
-					} else if (choice === '智能路由') {
+					} else if (choice === smartRoute) {
 						void vscode.commands.executeCommand('kodrix.router.route');
 					}
 				});

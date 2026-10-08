@@ -43,6 +43,7 @@ exports.executeRoute = executeRoute;
 exports.routeAndExecute = routeAndExecute;
 exports.registerRouter = registerRouter;
 const vscode = __importStar(require("vscode"));
+const vscode_1 = require("vscode");
 const kodrixEventBus_1 = require("../context/kodrixEventBus");
 const specHelpers_1 = require("../spec/specHelpers");
 const logger_1 = require("../logger");
@@ -71,6 +72,21 @@ const ASK_PATTERNS = [
     { pattern: /什么意思|是什么|有什么区别/, weight: 1 },
     { pattern: /文档|doc|注释|README|readme/i, weight: 2 },
 ];
+const TERMINAL_PATTERNS = [
+    { pattern: /终端|命令|运行|执行|terminal|command|run/i, weight: 2 },
+];
+const WIKI_PATTERNS = [
+    { pattern: /wiki|文档|项目结构|架构|documentation|architecture/i, weight: 2 },
+];
+const CHECKPOINT_PATTERNS = [
+    { pattern: /检查点|回滚|快照|checkpoint|rollback|snapshot/i, weight: 2 },
+];
+const MODELS_PATTERNS = [
+    { pattern: /模型|供应商|model|provider|byok/i, weight: 2 },
+];
+const SETTINGS_PATTERNS = [
+    { pattern: /设置|配置|偏好|settings|config|preference/i, weight: 2 },
+];
 function scorePatterns(text, patterns) {
     return patterns.reduce((sum, { pattern, weight }) => sum + (pattern.test(text) ? weight : 0), 0);
 }
@@ -86,13 +102,18 @@ function confidenceFromScore(score) {
 function classifyIntent(prompt) {
     const text = prompt.trim();
     if (!text) {
-        return { target: 'agent', reason: '空输入默认 Agent 模式', confidence: 'low' };
+        return { target: 'agent', reason: vscode_1.l10n.t('empty input defaults to Agent mode'), confidence: 'low' };
     }
     const scores = [
-        { target: 'spec', score: scorePatterns(text, SPEC_PATTERNS), reason: 'Spec 驱动 / Kiro 三件套' },
-        { target: 'plan', score: scorePatterns(text, PLAN_PATTERNS), reason: '复杂功能 / 需先规划' },
-        { target: 'agent', score: scorePatterns(text, AGENT_PATTERNS), reason: '实施 / 审查 / 测试 / 修复' },
-        { target: 'ask', score: scorePatterns(text, ASK_PATTERNS), reason: '问答 / 探索 / 文档' },
+        { target: 'spec', score: scorePatterns(text, SPEC_PATTERNS), reason: vscode_1.l10n.t('Spec-driven / Kiro trio') },
+        { target: 'plan', score: scorePatterns(text, PLAN_PATTERNS), reason: vscode_1.l10n.t('complex feature / needs planning first') },
+        { target: 'agent', score: scorePatterns(text, AGENT_PATTERNS), reason: vscode_1.l10n.t('implement / review / test / fix') },
+        { target: 'ask', score: scorePatterns(text, ASK_PATTERNS), reason: vscode_1.l10n.t('Q&A / exploration / docs') },
+        { target: 'terminal', score: scorePatterns(text, TERMINAL_PATTERNS), reason: vscode_1.l10n.t('terminal / command / run') },
+        { target: 'wiki', score: scorePatterns(text, WIKI_PATTERNS), reason: vscode_1.l10n.t('wiki / docs / architecture') },
+        { target: 'checkpoint', score: scorePatterns(text, CHECKPOINT_PATTERNS), reason: vscode_1.l10n.t('checkpoint / rollback / snapshot') },
+        { target: 'models', score: scorePatterns(text, MODELS_PATTERNS), reason: vscode_1.l10n.t('models / providers') },
+        { target: 'settings', score: scorePatterns(text, SETTINGS_PATTERNS), reason: vscode_1.l10n.t('settings / configuration / preferences') },
     ];
     scores.sort((a, b) => b.score - a.score);
     const best = scores[0];
@@ -102,7 +123,7 @@ function classifyIntent(prompt) {
         if (/文档|doc|README|解释|说明|什么|如何|为什么/.test(text)) {
             return {
                 target: 'ask',
-                reason: '文档 / 探索类短问句',
+                reason: vscode_1.l10n.t('short documentation / exploration question'),
                 confidence: confidenceFromScore(second.score),
             };
         }
@@ -110,14 +131,14 @@ function classifyIntent(prompt) {
     if (best.score >= 2) {
         return {
             target: best.target,
-            reason: `检测到${best.reason}`,
+            reason: vscode_1.l10n.t('Detected: {0}', best.reason),
             confidence: confidenceFromScore(best.score),
         };
     }
     if (ASK_PATTERNS.some(p => p.pattern.test(text)) && text.length < 200) {
-        return { target: 'ask', reason: '短问答请求', confidence: 'medium' };
+        return { target: 'ask', reason: vscode_1.l10n.t('short Q&A request'), confidence: 'medium' };
     }
-    return { target: 'agent', reason: '默认多文件 Agent 实施', confidence: 'medium' };
+    return { target: 'agent', reason: vscode_1.l10n.t('default multi-file Agent implementation'), confidence: 'medium' };
 }
 let extensionContext;
 function getLastRoute() {
@@ -145,12 +166,12 @@ async function persistLastRoute(route, prompt) {
 async function routeAgentPrompt(prompt, options) {
     const enabled = vscode.workspace.getConfiguration('kodrix.features').get('agentRouter', true);
     if (!enabled) {
-        vscode.window.showWarningMessage('智能路由已关闭。可在设置中启用 kodrix.features.agentRouter');
+        vscode.window.showWarningMessage(vscode_1.l10n.t('Smart Routing is off. Enable kodrix.features.agentRouter in settings'));
         return;
     }
     const input = prompt || await vscode.window.showInputBox({
-        prompt: '描述你的需求（将自动路由到最佳模式）',
-        placeHolder: '用 React 做一个待办应用 / 审查 PR / 写单元测试 / 重构 auth 模块',
+        prompt: vscode_1.l10n.t('Describe your requirement (it will be routed to the best mode automatically)'),
+        placeHolder: vscode_1.l10n.t('Build a todo app with React / Review a PR / Write unit tests / Refactor the auth module'),
     });
     if (!input?.trim()) {
         return;
@@ -164,12 +185,16 @@ async function routeAgentPrompt(prompt, options) {
         vscode.window.setStatusBarMessage(`$(hubot) Agent OS → ${route.target.toUpperCase()}（${route.reason}）`, 4000);
         return;
     }
-    const choice = await vscode.window.showInformationMessage(`Agent OS 路由 → ${route.target.toUpperCase()}（${route.reason} · ${route.confidence}）`, '执行', '切换模式', '取消');
-    if (choice === '取消' || !choice) {
+    // 按钮文案与比较值同源（避免日后接入 l10n 后译文导致 `===` 永不成立、按钮点了没反应）
+    const executeLabel = vscode_1.l10n.t('Run');
+    const switchLabel = vscode_1.l10n.t('Switch Mode');
+    const cancelLabel = vscode_1.l10n.t('Cancel');
+    const choice = await vscode.window.showInformationMessage(vscode_1.l10n.t('Agent OS route → {0} ({1} · {2})', route.target.toUpperCase(), route.reason, String(route.confidence)), executeLabel, switchLabel, cancelLabel);
+    if (choice === cancelLabel || !choice) {
         return;
     }
-    if (choice === '切换模式') {
-        const picked = await vscode.window.showQuickPick(['spec', 'plan', 'agent', 'ask'].map(t => ({ label: t.toUpperCase(), target: t })), { placeHolder: '手动选择模式' });
+    if (choice === switchLabel) {
+        const picked = await vscode.window.showQuickPick(['spec', 'plan', 'agent', 'ask', 'terminal', 'wiki', 'checkpoint', 'models', 'settings'].map(t => ({ label: t.toUpperCase(), target: t })), { placeHolder: vscode_1.l10n.t('Manually select mode') });
         if (picked) {
             await persistLastRoute({ ...route, target: picked.target }, input);
             await executeRoute(picked.target, input);
@@ -209,6 +234,21 @@ async function executeRoute(target, prompt) {
                     isPartialQuery: false,
                 });
                 break;
+            case 'terminal':
+                await vscode.commands.executeCommand('kodrix.terminal.aiPrompt');
+                break;
+            case 'wiki':
+                await vscode.commands.executeCommand('kodrix.wiki.generate');
+                break;
+            case 'checkpoint':
+                await vscode.commands.executeCommand('kodrix.checkpoint.list');
+                break;
+            case 'models':
+                await vscode.commands.executeCommand('kodrix.modelRouter.status');
+                break;
+            case 'settings':
+                await vscode.commands.executeCommand('workbench.action.openSettings', 'kodrix.');
+                break;
             case 'agent':
             default:
                 await vscode.commands.executeCommand('workbench.action.chat.open', {
@@ -221,7 +261,7 @@ async function executeRoute(target, prompt) {
     }
     catch (err) {
         logger_1.logger.error(`[AgentRouter] executeRoute(${target}) failed`, err);
-        vscode.window.showWarningMessage(`路由执行失败（${target}）：${err instanceof Error ? err.message : '未知错误'}`);
+        vscode.window.showWarningMessage(vscode_1.l10n.t('Route execution failed ({0}): {1}', target, err instanceof Error ? err.message : vscode_1.l10n.t('unknown error')));
     }
 }
 /**
@@ -242,7 +282,7 @@ function registerRouter(context) {
     context.subscriptions.push(vscode.commands.registerCommand('kodrix.router.route', () => routeAgentPrompt()), vscode.commands.registerCommand('kodrix.router.execute', (target, prompt) => executeRoute(target, prompt)), vscode.commands.registerCommand('kodrix.router.repeatLast', async () => {
         const last = getLastRoute();
         if (!last) {
-            vscode.window.showInformationMessage('尚无路由历史 — 使用 `Kodrix: 智能路由` 开始');
+            vscode.window.showInformationMessage(vscode_1.l10n.t('No routing history — use `Kodrix: Smart Route` to get started'));
             return;
         }
         await executeRoute(last.target, last.prompt);

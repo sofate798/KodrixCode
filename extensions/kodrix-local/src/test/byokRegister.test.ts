@@ -62,7 +62,7 @@ suite('byokRegister', () => {
 	// ── resolveModelsForPreset ────────────────────────────────────
 
 	suite('resolveModelsForPreset', () => {
-		test('declared models 优先返回', async () => {
+		test('declared models 优先返回，主模型排在最前', async () => {
 			const preset = {
 				id: 'test-preset',
 				category: 'cloud',
@@ -76,18 +76,18 @@ suite('byokRegister', () => {
 			const models = await byokRegister.resolveModelsForPreset(
 				preset, 'https://api.test.com/v1', 'fake-key'
 			);
-			// declared models 应直接返回，无需网络发现
-			assert.deepStrictEqual(models, ['model-a', 'model-b']);
+			// 预设已声明模型时直接返回（getPresetModelCandidates 会把主模型排在最前），无需网络发现
+			assert.deepStrictEqual(models, ['test-model', 'model-a', 'model-b']);
 		});
 
-		test('ollama 类型返回 undefined（跳过自动发现）', async () => {
+		test('ollama 类型未声明模型时返回 undefined（跳过自动发现）', async () => {
 			const preset = {
 				id: 'ollama',
 				category: 'local',
 				name: 'Ollama',
 				api_type: 'ollama',
 				base_url: 'http://127.0.0.1:11434',
-				model: 'qwen2.5-coder:7b',
+				model: '',
 			};
 
 			const models = await byokRegister.resolveModelsForPreset(
@@ -96,14 +96,14 @@ suite('byokRegister', () => {
 			assert.strictEqual(models, undefined);
 		});
 
-		test('anthropic 类型返回 undefined（跳过自动发现）', async () => {
+		test('anthropic 类型未声明模型时返回 undefined（跳过自动发现）', async () => {
 			const preset = {
 				id: 'anthropic',
 				category: 'cloud',
 				name: 'Anthropic',
 				api_type: 'anthropic',
 				base_url: '',
-				model: 'claude-3-5-sonnet',
+				model: '',
 			};
 
 			const models = await byokRegister.resolveModelsForPreset(

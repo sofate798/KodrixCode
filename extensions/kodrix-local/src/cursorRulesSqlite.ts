@@ -46,7 +46,7 @@ function readItemTableValue(dbPath: string, key: string): string | undefined {
 	if (!ALLOWED_ITEM_KEYS.has(key)) {
 		throw new Error(`Untrusted ItemTable key: ${key}`);
 	}
-	const escapedKey = key.replace(/'/g, "''");
+	const escapedKey = key.replace(/'/g, '\'\'');
 	try {
 		const out = execFileSync('sqlite3', [dbPath, `.mode line
 SELECT value FROM ItemTable WHERE key = '${escapedKey}'`], {

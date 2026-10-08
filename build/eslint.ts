@@ -4,14 +4,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ESLint } from 'eslint';
+import { availableParallelism } from 'os';
 import { eslintFilter } from './filters.ts';
+
+/**
+ * Worker 并发数。
+ * `'auto'` 按 CPU 数起 worker：在 32 核机器上会同时起 32 个 worker，
+ * 触发 `ERR_WORKER_OUT_OF_MEMORY` / `DataCloneError: ... out of memory`，让门禁假红。
+ * 默认封顶 8（CI 的 4 核机器不受影响），可用 KODRIX_ESLINT_CONCURRENCY 显式覆盖。
+ */
+function eslintConcurrency(): number {
+	const override = Number(process.env['KODRIX_ESLINT_CONCURRENCY']);
+	if (Number.isFinite(override) && override > 0) {
+		return Math.floor(override);
+	}
+	return Math.max(1, Math.min(availableParallelism?.() ?? 4, 8));
+}
 
 async function eslint(): Promise<void> {
 	const linter = new ESLint({
 		cache: true,
 		cacheLocation: '.eslintcache',
 		cacheStrategy: 'content',
-		concurrency: 'auto',
+		concurrency: eslintConcurrency(),
 		errorOnUnmatchedPattern: false,
 	});
 	const formatter = await linter.loadFormatter('compact');

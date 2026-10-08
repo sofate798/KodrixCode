@@ -1,7 +1,7 @@
 'use strict';
 module.exports = {
 	workspace: {
-		workspaceFolders: [{ uri: { fsPath: "C:\\Users\\Deto\\AppData\\Local\\Temp\\kodrix-sub-lrb265\\ws" } }],
+		workspaceFolders: [{ uri: { fsPath: "C:\\Users\\Deto\\AppData\\Local\\Temp\\kodrix-sub-gZdDlX\\ws" } }],
 		getConfiguration: (section) => ({
 			get: (key, def) => {
 				const o = global.__kodrixSubConfig || {};

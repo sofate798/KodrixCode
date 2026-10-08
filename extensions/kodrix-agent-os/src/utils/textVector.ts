@@ -38,7 +38,7 @@ export function tokenize(text: string): string[] {
 			for (let i = 0; i < w.length - 1; i++) {
 				tokens.push(w.slice(i, i + 2));
 			}
-			if (w.length === 1) tokens.push(w);
+			if (w.length === 1) {tokens.push(w);}
 		} else {
 			// 英文 stopwords 过滤（使用模块级常量集合）
 			if (!EN_STOPWORDS.has(w) && w.length >= 2) {
@@ -66,7 +66,7 @@ export function tokenToIndices(token: string, dim: number): number[] {
 export function encodeText(text: string, dim: number): number[] {
 	const tokens = tokenize(text);
 	const vec = new Array(dim).fill(0);
-	if (tokens.length === 0) return vec;
+	if (tokens.length === 0) {return vec;}
 
 	// TF 计数
 	const tf: Record<string, number> = {};
@@ -87,7 +87,7 @@ export function encodeText(text: string, dim: number): number[] {
 	// L2 归一化
 	const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0));
 	if (norm > 0) {
-		for (let i = 0; i < dim; i++) vec[i] /= norm;
+		for (let i = 0; i < dim; i++) {vec[i] /= norm;}
 	}
 	return vec;
 }
@@ -100,6 +100,6 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 		na += a[i] * a[i];
 		nb += b[i] * b[i];
 	}
-	if (na === 0 || nb === 0) return 0;
+	if (na === 0 || nb === 0) {return 0;}
 	return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }

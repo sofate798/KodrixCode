@@ -6,6 +6,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { notifyContextChanged } from '../context/contextEvents';
 import { emitKodrixEvent } from '../context/kodrixEventBus';
 import { inferLearningCategory } from './learningRetrieval';
@@ -16,13 +17,15 @@ import {
 	getMemoryDir,
 	getMemoryInstructionsPath,
 } from '../paths';
-import { indexLearningEntry, rebuildIndex, searchSimilar, getSemanticStats, invalidateEntryCache } from './semanticMemory';
+import { indexLearningEntry, rebuildIndex, getSemanticStats, invalidateEntryCache } from './semanticMemory';
 import { getSessionLearningStats } from './sessionIndex';
 import { isRecord, isString } from '../utils/jsonValidator';
 import { atomicWriteFileSync } from '../utils/fsSafe';
 import { createTrackedPanel } from '../utils/panelTracker';
 import { logger } from '../logger';
 import { loadWebviewHtml } from '../shared/webviewHtml';
+import { isKodrixFeatureEnabled } from '../utils/featureFlags';
+import { FEATURE_FLAGS } from '../shared/constants';
 
 export type LearningSource = 'manual' | 'capture' | 'session' | 'wiki' | 'spec' | 'auto';
 export type LearningCategory = 'architecture' | 'convention' | 'pattern' | 'pitfall' | 'preference' | 'other';
@@ -50,10 +53,12 @@ description: Kodrix 项目 Memory 与学习沉淀（自动同步，请勿手动�
 let _syncScheduled = false;
 
 function scheduleSyncInstructions(): void {
-	if (_syncScheduled) return;
+	if (_syncScheduled) {return;}
 	_syncScheduled = true;
 	setTimeout(() => {
 		_syncScheduled = false;
+		// Memory 层被关闭时不再把记忆写进 Agent 指令文件（此前该开关只拦了一个入口，其余照写）
+		if (!isKodrixFeatureEnabled(FEATURE_FLAGS.memory)) {return;}
 		try { syncProjectInstructionsFile(); } catch { /* non-critical */ }
 	}, 1000);
 }
@@ -63,22 +68,39 @@ function isValidLearningEntry(v: unknown): v is LearningEntry {
 		&& isString(v.source) && isString(v.category) && isString(v.content);
 }
 
+/** learning.jsonl 健康度：把"有损坏行"这件事变得可见（此前静默跳过，Dashboard 数字与文件不符） */
+export interface LearningLogHealth {
+	totalLines: number;
+	validEntries: number;
+	corruptLines: number;
+}
+
+let _lastLogHealth: LearningLogHealth = { totalLines: 0, validEntries: 0, corruptLines: 0 };
+
 export function readLearningLog(): LearningEntry[] {
 	const logPath = getLearningLogPath();
 	if (!fs.existsSync(logPath)) {
+		_lastLogHealth = { totalLines: 0, validEntries: 0, corruptLines: 0 };
 		return [];
 	}
 	const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean);
 	const entries: LearningEntry[] = [];
+	let corrupt = 0;
 	for (const line of lines) {
 		try {
 			const parsed: unknown = JSON.parse(line);
 			if (isValidLearningEntry(parsed)) {
 				entries.push(parsed);
+			} else {
+				corrupt++;
 			}
 		} catch {
-			// skip corrupt line
+			corrupt++;
 		}
+	}
+	_lastLogHealth = { totalLines: lines.length, validEntries: entries.length, corruptLines: corrupt };
+	if (corrupt > 0) {
+		logger.warn(`[LearningEngine] learning.jsonl 有 ${corrupt} 行无法解析（已保留在文件中，不会被编辑/删除操作丢弃）`);
 	}
 	return entries;
 }
@@ -126,6 +148,8 @@ export function recordLearning(
 }
 
 export function syncProjectInstructionsFile(): void {
+	// Memory 层关闭时不写 Agent 指令文件：否则"关闭 Memory"后仍会持续把记忆注入 Chat
+	if (!isKodrixFeatureEnabled(FEATURE_FLAGS.memory)) {return;}
 	const memory = readMemoryContent();
 	const recent = readLearningLog().slice(-MAX_LEARNING_IN_INSTRUCTIONS).reverse();
 	const learningSection = recent.length
@@ -156,31 +180,7 @@ ${learningSection}
 	atomicWriteFileSync(outPath, body);
 }
 
-export async function getLearningContextSummary(maxEntries = 5, maxChars = 800, query?: string): Promise<string> {
-	const all = readLearningLog();
-	if (!all.length) {
-		return '';
-	}
-
-	const entries = query?.trim()
-		? (await searchSimilar(query, maxEntries)).map(r => r.entry)
-		: all.slice(-maxEntries).reverse();
-
-	if (!entries.length) {
-		return '';
-	}
-
-	const header = query?.trim() ? '[Relevant Learning]' : '[Recent Learning]';
-	const lines = entries.map(e => `- [${e.category}] ${e.content}`);
-	const text = `${header}\n${lines.join('\n')}`;
-	return text.length > maxChars ? text.slice(0, maxChars) + '…' : text;
-}
-
-export async function getRelevantLearningForFile(filePath: string, maxEntries = 3): Promise<LearningEntry[]> {
-	return (await searchSimilar(filePath, maxEntries)).map(r => r.entry);
-}
-
-export function getLearningStats(): { total: number; categories: Record<string, number>; lastUpdated?: string } {
+export function getLearningStats(): { total: number; categories: Record<string, number>; lastUpdated?: string; corruptLines: number } {
 	const entries = readLearningLog();
 	const categories: Record<string, number> = {};
 	for (const e of entries) {
@@ -190,6 +190,8 @@ export function getLearningStats(): { total: number; categories: Record<string, 
 		total: entries.length,
 		categories,
 		lastUpdated: entries.at(-1)?.timestamp,
+		// 让 Dashboard 能显示"另有 N 行损坏"，而不是让条数看起来莫名变少
+		corruptLines: _lastLogHealth.corruptLines,
 	};
 }
 
@@ -200,15 +202,15 @@ export function getRecentLearning(limit = 5): LearningEntry[] {
 export async function learnFromSelection(): Promise<void> {
 	const enabled = vscode.workspace.getConfiguration('kodrix.features').get<boolean>('learning', true);
 	if (!enabled) {
-		vscode.window.showWarningMessage('Learning Engine 已关闭。可在设置中启用 kodrix.features.learning');
+		vscode.window.showWarningMessage(l10n.t('Learning Engine is off. Enable kodrix.features.learning in settings'));
 		return;
 	}
 
 	const editor = vscode.window.activeTextEditor;
 	const selection = editor?.document.getText(editor.selection);
 	const input = selection || await vscode.window.showInputBox({
-		prompt: '沉淀为项目知识（将写入 Memory + 学习日志并注入 Agent）',
-		placeHolder: '此模块使用 Repository 模式，测试用 vitest',
+		prompt: l10n.t('Distill into project knowledge (will be written to Memory + the learning log and injected into the Agent)'),
+		placeHolder: l10n.t('This module uses the Repository pattern; tests use vitest'),
 	});
 	if (!input?.trim()) {
 		return;
@@ -216,19 +218,19 @@ export async function learnFromSelection(): Promise<void> {
 
 	const category = await vscode.window.showQuickPick(
 		([
-			{ label: '架构偏好', value: 'architecture' as LearningCategory },
-			{ label: '命名/约定', value: 'convention' as LearningCategory },
-			{ label: '常用模式', value: 'pattern' as LearningCategory },
-			{ label: '已知陷阱', value: 'pitfall' as LearningCategory },
-			{ label: '个人偏好', value: 'preference' as LearningCategory },
-			{ label: '其他', value: 'other' as LearningCategory },
+			{ label: l10n.t('Architecture preference'), value: 'architecture' as LearningCategory },
+			{ label: l10n.t('Naming / conventions'), value: 'convention' as LearningCategory },
+			{ label: l10n.t('Common pattern'), value: 'pattern' as LearningCategory },
+			{ label: l10n.t('Known pitfall'), value: 'pitfall' as LearningCategory },
+			{ label: l10n.t('Personal preference'), value: 'preference' as LearningCategory },
+			{ label: l10n.t('Other'), value: 'other' as LearningCategory },
 		]),
-		{ placeHolder: '选择知识类别' },
+		{ placeHolder: l10n.t('Select a knowledge category') },
 	);
 
 	persistMemoryAppend(input.trim());
 	recordLearning(input.trim(), { source: 'capture', category: category?.value ?? 'other' });
-	vscode.window.showInformationMessage('已沉淀项目知识 — 下次 Agent 会话将自动携带');
+	vscode.window.showInformationMessage(l10n.t('Project knowledge captured — it will be included automatically in the next Agent session'));
 }
 
 let learningDashboardPanel: vscode.WebviewPanel | undefined;
@@ -271,14 +273,14 @@ export async function showLearningDashboard(context?: vscode.ExtensionContext): 
 		panel.webview.html = loadWebviewHtml(panel.webview, context.extensionPath, 'learning-dashboard.html');
 	} catch (err) {
 		logger.warn('[LearningEngine] 加载 dashboard HTML 资源失败', err);
-		panel.webview.html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"></head>`
+		panel.webview.html = `<!DOCTYPE html><html lang="${vscode.env.language}"><head><meta charset="UTF-8"></head>`
 			+ `<body style="font-family:sans-serif;padding:24px">`
-			+ `<h2>Learning Dashboard</h2><p>资源加载失败，请重新编译扩展。</p></body></html>`;
+			+ `<h2>Learning Dashboard</h2><p>${l10n.t('Failed to load the page resources. Please rebuild the extension.')}</p></body></html>`;
 	}
 
 	panel.webview.onDidReceiveMessage(msg => {
-		if (msg.command === 'ready') pushLearningDashboard();
-		if (msg.command === 'refresh') pushLearningDashboard();
+		if (msg.command === 'ready') {pushLearningDashboard();}
+		if (msg.command === 'refresh') {pushLearningDashboard();}
 		if (msg.command === 'capture') {
 			void vscode.commands.executeCommand('kodrix.learn.capture');
 			setTimeout(() => pushLearningDashboard(), 500);
@@ -299,7 +301,7 @@ export async function showLearningDashboard(context?: vscode.ExtensionContext): 
 }
 
 function pushLearningDashboard(): void {
-	if (!learningDashboardPanel) return;
+	if (!learningDashboardPanel) {return;}
 
 	const entries = readLearningLog();
 	const stats = getLearningStats();
@@ -327,7 +329,10 @@ function pushLearningDashboard(): void {
 	try {
 		const mc = readMemoryContent();
 		memCount = mc.split('\n').filter(l => l.trim().startsWith('-')).length || (mc.trim() ? 1 : 0);
-	} catch {}
+	} catch (err) {
+		// 降级行为不变：读取失败时 memCount 保持 0，仅补充日志便于定位
+		logger.warn('[LearningEngine] 读取记忆内容失败，memoryCount 降级为 0', err);
+	}
 
 	learningDashboardPanel.webview.postMessage({
 		type: 'dashboard',
@@ -340,6 +345,8 @@ function pushLearningDashboard(): void {
 			thisWeek,
 			memoryCount: memCount,
 			hasEmbedding: semantic.hasEmbedding,
+			// 损坏行数透出到面板：否则用户只看到"条数变少"，不知道是文件坏了（编辑/删除不会丢弃这些行）
+			corruptLines: stats.corruptLines,
 		},
 	});
 }
@@ -348,7 +355,7 @@ function pushLearningDashboard(): void {
 /** 编辑学习条目：更新 learning.jsonl 中对应条目并重建索引 */
 function handleEditEntry(id: string, content: string): void {
 	const logPath = getLearningLogPath();
-	if (!fs.existsSync(logPath)) return;
+	if (!fs.existsSync(logPath)) {return;}
 
 	const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean);
 	const updated: string[] = [];
@@ -381,7 +388,7 @@ function handleEditEntry(id: string, content: string): void {
 /** 删除学习条目：从 learning.jsonl 移除并重建索引 */
 function handleDeleteEntry(id: string): void {
 	const logPath = getLearningLogPath();
-	if (!fs.existsSync(logPath)) return;
+	if (!fs.existsSync(logPath)) {return;}
 
 	const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean);
 	const kept: string[] = [];
@@ -416,7 +423,9 @@ export function registerLearningEngine(context: vscode.ExtensionContext): void {
 	);
 
 	ensureDir(getMemoryDir());
-	syncProjectInstructionsFile();
+	if (isKodrixFeatureEnabled(FEATURE_FLAGS.memory)) {
+		syncProjectInstructionsFile();
+	}
 	// 语义索引重建可能读取较大日志，延迟到激活之后执行，避免阻塞扩展启动
 	const rebuildTimer = setTimeout(() => {
 		try {

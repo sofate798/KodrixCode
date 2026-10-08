@@ -4,14 +4,25 @@
  *  设计：
  *    1. 默认关闭（kodrix.tabCompletion.enabled = false），避免与上游 Copilot 内联补全冲突；
  *       用户开启后由 Kodrix 提供 InlineCompletion。
- *    2. 双通道：mode=fim → 专用 FIM 端点（默认 DeepSeek FIM，填 Key 即用；可选自定义端点）；
- *       mode=fast → 通用模型通道（走模型路由 fast 档）。FIM 失败自动降级 fast。
- *    3. buildCompletionPrompt / buildFimPrompt / extractCompletion 为纯函数，便于单元测试。
+ *    2. 双通道：mode=fim → 专用 FIM 端点（端点由 kodrix.tabCompletion.fimEndpoint 配置，
+ *       默认 DeepSeek FIM；kodrix.tabCompletion.fimEnabled=false 可整体禁用专线）；
+ *       mode=fast → 通用模型通道（走模型路由 fast 档）。FIM 失败自动降级 fast，
+ *       但失败/降级不再静默：logger 记录状态码与原因，统计（tabCompletion.stats）按
+ *       实际产出通道区分并附 FIM 专线诊断。
+ *    3. 端点返回 4xx（非 429）视为接口不存在，本会话内熔断该端点不再重试（日志+统计可见）。
+ *    4. buildCompletionPrompt / buildFimPrompt / extractCompletion 为纯函数，便于单元测试。
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { l10n } from 'vscode';
 import { routeModel } from '../model/modelRouter';
-import { recordTabSuggestion, recordTabAccept, showTabCompletionStats } from './tabCompletionStats';
+import {
+	recordTabSuggestion,
+	recordTabAccept,
+	showTabCompletionStats,
+	recordTabFimFailure,
+	recordTabFimSkip,
+} from './tabCompletionStats';
 import { logger } from '../logger';
 import {
 	TAB_COMPLETION_CONFIG,
@@ -20,8 +31,7 @@ import {
 	TAB_COMPLETION_CONTEXT_LINES,
 	TAB_COMPLETION_MAX_RESULT_CHARS,
 	TAB_COMPLETION_MODE_FIM,
-	FIM_PROVIDER_DEEPSEEK,
-	FIM_PROVIDER_CUSTOM,
+	TAB_COMPLETION_FIM_ENABLED_DEFAULT,
 	FIM_DEFAULT_ENDPOINT,
 	FIM_DEFAULT_MODEL,
 	FIM_SEPARATOR,
@@ -46,6 +56,15 @@ export interface FimOptions {
 	apiKey: string;
 	model: string;
 	timeoutMs?: number;
+}
+
+/** 补全实际产出通道（区别于配置的 mode：降级时配置为 fim、实际产出为 fast） */
+export type TabCompletionChannel = 'fim' | 'fast';
+
+/** 带通道信息的补全结果 */
+export interface TabCompletionOutcome {
+	text: string;
+	channel: TabCompletionChannel;
 }
 
 /** 组装补全请求 prompt（纯函数，fast 通道） */
@@ -82,12 +101,46 @@ export function extractCompletion(raw: string): string {
 		.trimEnd();
 }
 
+/** 本次会话内被熔断的 FIM 端点（4xx「接口不存在」类错误后不再重复请求） */
+let _fimBlockedEndpoint: string | undefined;
+
+/** 当前被熔断的 FIM 端点（供统计面板展示） */
+export function getFimBlockedEndpoint(): string | undefined {
+	return _fimBlockedEndpoint;
+}
+
+/** 重置 FIM 端点熔断状态（测试用；用户侧改端点配置或重启扩展宿主亦可恢复） */
+export function resetFimEndpointBlocklist(): void {
+	_fimBlockedEndpoint = undefined;
+}
+
+/** 判断是否 4xx「接口不存在」类永久错误（429 限流为瞬时错误，不熔断） */
+function isPermanentFimStatus(status: number): boolean {
+	return status >= 400 && status < 500 && status !== 429;
+}
+
+async function safeReadBody(res: { text?: () => Promise<string> }): Promise<string> {
+	try {
+		return (await res.text?.())?.slice(0, 200) ?? '';
+	} catch {
+		return '';
+	}
+}
+
 /**
- * FIM 通道：请求外部 FIM 端点（默认 DeepSeek，或自定义 OpenAI 兼容 completions）。
- * 无 Key / 请求失败 / 无文本返回 undefined（调用方降级）。
+ * FIM 通道：请求 FIM 端点（端点来自 kodrix.tabCompletion.fimEndpoint 设置，默认 DeepSeek）。
+ * 无 Key / 请求失败 / 无文本返回 undefined（调用方降级 fast），但失败一律：
+ *   - logger 记录状态码 + 端点 + 响应片段；
+ *   - 统计模块记录 fim.failures / fim.lastFailure；
+ *   - 4xx（非 429）触发本会话端点熔断，后续请求直接跳过并计入 fim.skips。
  */
 export async function provideFimCompletion(ctx: CompletionContext, opts: FimOptions): Promise<string | undefined> {
 	if (!opts.apiKey.trim() || !opts.endpoint.trim()) {
+		return undefined;
+	}
+	if (_fimBlockedEndpoint === opts.endpoint) {
+		logger.warn(`[TabCompletion] FIM 端点 ${opts.endpoint} 此前返回 4xx，本会话已跳过（不再重试）`);
+		recordTabFimSkip(opts.endpoint);
 		return undefined;
 	}
 	const ac = new AbortController();
@@ -111,14 +164,28 @@ export async function provideFimCompletion(ctx: CompletionContext, opts: FimOpti
 			signal: ac.signal,
 		});
 		if (!res.ok) {
-			logger.warn(`[TabCompletion] FIM 端点 ${res.status}`);
+			const bodySnippet = await safeReadBody(res as { text?: () => Promise<string> });
+			const reason = `HTTP ${res.status}${bodySnippet ? ` ${bodySnippet}` : ''}`;
+			logger.warn(`[TabCompletion] FIM 请求失败 status=${res.status} endpoint=${opts.endpoint} body=${bodySnippet || '(empty)'}`);
+			recordTabFimFailure(opts.endpoint, res.status, reason.slice(0, 300));
+			if (isPermanentFimStatus(res.status)) {
+				_fimBlockedEndpoint = opts.endpoint;
+				logger.warn(`[TabCompletion] FIM 端点 ${opts.endpoint} 因 ${res.status} 被本会话熔断，后续补全直接走 fast 通道`);
+			}
 			return undefined;
 		}
 		const data = await res.json() as { choices?: Array<{ text?: unknown }> };
 		const text = data.choices?.[0]?.text;
-		return typeof text === 'string' ? extractCompletion(text.slice(0, TAB_COMPLETION_MAX_RESULT_CHARS)) : undefined;
+		if (typeof text !== 'string' || !text.trim()) {
+			logger.warn(`[TabCompletion] FIM 返回 ${res.status} 但 choices[0].text 无内容，endpoint=${opts.endpoint}`);
+			recordTabFimFailure(opts.endpoint, res.status, '响应 choices[0].text 无文本');
+			return undefined;
+		}
+		return extractCompletion(text.slice(0, TAB_COMPLETION_MAX_RESULT_CHARS));
 	} catch (err) {
-		logger.warn('[TabCompletion] FIM 请求失败', err);
+		const msg = err instanceof Error ? err.message : String(err);
+		logger.warn(`[TabCompletion] FIM 请求异常 endpoint=${opts.endpoint}: ${msg}`, err);
+		recordTabFimFailure(opts.endpoint, 'network', msg.slice(0, 300));
 		return undefined;
 	} finally {
 		clearTimeout(timer);
@@ -161,11 +228,24 @@ async function provideFastCompletion(ctx: CompletionContext): Promise<string | u
 /** 模块级 ExtensionContext 引用（由 registerTabCompletion 注入） */
 let _extCtx: vscode.ExtensionContext | undefined;
 
+/** 最近一次建议的实际产出通道（接受事件按此归因，避免按配置 mode 误计） */
+let _lastSuggestedChannel: TabCompletionChannel | undefined;
+
 /**
- * 生成 Tab 补全：mode=fim 且配 Key → FIM 通道（失败降级 fast）；否则 fast 通道。
+ * 解析 FIM 端点：始终读取 kodrix.tabCompletion.fimEndpoint 设置，
+ * 未配置/为空时回退 FIM_DEFAULT_ENDPOINT（保持历史默认地址，向后兼容）。
+ */
+function resolveFimEndpoint(cfg: vscode.WorkspaceConfiguration): string {
+	const configured = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimEndpoint, FIM_DEFAULT_ENDPOINT);
+	return (configured ?? '').trim() || FIM_DEFAULT_ENDPOINT;
+}
+
+/**
+ * 生成 Tab 补全并报告实际通道：mode=fim 且 fimEnabled 且配 Key → FIM 通道
+ * （失败/熔断自动降级 fast，且降级事件已记入日志与统计）；否则 fast 通道。
  * 未启用 / 无模型 / 失败时返回 undefined（调用方静默降级）。
  */
-export async function provideTabCompletion(ctx: CompletionContext): Promise<string | undefined> {
+export async function provideTabCompletionOutcome(ctx: CompletionContext): Promise<TabCompletionOutcome | undefined> {
 	const cfg = vscode.workspace.getConfiguration(TAB_COMPLETION_CONFIG);
 	const enabled = cfg.get<boolean>(TAB_COMPLETION_CONFIG_KEYS.enabled, false);
 	if (!enabled) {
@@ -173,21 +253,30 @@ export async function provideTabCompletion(ctx: CompletionContext): Promise<stri
 	}
 	const mode = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.mode, TAB_COMPLETION_MODE_FIM);
 	if (mode === TAB_COMPLETION_MODE_FIM) {
-		const apiKey = _extCtx ? await getFimApiKey(_extCtx) : undefined;
-		if (apiKey) {
-			const provider = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimProvider, FIM_PROVIDER_DEEPSEEK);
-			const endpoint = provider === FIM_PROVIDER_CUSTOM
-				? cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimEndpoint, FIM_DEFAULT_ENDPOINT)
-				: FIM_DEFAULT_ENDPOINT;
-			const model = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimModel, FIM_DEFAULT_MODEL);
-			const fim = await provideFimCompletion(ctx, { endpoint, apiKey, model });
-			if (fim) {
-				return fim;
+		const fimEnabled = cfg.get<boolean>(TAB_COMPLETION_CONFIG_KEYS.fimEnabled, TAB_COMPLETION_FIM_ENABLED_DEFAULT);
+		if (!fimEnabled) {
+			logger.debug('[TabCompletion] kodrix.tabCompletion.fimEnabled=false，FIM 专线已禁用，直连 fast 通道');
+		} else {
+			const apiKey = _extCtx ? await getFimApiKey(_extCtx) : undefined;
+			if (apiKey) {
+				const endpoint = resolveFimEndpoint(cfg);
+				const model = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimModel, FIM_DEFAULT_MODEL);
+				const fim = await provideFimCompletion(ctx, { endpoint, apiKey, model });
+				if (fim) {
+					return { text: fim, channel: 'fim' };
+				}
+				logger.warn('[TabCompletion] 本次补全 FIM 通道失败或已熔断，降级 fast 通道产出（详见 Kodrix: Tab 补全统计 → FIM 专线诊断）');
 			}
-			logger.warn('[TabCompletion] FIM 失败或未配置，降级 fast 通道');
 		}
 	}
-	return provideFastCompletion(ctx);
+	const fast = await provideFastCompletion(ctx);
+	return fast ? { text: fast, channel: 'fast' } : undefined;
+}
+
+/** 生成 Tab 补全（兼容旧签名，仅返回文本；通道归因请用 provideTabCompletionOutcome） */
+export async function provideTabCompletion(ctx: CompletionContext): Promise<string | undefined> {
+	const outcome = await provideTabCompletionOutcome(ctx);
+	return outcome?.text;
 }
 
 /** 注册 Tab 补全（InlineCompletion 提供者，默认关闭） */
@@ -206,30 +295,30 @@ export function registerTabCompletion(context: vscode.ExtensionContext): void {
 					const prefix = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
 					const lastLine = document.lineAt(Math.max(0, document.lineCount - 1)).range.end;
 					const suffix = document.getText(new vscode.Range(position, lastLine));
-					const text = await provideTabCompletion({
+					const outcome = await provideTabCompletionOutcome({
 						prefix,
 						suffix,
 						language: document.languageId,
 					});
-					if (!text) {
+					if (!outcome) {
 						return [];
 					}
-					const mode = vscode.workspace.getConfiguration(TAB_COMPLETION_CONFIG)
-						.get<string>(TAB_COMPLETION_CONFIG_KEYS.mode, TAB_COMPLETION_MODE_FIM);
-					recordTabSuggestion(mode);
+					_lastSuggestedChannel = outcome.channel;
+					// 统计按实际产出通道记录：FIM 失败降级的结果计入 fast，不混入 FIM 命中率
+					recordTabSuggestion(outcome.channel);
 					return [{
-						insertText: text,
+						insertText: outcome.text,
 						range: new vscode.Range(position, position),
-						command: { command: 'kodrix.tabCompletion.accepted', title: '补全接受' },
+						command: { command: 'kodrix.tabCompletion.accepted', title: l10n.t('Completion acceptance') },
 					}];
 				},
 			},
 		),
 		vscode.commands.registerCommand('kodrix.tabCompletion.accepted', () => {
-			const mode = vscode.workspace.getConfiguration(TAB_COMPLETION_CONFIG)
-				.get<string>(TAB_COMPLETION_CONFIG_KEYS.mode, TAB_COMPLETION_MODE_FIM);
-			recordTabAccept(mode);
+			recordTabAccept(_lastSuggestedChannel
+				?? vscode.workspace.getConfiguration(TAB_COMPLETION_CONFIG)
+					.get<string>(TAB_COMPLETION_CONFIG_KEYS.mode, TAB_COMPLETION_MODE_FIM));
 		}),
-		vscode.commands.registerCommand('kodrix.tabCompletion.stats', () => showTabCompletionStats()),
+		vscode.commands.registerCommand('kodrix.tabCompletion.stats', () => showTabCompletionStats(getFimBlockedEndpoint())),
 	);
 }

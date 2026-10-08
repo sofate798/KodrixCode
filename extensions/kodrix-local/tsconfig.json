@@ -10,5 +10,10 @@
 		"src/**/*",
 		"../../src/vscode-dts/vscode.d.ts",
 		"../../src/vscode-dts/vscode.proposed.settingsEditorRenderer.d.ts"
+	],
+	"exclude": [
+		"src/test/**",
+		"out",
+		"node_modules"
 	]
 }

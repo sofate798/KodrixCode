@@ -9,6 +9,9 @@
 #   - Kodrix-win32-x64.tar.gz
 #   - Kodrix-linux-x64.tar.gz
 #   - Kodrix-darwin-arm64.tar.gz
+# 外加 Windows 安装器（windows-installer job，复用 build job 的 win32 产物）：
+#   - KodrixSetup-<version>-win32-x64.exe（附 SHA256；提供 WINSIGN_* secrets 时用
+#     signtool 签名，secret 不存在时干净降级为未签名包，job 不失败）
 #
 # cache-info:
 #   npm 缓存策略：
@@ -219,9 +222,110 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  windows-installer:
+    name: Windows Installer (EXE)
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+      VSCODE_SKIP_NODE_VERSION_CHECK: "1"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      # secrets 未配置时这两个变量为空串：证书步骤整体跳过，产出未签名安装包（job 不失败）。
+      # 唯一必须配置的 secrets 是 GITHUB_TOKEN（仓库默认提供），其余均可缺省。
+      WINSIGN_PFX_BASE64: ${{ secrets.WINSIGN_PFX_BASE64 }}
+      CERT_PASSWORD_SECRET: ${{ secrets.WINSIGN_PFX_PASSWORD }}
+      SIGN_TOOL_TIMESTAMP_URL: ${{ vars.WINSIGN_TIMESTAMP_URL }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Setup Python (node-gyp)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          npm install --no-audit --no-fund 2>&1 || {
+            echo "::warning::npm install had issues, checking if core dependencies are present"
+            if [ -d "node_modules" ] && [ -f "node_modules/.package-lock.json" ]; then
+              echo "Core node_modules exists, continuing..."
+            else
+              echo "::error::Core dependencies missing"
+              exit 1
+            fi
+          }
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v7
+        with:
+          name: Kodrix-win32-x64
+          path: win-build
+
+      - name: Unpack app folder
+        run: |
+          # gulpfile.vscode.win32.ts 要求产物位于仓库父目录 ../VSCode-win32-x64
+          tar -xzf win-build/Kodrix-win32-x64.tar.gz -C ..
+          test -d "../VSCode-win32-x64/resources/app/out" || { echo "::error::resources/app/out missing after unpack"; exit 1; }
+
+      - name: Prepare signing certificate (optional)
+        id: cert
+        run: |
+          if [ -n "$WINSIGN_PFX_BASE64" ]; then
+            CERT_FILE="$RUNNER_TEMP/kodrix-signing.pfx"
+            printf '%s' "$WINSIGN_PFX_BASE64" | base64 -d > "$CERT_FILE"
+            echo "cert_path=$CERT_FILE" >> "$GITHUB_OUTPUT"
+            echo "Certificate decoded to $CERT_FILE ($(wc -c < "$CERT_FILE") bytes)"
+          else
+            echo "::notice::WINSIGN_PFX_BASE64 secret 未配置——本次产出未签名安装包（用户将看到 SmartScreen 警告）"
+            echo "cert_path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build installer (Inno Setup + zh-cn pack + optional sign)
+        shell: pwsh
+        env:
+          CERT_PATH: ${{ steps.cert.outputs.cert_path }}
+        run: |
+          ./scripts/build-exe.ps1 -Arch x64 -Target user -SkipMinBuild
+
+      - name: Package installer artifact
+        id: pack-installer
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          EXE_NAME="KodrixSetup-${VERSION}-win32-x64.exe"
+          cp "dist/Kodrix-${VERSION}-x64-UserSetup.exe" "$EXE_NAME"
+          sha256sum "$EXE_NAME" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          echo "exe_name=$EXE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Kodrix-win32-x64-installer
+          path: |
+            ${{ steps.pack-installer.outputs.exe_name }}
+            SHA256SUMS.txt
+          retention-days: 14
+          if-no-files-found: error
+
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build, windows-installer]
+    # 触发条件核查：仅 tag push（refs/tags/v*）发布 Release；workflow_dispatch / PR 只产
+    # artifact 不发布——行为正确，维持原样。GITHUB_TOKEN 权限：顶层与本 job 均已声明
+    # contents: write + actions: read（download-artifact 需要），满足 softprops 建发布所需。
+    # 真正的阻塞点是仓库当前 0 个 tag：需人工执行 git tag v<version> && git push origin v<version>。
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -258,31 +362,32 @@ jobs:
         run: |
           echo "=== All downloaded files ==="
           find artifacts/ -type f
-          echo "=== Removing all non-tar.gz files (except BUILD_REPORT.json) ==="
-          find artifacts/ -type f ! -name '*.tar.gz' ! -name 'BUILD_REPORT.json' -print -delete || true
+          echo "=== Removing intermediate files (keep tar.gz / exe, except BUILD_REPORT.json) ==="
+          find artifacts/ -type f ! -name '*.tar.gz' ! -name '*.exe' ! -name 'BUILD_REPORT.json' -print -delete || true
           echo "=== Final artifact list ==="
           find artifacts/ -type f
 
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
-          find . \( -name '*.tar.gz' -o -name 'BUILD_REPORT.json' \) -exec sha256sum {} + > SHA256SUMS.txt
+          # 用 basename 记录，保证用户在 Release 页把所有产物下载到同一目录后
+          # 可直接 `sha256sum -c SHA256SUMS.txt` 校验（带子目录路径会导致校验失败）
+          : > SHA256SUMS.txt
+          find . \( -name '*.tar.gz' -o -name '*.exe' \) -print0 | sort -z | while IFS= read -r -d '' f; do
+            echo "$(sha256sum "$f" | cut -d' ' -f1)  $(basename "$f")" >> SHA256SUMS.txt
+          done
           cat SHA256SUMS.txt
           cd ..
 
       - name: Generate SBOM
         run: |
-          echo "=== Generating Software Bill of Materials ==="
-          mkdir -p /tmp/sbom-extract
-          for tarball in artifacts/*.tar.gz; do
-            echo "Processing $tarball"
-            rm -rf /tmp/sbom-extract/*
-            tar -xzf "$tarball" -C /tmp/sbom-extract
-            sbom-tools generate --source /tmp/sbom-extract --output "artifacts/$(basename "$tarball" .tar.gz).sbom.json"
-          done
-          rm -rf /tmp/sbom-extract
-          echo "=== Generated SBOM files ==="
-          ls -lh artifacts/*.sbom.json
+          echo "=== Generating Software Bill of Materials (offline, from package-lock.json) ==="
+          # 原先调用的 sbom-tools CLI 在 runner 上不存在，且 'artifacts/*.tar.gz' 无法匹配
+          # download-artifact 的嵌套目录结构——release 一旦真正触发必然失败。改为基于
+          # lockfile 的离线 CycloneDX 生成（scripts/generate-sbom.mjs）。
+          node scripts/generate-sbom.mjs artifacts/kodrix.sbom.json
+          echo "=== Generated SBOM file ==="
+          ls -lh artifacts/kodrix.sbom.json
 
       - name: Validate release assets
         run: |
@@ -294,15 +399,21 @@ jobs:
             fi
           done
           tar_count=$(find artifacts/ -name '*.tar.gz' | wc -l)
+          exe_count=$(find artifacts/ -name '*.exe' | wc -l)
           sbom_count=$(find artifacts/ -name '*.sbom.json' | wc -l)
           echo "tar.gz files: $tar_count"
+          echo "exe files: $exe_count"
           echo "SBOM files: $sbom_count"
           if [ "$tar_count" -ne 3 ]; then
             echo "::error::Expected 3 tar.gz files, found $tar_count"
             exit 1
           fi
-          if [ "$sbom_count" -ne 3 ]; then
-            echo "::error::Expected 3 SBOM files, found $sbom_count"
+          if [ "$exe_count" -ne 1 ]; then
+            echo "::error::Expected 1 Windows installer exe, found $exe_count"
+            exit 1
+          fi
+          if [ "$sbom_count" -lt 1 ]; then
+            echo "::error::Expected SBOM file, found $sbom_count"
             exit 1
           fi
           echo "=== All validation passed ==="
@@ -312,10 +423,23 @@ jobs:
         with:
           files: |
             artifacts/**/*.tar.gz
+            artifacts/**/*.exe
             artifacts/SHA256SUMS.txt
             artifacts/BUILD_REPORT.json
-            artifacts/**/*.sbom.json
+            artifacts/kodrix.sbom.json
           generate_release_notes: true
+          append_body: |
+            ## 完整性校验（SHA256）
+            请下载本 Release 中的 `SHA256SUMS.txt`，与安装包放到同一目录后校验：
+            - Windows PowerShell：
+              `Get-FileHash .\KodrixSetup-<version>-win32-x64.exe -Algorithm SHA256`
+              （输出的 Hash 转小写后与 SHA256SUMS.txt 对应行一致即为完整；或 `cat SHA256SUMS.txt | %{ $h,$f=($_ -split '\s+',2); (Get-FileHash $f -Algorithm SHA256).Hash -eq $h }`）
+            - Git Bash / Linux / macOS：
+              `sha256sum -c SHA256SUMS.txt`
+            校验值在 CI 中由 `sha256sum` 生成，覆盖全部 tar.gz 与 Windows 安装器。
+
+            > Windows 安装器若未检测到签名证书 secrets（WINSIGN_PFX_BASE64 / WINSIGN_PFX_PASSWORD），
+            > 将以未签名形式发布，首次运行会出现 SmartScreen「未知发布者」提示；SHA256 校验可确认文件未被篡改。
 
       - name: Notify success
         if: success()
@@ -325,7 +449,7 @@ jobs:
 
   notify-failure:
     name: Notify Failure
-    needs: [build, release]
+    needs: [build, windows-installer, release]
     if: failure()
     runs-on: ubuntu-latest
     steps:

@@ -3,22 +3,48 @@
  *
  *  通过 Module._resolveFilename 将 'vscode' 模块重定向到本文件预注册的缓存条目，
  *  使被测源文件无需 @vscode/test-electron 即可加载。
+ *
+ *  配置 mock：维护一张全键值表，getConfiguration(section).get(key) 按
+ *  「section.key」拼接查找；未注入的键回退调用方默认值（与真实 VS Code 一致）。
+ *  测试通过 __setTestConfig / __resetTestConfig 注入设置项。
  *--------------------------------------------------------------------------------------------*/
 
 import Module from 'module';
+
+/** 测试注入的配置值（全键 → 值），如 'kodrix.crew.maxParallel' → 5 */
+const _testConfigValues = new Map<string, unknown>();
 
 const mockVscode = {
 	// ── workspace ────────────────────────────────────────────────
 	workspace: {
 		workspaceFolders: undefined as unknown[] | undefined,
+		/** 测试默认按"已信任"处理；不受信任场景由用例自己改成 false */
+		isTrusted: true,
 		textDocuments: [] as unknown[],
-		getConfiguration(_section?: string) {
+		getConfiguration(section?: string) {
+			const prefix = section ? `${section}.` : '';
 			return {
-				get<T>(_key: string, defaultValue?: T): T | undefined { return defaultValue; },
-				has(_key: string): boolean { return false; },
+				get<T>(key: string, defaultValue?: T): T | undefined {
+					const full = prefix + key;
+					return _testConfigValues.has(full) ? (_testConfigValues.get(full) as T) : defaultValue;
+				},
+				has(key: string): boolean { return _testConfigValues.has(prefix + key); },
 				inspect(_key: string): undefined { return undefined; },
-				update: async () => { /* no-op */ },
+				update: async (key: string, value: unknown) => {
+					if (value === undefined) {
+						_testConfigValues.delete(prefix + key);
+					} else {
+						_testConfigValues.set(prefix + key, value);
+					}
+				},
 			};
+		},
+		/** 设置项变更事件（registerKanban 等订阅；测试可 fire 触发） */
+		onDidChangeConfiguration(_listener: (e: { affectsConfiguration: (id: string) => boolean }) => void) {
+			return { dispose: () => { /* no-op */ } };
+		},
+		onDidChangeWorkspaceFolders(_listener: () => void) {
+			return { dispose: () => { /* no-op */ } };
 		},
 		openTextDocument: async (_uriOrOptions?: unknown) => ({
 			getText: () => '',
@@ -70,11 +96,26 @@ const mockVscode = {
 		activeTextEditor: undefined,
 	},
 
+	// ── env ─────────────────────────────────────────────────────
+	env: {
+		/** loadWebviewHtml 会读取 vscode.env.language 注入 {{htmlLang}} */
+		language: 'en',
+	},
+
 	// ── commands ─────────────────────────────────────────────────
 	commands: {
-		executeCommand: async (..._args: unknown[]) => undefined,
+		/** 测试断言用：记录 executeCommand 的全部调用 */
+		__executedCommands: [] as Array<{ command: string; args: unknown[] }>,
+		/** 测试断言用：记录 registerCommand 注册的 handler（按命令 ID） */
+		__commands: Object.create(null) as Record<string, ((...args: unknown[]) => unknown) | undefined>,
+		executeCommand: async (...args: unknown[]) => {
+			(mockVscode.commands as { __executedCommands: Array<{ command: string; args: unknown[] }> })
+				.__executedCommands.push({ command: String(args[0]), args: args.slice(1) });
+			return undefined;
+		},
 		registerCommand(_command: string, _callback: (...args: unknown[]) => unknown) {
-			return { dispose: () => { /* no-op */ } };
+			(mockVscode.commands as { __commands: Record<string, (...args: unknown[]) => unknown> }).__commands[_command] = _callback;
+			return { dispose: () => { delete (mockVscode.commands as { __commands: Record<string, (...args: unknown[]) => unknown> }).__commands[_command]; } };
 		},
 	},
 
@@ -87,6 +128,40 @@ const mockVscode = {
 			const joined = path.join(base.fsPath, ...pathSegments);
 			return { fsPath: joined, scheme: 'file', path: joined, toString: () => joined };
 		},
+	},
+
+	// ── languages ──────────────────────────────────────────────────
+	languages: {
+		/** 测试断言用：记录 registerInlineCompletionItemProvider 注册的 provider */
+		__inlineProviders: [] as Array<{ provideInlineCompletionItems: (...args: unknown[]) => unknown }>,
+		registerInlineCompletionItemProvider(_selector: unknown, provider: { provideInlineCompletionItems: (...args: unknown[]) => unknown }) {
+			(mockVscode.languages as unknown as { __inlineProviders: Array<{ provideInlineCompletionItems: (...args: unknown[]) => unknown }> })
+				.__inlineProviders.push(provider);
+			return { dispose: () => { /* no-op */ } };
+		},
+	},
+
+	// ── InlineCompletion / LanguageModel 基础类型 ──────────────────
+	Position: class {
+		constructor(public line: number, public character: number) { /* no-op */ }
+	},
+	Range: class {
+		constructor(public start: { line: number; character: number }, public end: { line: number; character: number }) { /* no-op */ }
+	},
+	CancellationTokenSource: class {
+		token = { isCancellationRequested: false };
+		cancel() { this.token.isCancellationRequested = true; }
+		dispose() { /* no-op */ }
+	},
+	LanguageModelTextPart: class {
+		constructor(public value: string) { /* no-op */ }
+	},
+	LanguageModelChatMessage: class {
+		role: string;
+		content: unknown;
+		constructor(role: string, content: unknown) { this.role = role; this.content = content; }
+		static User(content: unknown) { return new this('user', content); }
+		static Assistant(content: unknown) { return new this('assistant', content); }
 	},
 
 	// ── ConfigurationTarget ──────────────────────────────────────
@@ -134,8 +209,21 @@ const mockVscode = {
 	},
 	TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
 	ThemeIcon: class { constructor(_id: string) { /* no-op */ } },
+	ThemeColor: class { constructor(_id?: string) { /* no-op */ } },
 	MarkdownString: class { value: string; constructor(value?: string) { this.value = value ?? ''; } },
 	ViewColumn: { One: 1, Two: 2, Three: 3 },
+};
+
+// ── 测试辅助：注入 / 清空配置值（全键，如 'kodrix.crew.maxParallel'） ──
+
+(mockVscode as unknown as Record<string, unknown>).__setTestConfig = (key: string, value: unknown) => {
+	_testConfigValues.set(key, value);
+};
+(mockVscode as unknown as Record<string, unknown>).__resetTestConfig = () => {
+	_testConfigValues.clear();
+	(mockVscode.commands as { __executedCommands: unknown[] }).__executedCommands.length = 0;
+	(mockVscode.commands as { __commands: Record<string, unknown> }).__commands = {};
+	(mockVscode.languages as unknown as { __inlineProviders: unknown[] }).__inlineProviders.length = 0;
 };
 
 // ── 注册到 Module 缓存 ──────────────────────────────────────────
@@ -154,8 +242,9 @@ const originalResolveFilename = (Module as unknown as { _resolveFilename: Functi
 	return originalResolveFilename.call(this, request, parent, isMain, options);
 };
 
-require.cache[fakeVscodePath] = {
+const fakeModule: { exports: unknown } = {
 	exports: mockVscode,
-} as unknown as NodeModule;
+};
+require.cache[fakeVscodePath] = fakeModule as unknown as NodeModule;
 
 module.exports = mockVscode;

@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{htmlLang}}">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; img-src {{cspSource}} data:;">
 	<link rel="stylesheet" href="{{codiconsCssUri}}">
-	<title>AI 供应商管理</title>
+	<title>{{l10n:AI Provider Management}}</title>
 	<style>
 		.codicon { vertical-align: -0.15em; }
 		:root {
@@ -176,47 +176,47 @@
 </head>
 <body>
 	<header>
-		<h1>AI 供应商管理</h1>
-		<button class="btn secondary" id="refreshBtn">刷新</button>
+		<h1>{{l10n:AI Provider Management}}</h1>
+		<button class="btn secondary" id="refreshBtn">{{l10n:Refresh}}</button>
 	</header>
 	<div class="tabs">
-		<button class="tab active" data-tab="providers">供应商</button>
-		<button class="tab" data-tab="routes">多模型路由</button>
-		<button class="tab" data-tab="add">添加接口</button>
+		<button class="tab active" data-tab="providers">{{l10n:Providers}}</button>
+		<button class="tab" data-tab="routes">{{l10n:Multi-model Routes}}</button>
+		<button class="tab" data-tab="add">{{l10n:Add Endpoint}}</button>
 	</div>
 	<main>
 		<section class="panel active" id="panel-providers">
 			<div id="providerList"></div>
 		</section>
 		<section class="panel" id="panel-routes">
-			<p class="meta" style="margin-bottom:12px">为 Plan / Agent / Code / Fast 指定模型名（须是已添加供应商里的模型，例如 deepseek-flash）。不需要登录 GitHub。</p>
+			<p class="meta" style="margin-bottom:12px">{{l10n:Specify model names for Plan / Agent / Code / Fast (must be models of an added provider, e.g. deepseek-flash). No GitHub sign-in needed.}}</p>
 			<div class="route-grid">
 				<label for="route-plan">Plan</label>
-				<input id="route-plan" placeholder="例如 deepseek-flash">
+				<input id="route-plan" placeholder="{{l10n:e.g. deepseek-flash}}">
 				<label for="route-agent">Agent</label>
-				<input id="route-agent" placeholder="例如 qwen2.5-coder:7b">
+				<input id="route-agent" placeholder="{{l10n:e.g. qwen2.5-coder:7b}}">
 				<label for="route-code">Code</label>
-				<input id="route-code" placeholder="Explore 子代理模型">
+				<input id="route-code" placeholder="{{l10n:Explore sub-agent model}}">
 				<label for="route-fast">Fast</label>
-				<input id="route-fast" placeholder="轻量快速模型">
+				<input id="route-fast" placeholder="{{l10n:Lightweight fast model}}">
 			</div>
 			<div class="toolbar" style="margin-top:14px">
-				<button class="btn" id="saveRoutesBtn">保存路由</button>
-				<button class="btn secondary" id="fillRoutesBtn">用当前供应商填充</button>
+				<button class="btn" id="saveRoutesBtn">{{l10n:Save Routes}}</button>
+				<button class="btn secondary" id="fillRoutesBtn">{{l10n:Fill from Current Provider}}</button>
 			</div>
 			<div class="status" id="routesStatus"></div>
 		</section>
 		<section class="panel" id="panel-add">
-			<p class="meta">内置供应商只需填写 API Key，并可以追加多个模型名。自定义接口必须选择 OpenAI 或 Anthropic 的 base_url。DeepSeek 示例：OpenAI <code>https://api.deepseek.com</code>，Anthropic <code>https://api.deepseek.com/anthropic</code>，模型如 deepseek-flash、deepseek-v4-pro。</p>
+			<p class="meta">{{l10n:Built-in providers only need an API Key, and you can append multiple model names. Custom endpoints must use an OpenAI or Anthropic base_url. DeepSeek example: OpenAI }}<code>https://api.deepseek.com</code>{{l10n:, Anthropic }}<code>https://api.deepseek.com/anthropic</code>{{l10n:, models like deepseek-flash, deepseek-v4-pro.}}</p>
 			<div class="route-grid" style="margin-top:12px">
-				<label for="form-name">名称</label>
-				<input id="form-name" placeholder="例如 DeepSeek 或我的接口">
-				<label for="form-category">类型</label>
+				<label for="form-name">{{l10n:Name}}</label>
+				<input id="form-name" placeholder="{{l10n:e.g. DeepSeek or My Endpoint}}">
+				<label for="form-category">{{l10n:Type}}</label>
 				<select id="form-category">
-					<option value="cloud">云端 API</option>
-					<option value="local">本地模型</option>
+					<option value="cloud">{{l10n:Cloud API}}</option>
+					<option value="local">{{l10n:Local Models}}</option>
 				</select>
-				<label for="form-api">接口模式</label>
+				<label for="form-api">{{l10n:API Mode}}</label>
 				<select id="form-api">
 					<option value="openai">base_url (OpenAI)</option>
 					<option value="anthropic">base_url (Anthropic)</option>
@@ -224,20 +224,24 @@
 				<label for="form-url">base_url</label>
 				<input id="form-url" placeholder="https://api.deepseek.com">
 				<label for="form-key">API Key</label>
-				<input id="form-key" type="password" placeholder="云端供应商必填；留空表示不修改已保存的 Key">
-				<label for="form-models">模型名</label>
-				<textarea id="form-models" rows="4" placeholder="每行一个，或用逗号分隔&#10;deepseek-flash&#10;deepseek-v4-pro&#10;deepseek-v4-flash-vision-exp"></textarea>
+				<input id="form-key" type="password" placeholder="{{l10n:Required for cloud providers; leave empty to keep the saved Key}}">
+				<label for="form-models">{{l10n:Model Names}}</label>
+				<textarea id="form-models" rows="4" placeholder="{{l10n:One per line, or comma-separated}}&#10;deepseek-flash&#10;deepseek-v4-pro&#10;deepseek-v4-flash-vision-exp"></textarea>
 			</div>
 			<div class="toolbar" style="margin-top:14px">
-				<button class="btn" id="saveProviderBtn">保存并启用</button>
-				<button class="btn secondary" id="clearFormBtn">清空</button>
+				<button class="btn" id="saveProviderBtn">{{l10n:Save & Enable}}</button>
+				<button class="btn secondary" id="clearFormBtn">{{l10n:Clear}}</button>
 			</div>
-			<p class="meta" style="margin-top:8px">点下面的预设会填好地址和推荐模型，保存前可以再加模型名。</p>
+			<p class="meta" style="margin-top:8px">{{l10n:Clicking a preset below fills in the URL and recommended models; you can add more model names before saving. For local OpenAI-compatible presets (e.g. llama.cpp), leaving model names empty will auto-detect on save and let you pick if multiple are found.}}</p>
 			<div class="preset-list" id="presetList"></div>
 		</section>
 	</main>
+	<!-- Host-injected localized strings (see providerWorkbench.ts buildWebviewL10nDict) -->
+	<script type="application/json" id="kodrix-l10n">{{l10nDict}}</script>
 	<script>
 		const vscode = acquireVsCodeApi();
+		const L10N = JSON.parse(document.getElementById('kodrix-l10n').textContent);
+		const fmt = (text, ...args) => String(text || '').replace(/\{(\d+)\}/g, (_, i) => (args[Number(i)] ?? `{${i}}`));
 		const ki = (name) => {
 			const id = String(name || 'plug').replace(/[^a-z0-9-]/gi, '') || 'plug';
 			return `<i class="codicon codicon-${id}" aria-hidden="true"></i>`;
@@ -340,26 +344,26 @@
 		function renderProviders() {
 			const el = document.getElementById('providerList');
 			if (!state.providers.length) {
-				el.innerHTML = '<div class="empty">尚未配置供应商。切换到「添加预设」或运行命令 Kodrix: 浏览模型供应商预设。</div>';
+				el.innerHTML = '<div class="empty">' + L10N.emptyProviders + '</div>';
 				return;
 			}
 			el.innerHTML = state.providers.map(p => {
 				const active = p.id === state.activeId;
 				const models = (p.models && p.models.length) ? p.models.join(', ') : (p.model || '—');
-				const pending = p.pendingApiKey ? '<span class="badge" style="color:var(--danger)">待 API Key</span>' : '';
+				const pending = p.pendingApiKey ? '<span class="badge" style="color:var(--danger)">' + L10N.apiKeyPending + '</span>' : '';
 				return `<div class="card${active ? ' active' : ''}" data-id="${p.id}">
 					<div class="card-head">
 						<div>
-							<div class="card-title">${escapeHtml(p.name)} ${active ? '<span class="badge">当前</span>' : ''} ${pending}</div>
-							<div class="meta">${p.category === 'local' ? '本地' : '云端'} · ${escapeHtml(p.api_type)} · ${escapeHtml(p.base_url || p.groupName)}</div>
+							<div class="card-title">${escapeHtml(p.name)} ${active ? '<span class="badge">' + L10N.current + '</span>' : ''} ${pending}</div>
+							<div class="meta">${p.category === 'local' ? L10N.local : L10N.cloud} · ${escapeHtml(p.api_type)} · ${escapeHtml(p.base_url || p.groupName)}</div>
 						</div>
 					</div>
-					<div class="meta">模型：${escapeHtml(models)}</div>
+					<div class="meta">${L10N.models}: ${escapeHtml(models)}</div>
 					<div class="actions">
-						<button class="btn secondary" data-action="activate" data-id="${p.id}">设为当前</button>
-						<button class="btn secondary" data-action="edit" data-id="${p.id}">编辑</button>
-						<button class="btn secondary" data-action="test" data-id="${p.id}">测试连接</button>
-						<button class="btn danger" data-action="remove" data-id="${p.id}">移除</button>
+						<button class="btn secondary" data-action="activate" data-id="${p.id}">${L10N.setActive}</button>
+						<button class="btn secondary" data-action="edit" data-id="${p.id}">${L10N.edit}</button>
+						<button class="btn secondary" data-action="test" data-id="${p.id}">${L10N.testConnection}</button>
+						<button class="btn danger" data-action="remove" data-id="${p.id}">${L10N.remove}</button>
 					</div>
 					<div class="status" id="status-${p.id}"></div>
 				</div>`;
@@ -389,8 +393,8 @@
 			const locals = state.presets.filter(p => p.category === 'local');
 			const clouds = state.presets.filter(p => p.category === 'cloud');
 			const sections = [
-				{ title: '本地模型', items: locals },
-				{ title: '云端 API', items: clouds },
+				{ title: L10N.localModels, items: locals },
+				{ title: L10N.cloudApis, items: clouds },
 			];
 			el.innerHTML = sections.map(section => `
 				<div class="preset-section">${section.title}</div>
@@ -398,7 +402,7 @@
 					<button class="preset-btn" data-preset-id="${p.id}">
 						<span class="name">${ki(p.icon || 'plug')} ${escapeHtml(p.name)}</span>
 						<span class="desc">${escapeHtml(p.hint || p.base_url || '')}</span>
-						${p.website ? `<span class="desc"><a href="#" data-website="${escapeHtml(p.website)}">官网</a></span>` : ''}
+						${p.website ? `<span class="desc"><a href="#" data-website="${escapeHtml(p.website)}">${L10N.website}</a></span>` : ''}
 					</button>
 				`).join('')}
 			`).join('');
@@ -442,14 +446,16 @@
 				const el = document.getElementById('status-' + msg.id);
 				if (el) {
 					el.className = 'status ' + (msg.ok ? 'ok' : 'err');
+					const validated = msg.testedModel ? fmt(L10N.validatedModel, msg.testedModel) : L10N.validatedGeneric;
+					const list = (msg.models && msg.models.length > 1) ? fmt(L10N.providerModelCount, msg.models.length) : '';
 					el.textContent = msg.ok
-						? `连接成功 (${msg.latencyMs}ms) · 发现 ${msg.models.length} 个模型`
-						: `连接失败：${msg.error || '未知错误'}`;
+						? fmt(L10N.connectOk, msg.latencyMs) + ' · ' + validated + list
+						: L10N.connectFailed + ': ' + (msg.error || L10N.unknownError);
 				}
 			} else if (msg.type === 'routesSaved') {
 				const el = document.getElementById('routesStatus');
 				el.className = 'status ok';
-				el.textContent = msg.message || '已保存';
+				el.textContent = msg.message || L10N.saved;
 			}
 		});
 
