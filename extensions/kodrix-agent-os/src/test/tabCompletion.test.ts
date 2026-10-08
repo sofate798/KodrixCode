@@ -102,6 +102,10 @@ const fakeDoc = {
 	lineAt: (_i: number) => ({ range: { end: { line: 1, character: 0 } } }),
 };
 
+function liveToken() {
+	return new vscodeMock.CancellationTokenSource().token;
+}
+
 function warnText(): string {
 	return logLines.filter(l => l.level === 'warn').map(l => l.msg).join('\n');
 }
@@ -128,6 +132,7 @@ suite('tabCompletion — FIM 专线可配置与可观测', () => {
 	});
 
 	teardown(() => {
+		stats.flushTabCompletionStats();
 		(globalThis as Record<string, unknown>).fetch = originalFetch;
 		pathsModule.getKodrixDir = originalGetKodrixDir;
 		fs.rmSync(tmpHome, { recursive: true, force: true });
@@ -209,7 +214,7 @@ suite('tabCompletion — FIM 专线可配置与可观测', () => {
 	test('统计口径：降级结果计入 fast 建议，不混入 FIM 命中率（经 Inline provider）', async () => {
 		stubFetch({ ok: false, status: 500, body: 'boom' });
 		const provider = vscodeMock.languages.__inlineProviders[vscodeMock.languages.__inlineProviders.length - 1];
-		const items = await provider.provideInlineCompletionItems(fakeDoc, new vscodeMock.Position(0, 9), {}, {});
+		const items = await provider.provideInlineCompletionItems(fakeDoc, new vscodeMock.Position(0, 9), {}, liveToken());
 		assert.strictEqual(items.length, 1);
 		assert.strictEqual(items[0].insertText, 'FAST_TEXT');
 		const s = stats.getTabCompletionStats();
@@ -224,10 +229,43 @@ suite('tabCompletion — FIM 专线可配置与可观测', () => {
 	test('FIM 成功时建议记入 fim 通道', async () => {
 		okFimResponse();
 		const provider = vscodeMock.languages.__inlineProviders[vscodeMock.languages.__inlineProviders.length - 1];
-		await provider.provideInlineCompletionItems(fakeDoc, new vscodeMock.Position(0, 9), {}, {});
+		await provider.provideInlineCompletionItems(fakeDoc, new vscodeMock.Position(0, 9), {}, liveToken());
 		const s = stats.getTabCompletionStats();
 		assert.strictEqual(s.byMode.fim?.suggestions, 1);
 		assert.strictEqual(s.byMode.fast, undefined);
+	});
+
+	test('防抖期间被取消（继续击键）时不发任何请求、不记建议', async () => {
+		okFimResponse();
+		const provider = vscodeMock.languages.__inlineProviders[vscodeMock.languages.__inlineProviders.length - 1];
+		const cts = new vscodeMock.CancellationTokenSource();
+		const pending = provider.provideInlineCompletionItems(fakeDoc, new vscodeMock.Position(0, 9), {}, cts.token);
+		cts.cancel();
+		const items = await pending;
+		assert.deepStrictEqual(items, []);
+		assert.strictEqual(fetchCalls.length, 0);
+		assert.strictEqual(routerState.calls, 0);
+		assert.strictEqual(stats.getTabCompletionStats().total.suggestions, 0);
+	});
+
+	test('请求中途取消：中止 FIM、不降级 fast、不记失败', async () => {
+		const cts = new vscodeMock.CancellationTokenSource();
+		(globalThis as Record<string, unknown>).fetch = (_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
+			init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+			cts.cancel();
+		});
+		const outcome = await tabCompletion.provideTabCompletionOutcome({ prefix: 'a', suffix: 'b', language: 'ts' }, cts.token);
+		assert.strictEqual(outcome, undefined);
+		assert.strictEqual(routerState.calls, 0, '取消后不应降级 fast');
+		assert.strictEqual(stats.getTabCompletionStats().fim?.failures ?? 0, 0);
+	});
+
+	test('非 https 远端 FIM 端点拒绝携带 Key', async () => {
+		okFimResponse();
+		vscodeMock.__setTestConfig('kodrix.tabCompletion.fimEndpoint', 'http://evil.example/fim');
+		const outcome = await tabCompletion.provideTabCompletionOutcome({ prefix: 'a', suffix: 'b', language: 'ts' });
+		assert.strictEqual(fetchCalls.length, 0);
+		assert.strictEqual(outcome.channel, 'fast');
 	});
 
 	// ── 4xx 会话级熔断 ───────────────────────────────────────────────

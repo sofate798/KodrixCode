@@ -396,9 +396,9 @@ export async function runCommandInTerminal(
 						return;
 					}
 				}
-				e.execution.onDidEnd(() => {
+				disposables.push(e.execution.onDidEnd(() => {
 					finish({ exitCode: e.execution.exitCode });
-				});
+				}));
 			}));
 		}
 
@@ -410,10 +410,13 @@ export async function runCommandInTerminal(
 
 		// 取消：同样中断前台命令（此前只是停止等待，dev server / 迁移脚本会继续跑）
 		if (options.token) {
-			options.token.onCancellationRequested(() => {
+			disposables.push(options.token.onCancellationRequested(() => {
+				if (settled) {
+					return;
+				}
 				interruptRunningCommand('已取消');
 				finish({ timedOut: true, cancelled: true });
-			});
+			}));
 		}
 
 		// 无 shell integration 时：短等待后返回已捕获输出（尽力而为，标记 incomplete）

@@ -512,6 +512,15 @@ export const TAB_COMPLETION_CONTEXT_LINES = 8;
 /** 补全结果最大字符数 */
 export const TAB_COMPLETION_MAX_RESULT_CHARS = 4000;
 
+/** 连续击键防抖（ms）：期间新击键会取消本次请求，避免每键一次网络调用 */
+export const TAB_COMPLETION_DEBOUNCE_MS = 120;
+
+/** 发送给补全端点的光标前 / 后文本上限（行数先截，再按字符截） */
+export const TAB_COMPLETION_PREFIX_LINES = 200;
+export const TAB_COMPLETION_SUFFIX_LINES = 60;
+export const TAB_COMPLETION_MAX_PREFIX_CHARS = 8000;
+export const TAB_COMPLETION_MAX_SUFFIX_CHARS = 2000;
+
 // ── 后台 Agent（对标 Cursor Background Agent） ──----------------------------------------
 
 /** 后台任务目录名（工作区 .kodrix/background） */

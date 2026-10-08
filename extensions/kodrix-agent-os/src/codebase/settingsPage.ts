@@ -23,7 +23,8 @@ import {
 	getIndexState,
 	pauseIndexBuild,
 	resumeIndexBuild,
-	deleteProjectIndex,
+	confirmAndDeleteProjectIndex,
+	CODEBASE_TOGGLE_KEYS,
 	ensureProjectIndex,
 	startIndexWatcher,
 	disposeIndexWatcher,
@@ -80,14 +81,20 @@ async function handleMessage(webview: vscode.Webview, msg: any): Promise<void> {
 		switch (msg?.type) {
 			case 'getConfig': {
 				const values: Record<string, unknown> = {};
-				for (const key of (msg.keys as string[] ?? [])) {
-					values[key] = vscode.workspace.getConfiguration().get(key);
+				for (const key of (Array.isArray(msg.keys) ? msg.keys : [])) {
+					if (typeof key === 'string' && WRITABLE_SETTINGS.has(key)) {
+						values[key] = vscode.workspace.getConfiguration().get(key);
+					}
 				}
 				await webview.postMessage({ type: 'config', values });
 				break;
 			}
 			case 'setConfig': {
-				const key = msg.key as string;
+				const key: unknown = msg.key;
+				if (!isWritableSetting(key, msg.value)) {
+					logger.warn(`[Kodrix Settings] Rejected setConfig for non-settings-page key or mismatched type: ${String(key)}`);
+					break;
+				}
 				await vscode.workspace.getConfiguration().update(key, msg.value, vscode.ConfigurationTarget.Global);
 				await webview.postMessage({
 					type: 'config',
@@ -144,7 +151,11 @@ async function handleMessage(webview: vscode.Webview, msg: any): Promise<void> {
 	}
 }
 
-async function handleCodebaseToggle(key: string, value: boolean): Promise<void> {
+async function handleCodebaseToggle(key: unknown, value: unknown): Promise<void> {
+	if (typeof key !== 'string' || !CODEBASE_TOGGLE_KEYS.has(key) || typeof value !== 'boolean') {
+		logger.warn(`[Kodrix Settings] Rejected unknown toggle: ${String(key)}`);
+		return;
+	}
 	await vscode.workspace.getConfiguration('kodrix.codebase').update(key, value, vscode.ConfigurationTarget.Global);
 
 	if (key === 'grepIndex') {
@@ -177,7 +188,7 @@ async function handleIndexAction(action: string): Promise<void> {
 			resumeIndexBuild();
 			break;
 		case 'delete':
-			await deleteProjectIndex();
+			await confirmAndDeleteProjectIndex();
 			break;
 		case 'rebuild':
 			void ensureProjectIndex(true, { manual: true }).catch(err => {
@@ -318,6 +329,28 @@ const EMBEDDING_FIELDS: SettingsFormField[] = [
 	{ key: 'kodrix.semanticEmbedding.model', label: l10n.t('Embedding Model'), hint: l10n.t('Defaults to embedding-3'), type: 'text' },
 ];
 
+/** 设置页可读写的配置键（webview 消息不可信：不能借设置页读取 / 改写任意全局设置） */
+type WritableField = Pick<SettingsFormField, 'type' | 'options'>;
+const WRITABLE_SETTINGS: ReadonlyMap<string, WritableField> = new Map([
+	...FEATURE_GROUPS.flatMap(g => g.items.map(([key]): [string, WritableField] => [key, { type: 'switch' }])),
+	...[...AI_FIELDS, ...FIM_FIELDS, ...EMBEDDING_FIELDS].filter(f => !f.secretKey).map((f): [string, WritableField] => [f.key, f]),
+]);
+
+/** setConfig 消息校验：键在白名单内，且值类型与表单控件一致（select 须为预设选项） */
+export function isWritableSetting(key: unknown, value: unknown): key is string {
+	const field = typeof key === 'string' ? WRITABLE_SETTINGS.get(key) : undefined;
+	switch (field?.type) {
+		case 'switch':
+			return typeof value === 'boolean';
+		case 'text':
+			return typeof value === 'string' && value.length <= 2048;
+		case 'select':
+			return typeof value === 'string' && !!field.options?.some(([option]) => option === value);
+		default:
+			return false;
+	}
+}
+
 /** webview 脚本里用到的静态文案（同样必须在宿主侧本地化） */
 const WEBVIEW_TEXT = {
 	secretConfigured: l10n.t('✓ Configured'),
@@ -333,7 +366,6 @@ const WEBVIEW_TEXT = {
 	noIndexFiles: l10n.t('No indexed files yet'),
 	noIndexFilesDone: l10n.t('No indexed files yet. Make sure a workspace is open and contains source files such as .ts/.js/.py (node_modules / out etc. are excluded).'),
 	grepFileCount: l10n.t('({0} files indexed)'),
-	confirmDeleteIndex: l10n.t('Delete the codebase index? You will need to rebuild it afterwards.'),
 	resume: l10n.t('Resume'),
 	pauseIndexing: l10n.t('Pause Indexing'),
 };
@@ -810,9 +842,7 @@ function renderIndex(s) {
 // 同一个按钮按当前状态发 pause / resume（此前固定发 pause，暂停后无法恢复）
 $('pauseBtn').addEventListener('click', () => post({ type: 'indexAction', action: lastIndexStatus === 'paused' ? 'resume' : 'pause' }));
 $('rebuildBtn').addEventListener('click', () => post({ type: 'indexAction', action: 'rebuild' }));
-$('deleteBtn').addEventListener('click', () => {
-	if (confirm(L.confirmDeleteIndex)) post({ type: 'indexAction', action: 'delete' });
-});
+$('deleteBtn').addEventListener('click', () => post({ type: 'indexAction', action: 'delete' }));
 $('editCursorignore').addEventListener('click', () => post({ type: 'editCursorignore' }));
 document.querySelectorAll('#page-codebase .toggle input').forEach(input => {
 	input.addEventListener('change', () => post({ type: 'toggle', key: input.dataset.key, value: input.checked }));

@@ -590,6 +590,7 @@
 	"Kodrix Agent: {0}…": "Kodrix Agent: {0}…",
 	"Kodrix Context Summary": "Kodrix Context Summary",
 	"Kodrix distilled {0} project knowledge entries from the Agent session. Save them?\n\n{1}": "Kodrix distilled {0} project knowledge entries from the Agent session. Save them?\n\n{1}",
+	"Kodrix Hub error: {0}": "Kodrix Hub error: {0}",
 	"Kodrix master feature switch": "Kodrix master feature switch",
 	"Kodrix prewarmed the Agent context for the current workspace (Wiki · Memory · Learning)": "Kodrix prewarmed the Agent context for the current workspace (Wiki · Memory · Learning)",
 	"Kodrix project context (Wiki + Memory + Semantic)": "Kodrix project context (Wiki + Memory + Semantic)",

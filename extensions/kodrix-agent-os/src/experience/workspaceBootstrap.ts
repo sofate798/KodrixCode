@@ -75,7 +75,7 @@ export async function bootstrapWorkspace(context: vscode.ExtensionContext): Prom
 	try {
 		const { rebuildIndex, getSemanticStats } = await import('../learning/semanticMemory');
 		if (getSemanticStats().totalVectors === 0) {
-			rebuildIndex();
+			rebuildIndex().catch(err => logger.warn('语义索引预热重建失败', err));
 		}
 	} catch {
 		// 非关键
@@ -87,7 +87,7 @@ export async function bootstrapWorkspace(context: vscode.ExtensionContext): Prom
 	if (wikiAuto && !fs.existsSync(wikiIndex)) {
 		wikiBuildTimer = setTimeout(() => {
 			wikiBuildTimer = undefined;
-			void generateRepoWiki({ recordLearning: false });
+			generateRepoWiki({ recordLearning: false }).catch(err => logger.warn('Repo Wiki 自动生成失败', err));
 		}, 4000);
 	}
 

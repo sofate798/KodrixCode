@@ -110,9 +110,14 @@ function isKodrixInternal(relPath: string): boolean {
 	return relPath.split(/[\\/]/)[0] === WORKSPACE_KODRIX_DIR;
 }
 
+/** 检查点 id 只能是单个目录名：id 可能来自 webview 消息，拒绝 `..` / 分隔符以免读写删出检查点根目录 */
+export function isSafeCheckpointId(id: unknown): id is string {
+	return typeof id === 'string' && /^[\w.-]+$/.test(id) && id !== '.' && id !== '..';
+}
+
 async function readManifest(id: string): Promise<CheckpointManifest | undefined> {
 	const root = getCheckpointRoot();
-	if (!root) {
+	if (!root || !isSafeCheckpointId(id)) {
 		return undefined;
 	}
 	const p = path.join(root, id, 'manifest.json');
@@ -462,7 +467,7 @@ export async function readCheckpointManifest(id: string): Promise<CheckpointMani
 /** 删除检查点 */
 export async function deleteCheckpoint(id: string): Promise<boolean> {
 	const root = getCheckpointRoot();
-	if (!root) {
+	if (!root || !isSafeCheckpointId(id)) {
 		return false;
 	}
 	const dir = path.join(root, id);

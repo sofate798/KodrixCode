@@ -100,6 +100,10 @@ function getUsageLogPath(): string | undefined {
 	return path.join(folder.uri.fsPath, WORKSPACE_KODRIX_DIR, 'model-router.jsonl');
 }
 
+/** 滚动清理间隔：Tab 补全每次都会路由，不能每条都整文件重读 */
+const USAGE_TRIM_EVERY = 50;
+let _appendsSinceTrim = USAGE_TRIM_EVERY;
+
 /** 记录一次路由使用 */
 export function recordUsage(entry: ModelUsageEntry): void {
 	const p = getUsageLogPath();
@@ -109,7 +113,10 @@ export function recordUsage(entry: ModelUsageEntry): void {
 	try {
 		fs.mkdirSync(path.dirname(p), { recursive: true });
 		fs.appendFileSync(p, JSON.stringify(entry) + '\n', 'utf-8');
-		// 滚动清理
+		if (++_appendsSinceTrim < USAGE_TRIM_EVERY) {
+			return;
+		}
+		_appendsSinceTrim = 0;
 		const lines = fs.readFileSync(p, 'utf-8').split('\n').filter(Boolean);
 		if (lines.length > MODEL_ROUTER_USAGE_LOG_MAX) {
 			fs.writeFileSync(p, lines.slice(-MODEL_ROUTER_USAGE_LOG_MAX).join('\n') + '\n', 'utf-8');
@@ -211,19 +218,9 @@ export async function getModelCandidates(options: ModelRoutingOptions = {}): Pro
 export async function routeModel(options: ModelRoutingOptions = {}): Promise<RoutedModel | undefined> {
 	const enabled = vscode.workspace.getConfiguration(MODEL_ROUTER_CONFIG)
 		.get<boolean>(MODEL_ROUTER_CONFIG_KEYS.enabled, true);
-	if (!enabled) {
-		// 关闭时退化为「任意可用模型」
-		try {
-			const [m] = await vscode.lm.selectChatModels({});
-			return m ? { model: m, tier: 'balanced' } : undefined;
-		} catch {
-			return undefined;
-		}
-	}
-
 	const start = Date.now();
 
-	// 1) 精确指定（preferred family）
+	// 1) 精确指定（preferred family）：用户显式选的模型，路由开关关闭时也必须尊重
 	if (options.preferred?.trim()) {
 		try {
 			const [found] = await vscode.lm.selectChatModels({ family: options.preferred.trim() });
@@ -233,6 +230,16 @@ export async function routeModel(options: ModelRoutingOptions = {}): Promise<Rou
 			}
 		} catch {
 			// 继续走档位
+		}
+	}
+
+	if (!enabled) {
+		// 关闭时退化为「任意可用模型」
+		try {
+			const [m] = await vscode.lm.selectChatModels({});
+			return m ? { model: m, tier: 'balanced' } : undefined;
+		} catch {
+			return undefined;
 		}
 	}
 

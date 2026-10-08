@@ -283,7 +283,10 @@ export async function openKodrixHub(context: vscode.ExtensionContext): Promise<v
 	panel.webview.html = getHtml(panel.webview, context.extensionPath);
 
 	panel.webview.onDidReceiveMessage(msg => {
-		void handleMessage(msg, panel);
+		handleMessage(msg, panel).catch(err => {
+			logger.warn('[KodrixHub] 处理面板消息失败', err);
+			void vscode.window.showErrorMessage(l10n.t('Kodrix Hub error: {0}', err instanceof Error ? err.message : String(err)));
+		});
 	});
 
 	panel.onDidDispose(() => {

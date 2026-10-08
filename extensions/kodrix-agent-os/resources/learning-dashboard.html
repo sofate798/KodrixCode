@@ -499,20 +499,23 @@
 			item.style.animationDelay = (i * 0.03) + 's';
 			item.dataset.id = e.id;
 
-			const catCls = 'cat-' + e.category;
+			const known = Object.prototype.hasOwnProperty.call(catNames, e.category);
+			const catCls = 'cat-' + (known ? e.category : 'other');
+			const catLabel = known ? catNames[e.category] : escapeHtml(e.category);
 			const srcIcon = ki(sourceIcons[e.source] || 'file-text');
-			const date = (e.timestamp || '').slice(0, 10);
+			const date = escapeHtml((e.timestamp || '').slice(0, 10));
+			const safeId = escapeHtml(e.id);
 			const searchQuery = currentFilter.search;
 
 			if (editingId === e.id) {
 				// Edit mode
 				item.innerHTML = `
-					<span class="tl-cat ${catCls}">${catNames[e.category] || e.category}</span>
+					<span class="tl-cat ${catCls}">${catLabel}</span>
 					<span class="tl-edit-area">
-						<textarea id="editArea-${e.id}">${escapeHtml(e.content || '')}</textarea>
+						<textarea data-edit-id="${safeId}">${escapeHtml(e.content || '')}</textarea>
 						<span class="tl-edit-btns">
-							<button class="tl-edit-save" data-id="${e.id}">${ki('check')} {{l10n:Save}}</button>
-							<button class="tl-edit-cancel" data-id="${e.id}">${ki('close')} {{l10n:Cancel}}</button>
+							<button class="tl-edit-save" data-id="${safeId}">${ki('check')} {{l10n:Save}}</button>
+							<button class="tl-edit-cancel" data-id="${safeId}">${ki('close')} {{l10n:Cancel}}</button>
 						</span>
 					</span>
 					<span class="tl-meta">${date}</span>
@@ -520,15 +523,15 @@
 			} else {
 				// Normal mode
 				item.innerHTML = `
-					<span class="tl-cat ${catCls}">${catNames[e.category] || e.category}</span>
+					<span class="tl-cat ${catCls}">${catLabel}</span>
 					<span class="tl-content">${highlightText(e.content || '', searchQuery)}</span>
 					<span class="tl-meta">
 						${date}
-						<span class="tl-source">${srcIcon} ${e.source || ''}</span>
+						<span class="tl-source">${srcIcon} ${escapeHtml(e.source || '')}</span>
 					</span>
 					<span class="tl-actions">
-						<button class="tl-action-btn edit-btn" data-id="${e.id}" title="{{l10n:Edit}}">${ki('edit')}</button>
-						<button class="tl-action-btn danger delete-btn" data-id="${e.id}" title="{{l10n:Delete}}">${ki('trash')}</button>
+						<button class="tl-action-btn edit-btn" data-id="${safeId}" title="{{l10n:Edit}}">${ki('edit')}</button>
+						<button class="tl-action-btn danger delete-btn" data-id="${safeId}" title="{{l10n:Delete}}">${ki('trash')}</button>
 					</span>`;
 			}
 			el.appendChild(item);
@@ -541,25 +544,19 @@
 				applyFilters();
 				// Focus textarea after render
 				setTimeout(() => {
-					const ta = document.getElementById('editArea-' + editingId);
+					const ta = el.querySelector('textarea[data-edit-id]');
 					if (ta) ta.focus();
 				}, 50);
 			});
 		});
+		// webview 沙箱没有 allow-modals，页面内确认框不会弹出：确认交给宿主侧模态框
 		el.querySelectorAll('.delete-btn').forEach(btn => {
-			btn.addEventListener('click', () => {
-				const id = btn.dataset.id;
-				const entry = allEntries.find(e => e.id === id);
-				const preview = entry ? (entry.content || '').slice(0, 60) : id;
-				if (confirm('{{l10n:Delete this entry?}}' + '\n\n' + preview + (preview.length >= 60 ? '…' : ''))) {
-					post('delete', { id });
-				}
-			});
+			btn.addEventListener('click', () => post('delete', { id: btn.dataset.id }));
 		});
 		el.querySelectorAll('.tl-edit-save').forEach(btn => {
 			btn.addEventListener('click', () => {
 				const id = btn.dataset.id;
-				const ta = document.getElementById('editArea-' + id);
+				const ta = el.querySelector('textarea[data-edit-id]');
 				if (ta && ta.value.trim()) {
 					post('edit', { id, content: ta.value.trim() });
 					editingId = null;

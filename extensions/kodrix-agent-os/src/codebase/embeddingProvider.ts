@@ -6,6 +6,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { logger } from '../logger';
+import { isSafeApiEndpoint } from '../utils/endpointSafety';
 import type { EmbeddingProvider } from './semanticIndex';
 
 export const ZHIPU_DEFAULT_ENDPOINT = 'https://open.bigmodel.cn/api/paas/v4/embeddings';
@@ -26,10 +27,14 @@ export function createZhipuEmbeddingProvider(config: ZhipuEmbeddingConfig): Embe
 	const endpoint = config.endpoint?.trim() || ZHIPU_DEFAULT_ENDPOINT;
 	const model = config.model?.trim() || ZHIPU_DEFAULT_MODEL;
 	const apiKey = config.apiKey.trim();
+	const endpointAllowed = isSafeApiEndpoint(endpoint);
+	if (!endpointAllowed) {
+		logger.warn(`[Embedding] 端点不是 https（或回环 http），已拒绝发送 API Key：${endpoint}`);
+	}
 
 	async function request(input: string[]): Promise<Array<number[] | undefined>> {
 		const results: Array<number[] | undefined> = new Array(input.length).fill(undefined);
-		if (!apiKey || !input.length) {
+		if (!apiKey || !input.length || !endpointAllowed) {
 			return results;
 		}
 		const ac = new AbortController();

@@ -545,6 +545,7 @@
 			"Idea Flow auto-generated: {0}": "Idea Flow 自动生成：{0}",
 			"Idea Flow complete! Project \"{0}\" is ready.": "Idea Flow 完成！项目 \"{0}\" 已就绪。",
 			"Idea Flow error: {0}": "Idea Flow 出错: {0}",
+			"Kodrix Hub error: {0}": "Kodrix Hub 出错: {0}",
 			"Idea Flow is in progress. Wait for it to finish, or use \"Reset Idea Flow\" to start over.": "Idea Flow 正在进行中，请等待完成或使用「重置 Idea Flow」重新开始。",
 			"Idea Flow main entry": "Idea Flow 主入口",
 			"Idea Flow needs an open workspace to build the project. Please open a folder first.": "Idea Flow 需要一个打开的工作区才能构建项目。请先打开文件夹。",

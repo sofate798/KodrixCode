@@ -90,47 +90,76 @@ function fimStoreOf(stats: TabCompletionStats): FimDiagnostics {
 	return stats.fim;
 }
 
-/** 记录一次补全建议 */
-export function recordTabSuggestion(mode: string): void {
+/**
+ * 补全是按键级高频事件：记录先进内存队列，合并后按 FLUSH_DELAY_MS 批量落盘。
+ * 落盘时重读文件再套用增量，多窗口共享 ~/.kodrix 时不会互相覆盖计数。
+ */
+const FLUSH_DELAY_MS = 2_000;
+const _pending: Array<(stats: TabCompletionStats) => void> = [];
+let _flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+function enqueue(mutate: (stats: TabCompletionStats) => void): void {
+	_pending.push(mutate);
+	_flushTimer ??= setTimeout(flushTabCompletionStats, FLUSH_DELAY_MS);
+}
+
+/** 立即把内存中的统计增量写盘（扩展停用 / 展示统计前调用） */
+export function flushTabCompletionStats(): void {
+	if (_flushTimer) {
+		clearTimeout(_flushTimer);
+		_flushTimer = undefined;
+	}
+	if (!_pending.length) {
+		return;
+	}
 	const stats = loadStats();
-	stats.total.suggestions++;
-	entryOf(stats, mode).suggestions++;
+	for (const mutate of _pending.splice(0)) {
+		mutate(stats);
+	}
 	stats.updatedAt = new Date().toISOString();
 	saveStats(stats);
+}
+
+/** 记录一次补全建议 */
+export function recordTabSuggestion(mode: string): void {
+	enqueue(stats => {
+		stats.total.suggestions++;
+		entryOf(stats, mode).suggestions++;
+	});
 }
 
 /** 记录一次 FIM 通道失败（含状态码/原因），供统计与诊断回看 */
 export function recordTabFimFailure(endpoint: string, status: number | string, reason: string): void {
-	const stats = loadStats();
-	const fim = fimStoreOf(stats);
-	fim.failures++;
-	fim.lastFailure = { at: new Date().toISOString(), endpoint, status, reason };
-	stats.updatedAt = new Date().toISOString();
-	saveStats(stats);
+	const at = new Date().toISOString();
+	enqueue(stats => {
+		const fim = fimStoreOf(stats);
+		fim.failures++;
+		fim.lastFailure = { at, endpoint, status, reason };
+	});
 }
 
 /** 记录一次因熔断（端点此前返回 4xx）而被跳过的 FIM 请求 */
 export function recordTabFimSkip(endpoint: string): void {
-	const stats = loadStats();
-	const fim = fimStoreOf(stats);
-	fim.skips++;
-	fim.lastSkipAt = new Date().toISOString();
-	fim.lastSkipEndpoint = endpoint;
-	stats.updatedAt = new Date().toISOString();
-	saveStats(stats);
+	const at = new Date().toISOString();
+	enqueue(stats => {
+		const fim = fimStoreOf(stats);
+		fim.skips++;
+		fim.lastSkipAt = at;
+		fim.lastSkipEndpoint = endpoint;
+	});
 }
 
 /** 记录一次补全接受 */
 export function recordTabAccept(mode: string): void {
-	const stats = loadStats();
-	stats.total.accepted++;
-	entryOf(stats, mode).accepted++;
-	stats.updatedAt = new Date().toISOString();
-	saveStats(stats);
+	enqueue(stats => {
+		stats.total.accepted++;
+		entryOf(stats, mode).accepted++;
+	});
 }
 
 /** 当前统计（供路由/面板参考） */
 export function getTabCompletionStats(): TabCompletionStats {
+	flushTabCompletionStats();
 	return loadStats();
 }
 
@@ -140,7 +169,7 @@ function rateOf(e: StatsEntry): number {
 
 /** 展示补全统计（Markdown 文档）；blockedEndpoint 来自 tabCompletion 的会话级 FIM 熔断状态 */
 export async function showTabCompletionStats(blockedEndpoint?: string): Promise<void> {
-	const stats = loadStats();
+	const stats = getTabCompletionStats();
 	const modes = Object.keys(stats.byMode).sort();
 	const rows = modes.map(m => {
 		const e = stats.byMode[m];

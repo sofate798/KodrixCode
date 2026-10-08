@@ -22,6 +22,7 @@ import {
 	showTabCompletionStats,
 	recordTabFimFailure,
 	recordTabFimSkip,
+	flushTabCompletionStats,
 } from './tabCompletionStats';
 import { logger } from '../logger';
 import {
@@ -30,6 +31,11 @@ import {
 	TAB_COMPLETION_TIMEOUT_MS,
 	TAB_COMPLETION_CONTEXT_LINES,
 	TAB_COMPLETION_MAX_RESULT_CHARS,
+	TAB_COMPLETION_DEBOUNCE_MS,
+	TAB_COMPLETION_PREFIX_LINES,
+	TAB_COMPLETION_SUFFIX_LINES,
+	TAB_COMPLETION_MAX_PREFIX_CHARS,
+	TAB_COMPLETION_MAX_SUFFIX_CHARS,
 	TAB_COMPLETION_MODE_FIM,
 	TAB_COMPLETION_FIM_ENABLED_DEFAULT,
 	FIM_DEFAULT_ENDPOINT,
@@ -39,6 +45,7 @@ import {
 	FIM_TEMPERATURE,
 } from '../shared/constants';
 import { getFimApiKey } from '../secretStorage';
+import { isSafeApiEndpoint } from '../utils/endpointSafety';
 
 /** 补全上下文 */
 export interface CompletionContext {
@@ -56,6 +63,8 @@ export interface FimOptions {
 	apiKey: string;
 	model: string;
 	timeoutMs?: number;
+	/** 编辑器取消（继续击键 / 光标移动）时中止请求 */
+	token?: vscode.CancellationToken;
 }
 
 /** 补全实际产出通道（区别于配置的 mode：降级时配置为 fim、实际产出为 fast） */
@@ -138,6 +147,11 @@ export async function provideFimCompletion(ctx: CompletionContext, opts: FimOpti
 	if (!opts.apiKey.trim() || !opts.endpoint.trim()) {
 		return undefined;
 	}
+	if (!isSafeApiEndpoint(opts.endpoint)) {
+		logger.warn(`[TabCompletion] FIM 端点不是 https（或回环 http），已拒绝发送 API Key：${opts.endpoint}`);
+		recordTabFimSkip(opts.endpoint);
+		return undefined;
+	}
 	if (_fimBlockedEndpoint === opts.endpoint) {
 		logger.warn(`[TabCompletion] FIM 端点 ${opts.endpoint} 此前返回 4xx，本会话已跳过（不再重试）`);
 		recordTabFimSkip(opts.endpoint);
@@ -145,6 +159,7 @@ export async function provideFimCompletion(ctx: CompletionContext, opts: FimOpti
 	}
 	const ac = new AbortController();
 	const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? TAB_COMPLETION_TIMEOUT_MS);
+	const cancelSub = opts.token?.onCancellationRequested(() => ac.abort());
 	try {
 		const res = await fetch(opts.endpoint, {
 			method: 'POST',
@@ -183,23 +198,28 @@ export async function provideFimCompletion(ctx: CompletionContext, opts: FimOpti
 		}
 		return extractCompletion(text.slice(0, TAB_COMPLETION_MAX_RESULT_CHARS));
 	} catch (err) {
+		if (opts.token?.isCancellationRequested) {
+			return undefined;
+		}
 		const msg = err instanceof Error ? err.message : String(err);
 		logger.warn(`[TabCompletion] FIM 请求异常 endpoint=${opts.endpoint}: ${msg}`, err);
 		recordTabFimFailure(opts.endpoint, 'network', msg.slice(0, 300));
 		return undefined;
 	} finally {
 		clearTimeout(timer);
+		cancelSub?.dispose();
 	}
 }
 
 /** fast 通道：走模型路由 fast 档（原 Tab 补全逻辑） */
-async function provideFastCompletion(ctx: CompletionContext): Promise<string | undefined> {
+async function provideFastCompletion(ctx: CompletionContext, token?: vscode.CancellationToken): Promise<string | undefined> {
 	const routed = await routeModel({ tier: 'fast' });
-	if (!routed) {
+	if (!routed || token?.isCancellationRequested) {
 		return undefined;
 	}
 	const cts = new vscode.CancellationTokenSource();
 	const timer = setTimeout(() => cts.cancel(), TAB_COMPLETION_TIMEOUT_MS);
+	const cancelSub = token?.onCancellationRequested(() => cts.cancel());
 	try {
 		const response = await routed.model.sendRequest(
 			[vscode.LanguageModelChatMessage.User(buildCompletionPrompt(ctx))],
@@ -221,6 +241,7 @@ async function provideFastCompletion(ctx: CompletionContext): Promise<string | u
 		return undefined;
 	} finally {
 		clearTimeout(timer);
+		cancelSub?.dispose();
 		cts.dispose();
 	}
 }
@@ -245,7 +266,7 @@ function resolveFimEndpoint(cfg: vscode.WorkspaceConfiguration): string {
  * （失败/熔断自动降级 fast，且降级事件已记入日志与统计）；否则 fast 通道。
  * 未启用 / 无模型 / 失败时返回 undefined（调用方静默降级）。
  */
-export async function provideTabCompletionOutcome(ctx: CompletionContext): Promise<TabCompletionOutcome | undefined> {
+export async function provideTabCompletionOutcome(ctx: CompletionContext, token?: vscode.CancellationToken): Promise<TabCompletionOutcome | undefined> {
 	const cfg = vscode.workspace.getConfiguration(TAB_COMPLETION_CONFIG);
 	const enabled = cfg.get<boolean>(TAB_COMPLETION_CONFIG_KEYS.enabled, false);
 	if (!enabled) {
@@ -261,15 +282,18 @@ export async function provideTabCompletionOutcome(ctx: CompletionContext): Promi
 			if (apiKey) {
 				const endpoint = resolveFimEndpoint(cfg);
 				const model = cfg.get<string>(TAB_COMPLETION_CONFIG_KEYS.fimModel, FIM_DEFAULT_MODEL);
-				const fim = await provideFimCompletion(ctx, { endpoint, apiKey, model });
+				const fim = await provideFimCompletion(ctx, { endpoint, apiKey, model, token });
 				if (fim) {
 					return { text: fim, channel: 'fim' };
+				}
+				if (token?.isCancellationRequested) {
+					return undefined;
 				}
 				logger.warn('[TabCompletion] 本次补全 FIM 通道失败或已熔断，降级 fast 通道产出（详见 Kodrix: Tab 补全统计 → FIM 专线诊断）');
 			}
 		}
 	}
-	const fast = await provideFastCompletion(ctx);
+	const fast = await provideFastCompletion(ctx, token);
 	return fast ? { text: fast, channel: 'fast' } : undefined;
 }
 
@@ -286,21 +310,28 @@ export function registerTabCompletion(context: vscode.ExtensionContext): void {
 		vscode.languages.registerInlineCompletionItemProvider(
 			{ scheme: 'file' },
 			{
-				async provideInlineCompletionItems(document, position, _ctx, _token) {
+				async provideInlineCompletionItems(document, position, _ctx, token) {
 					const enabled = vscode.workspace.getConfiguration(TAB_COMPLETION_CONFIG)
 						.get<boolean>(TAB_COMPLETION_CONFIG_KEYS.enabled, false);
 					if (!enabled) {
 						return [];
 					}
-					const prefix = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
-					const lastLine = document.lineAt(Math.max(0, document.lineCount - 1)).range.end;
-					const suffix = document.getText(new vscode.Range(position, lastLine));
+					await new Promise(resolve => setTimeout(resolve, TAB_COMPLETION_DEBOUNCE_MS));
+					if (token.isCancellationRequested) {
+						return [];
+					}
+					const firstLine = Math.max(0, position.line - TAB_COMPLETION_PREFIX_LINES);
+					const lastLine = Math.min(document.lineCount - 1, position.line + TAB_COMPLETION_SUFFIX_LINES);
+					const prefix = document.getText(new vscode.Range(new vscode.Position(firstLine, 0), position))
+						.slice(-TAB_COMPLETION_MAX_PREFIX_CHARS);
+					const suffix = document.getText(new vscode.Range(position, document.lineAt(Math.max(0, lastLine)).range.end))
+						.slice(0, TAB_COMPLETION_MAX_SUFFIX_CHARS);
 					const outcome = await provideTabCompletionOutcome({
 						prefix,
 						suffix,
 						language: document.languageId,
-					});
-					if (!outcome) {
+					}, token);
+					if (!outcome || token.isCancellationRequested) {
 						return [];
 					}
 					_lastSuggestedChannel = outcome.channel;
@@ -320,5 +351,6 @@ export function registerTabCompletion(context: vscode.ExtensionContext): void {
 					.get<string>(TAB_COMPLETION_CONFIG_KEYS.mode, TAB_COMPLETION_MODE_FIM));
 		}),
 		vscode.commands.registerCommand('kodrix.tabCompletion.stats', () => showTabCompletionStats(getFimBlockedEndpoint())),
+		{ dispose: flushTabCompletionStats },
 	);
 }

@@ -55,7 +55,10 @@ class DiffGalleryPanel {
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
 		this._panel.webview.onDidReceiveMessage(
-			message => this._handleMessage(message),
+			message => this._handleMessage(message).catch(err => {
+				logger.warn('[DiffGallery] 处理面板消息失败', err);
+				void vscode.window.showErrorMessage(err instanceof Error ? err.message : String(err));
+			}),
 			null,
 			this._disposables,
 		);
@@ -95,7 +98,7 @@ class DiffGalleryPanel {
 		this._disposables = [];
 	}
 
-	private async _handleMessage(message: { command: string; relPath?: string; checkpointId?: string }): Promise<void> {
+	private async _handleMessage(message: { command: string; relPath?: string; checkpointId?: string; checkpointIdA?: string; which?: string }): Promise<void> {
 		switch (message.command) {
 			case 'selectFile':
 				if (message.relPath) {
@@ -120,8 +123,13 @@ class DiffGalleryPanel {
 				break;
 			case 'compareCheckpoints':
 				if (message.checkpointId) {
-					await this._loadComparison(this._galleryData.checkpointA?.id ?? '', message.checkpointId);
+					await this._loadComparison(message.checkpointIdA || this._galleryData.checkpointA?.id || '', message.checkpointId);
 				}
+				break;
+			case 'missingSelection':
+				void vscode.window.showWarningMessage(message.which === 'A'
+					? l10n.t('Please select checkpoint A')
+					: l10n.t('Please select checkpoint B'));
 				break;
 			case 'compareWithWorkspace':
 				if (message.checkpointId) {
@@ -640,13 +648,14 @@ class DiffGalleryPanel {
 		document.getElementById('btnCompare').addEventListener('click', function() {
 			const idA = selectA.value;
 			const idB = selectB.value;
-			if (!idA) { alert(${escapeJsonForScript(JSON.stringify(l10n.t('Please select checkpoint A')))}); return; }
-			if (!idB) { alert(${escapeJsonForScript(JSON.stringify(l10n.t('Please select checkpoint B')))}); return; }
+			// webview 沙箱没有 allow-modals，alert() 不会弹出：提示交给宿主侧
+			if (!idA || !idB) {
+				vscode.postMessage({ command: 'missingSelection', which: idA ? 'B' : 'A' });
+				return;
+			}
 			if (idB === '__workspace__') {
 				vscode.postMessage({ command: 'compareWithWorkspace', checkpointId: idA });
 			} else {
-				vscode.postMessage({ command: 'compareCheckpoints', checkpointId: idB });
-				// 需要先设置 A
 				vscode.postMessage({ command: 'compareCheckpoints', checkpointId: idB, checkpointIdA: idA });
 			}
 		});
@@ -666,7 +675,7 @@ class DiffGalleryPanel {
 		document.getElementById('btnRollback').addEventListener('click', function() {
 			const idB = selectB.value;
 			if (!idB || idB === '__workspace__') {
-				alert(${escapeJsonForScript(JSON.stringify(l10n.t('Please select checkpoint B')))});
+				vscode.postMessage({ command: 'missingSelection', which: 'B' });
 				return;
 			}
 			vscode.postMessage({ command: 'rollbackTo', checkpointId: idB });

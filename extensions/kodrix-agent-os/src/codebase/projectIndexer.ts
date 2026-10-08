@@ -1463,6 +1463,24 @@ export function resumeIndexBuild(): void {
 	);
 }
 
+/** 索引面板 / 设置页开关允许写入的 kodrix.codebase.* 键（webview 消息不可信，不能透传任意键） */
+export const CODEBASE_TOGGLE_KEYS: ReadonlySet<string> = new Set(['autoIndexNewFolders', 'ignoreCursorignore', 'grepIndex']);
+
+/** 面板入口删除索引：先宿主侧模态确认（webview 沙箱无 allow-modals，页面内 confirm() 恒为 false） */
+export async function confirmAndDeleteProjectIndex(): Promise<boolean> {
+	const deleteLabel = l10n.t('Delete');
+	const choice = await vscode.window.showWarningMessage(
+		l10n.t('Delete the codebase index? You will need to rebuild it afterwards.'),
+		{ modal: true },
+		deleteLabel,
+	);
+	if (choice !== deleteLabel) {
+		return false;
+	}
+	await deleteProjectIndex();
+	return true;
+}
+
 /** 删除项目索引（面板 删除索引）：中止构建、清空内存与磁盘索引 */
 export async function deleteProjectIndex(): Promise<void> {
 	invalidateInFlightBuild();

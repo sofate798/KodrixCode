@@ -182,6 +182,7 @@
         "kodrix.updateCheck.feedUrl": {
           "type": "string",
           "default": "https://api.github.com/repos/sofate798/KodrixCode/releases/latest",
+          "scope": "application",
           "description": "%config.updateCheck.feedUrl.description%"
         },
         "kodrix.updateCheck.includePrerelease": {

@@ -590,7 +590,7 @@
 		const el = document.getElementById('importStatus');
 		const notes = (data && data.notes) ? data.notes : [];
 		const noteHtml = notes.length
-			? '<div class="import-list" style="margin-bottom:12px;">' + notes.map(n => '<div class="import-item">' + ki('info') + ' ' + n + '</div>').join('') + '</div>'
+			? '<div class="import-list" style="margin-bottom:12px;">' + notes.map(n => '<div class="import-item">' + ki('info') + ' ' + escapeHtml(n) + '</div>').join('') + '</div>'
 			: '';
 
 		if (!data || !data.items || !data.items.length) {
@@ -608,7 +608,7 @@
 			'<span style="font-size:13px;color:var(--success);">' + L10N.itemsImportable + '</span>' +
 			'</div>' +
 			'<div class="import-list">' +
-			items.map(i => '<div class="import-item">' + ki('pass') + ' ' + i + '</div>').join('') +
+			items.map(i => '<div class="import-item">' + ki('pass') + ' ' + escapeHtml(i) + '</div>').join('') +
 			more +
 			'</div>';
 	}

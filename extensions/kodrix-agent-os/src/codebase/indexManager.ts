@@ -19,7 +19,8 @@ import {
 	getIndexState,
 	pauseIndexBuild,
 	resumeIndexBuild,
-	deleteProjectIndex,
+	confirmAndDeleteProjectIndex,
+	CODEBASE_TOGGLE_KEYS,
 	ensureProjectIndex,
 	startIndexWatcher,
 	disposeIndexWatcher,
@@ -98,7 +99,7 @@ function openIndexManagerPanel(): void {
 					resumeIndexBuild();
 					break;
 				case 'delete':
-					await deleteProjectIndex();
+					await confirmAndDeleteProjectIndex();
 					break;
 				case 'rebuild':
 					void ensureProjectIndex(true, { manual: true }).catch(err => {
@@ -157,7 +158,11 @@ function buildPanelState() {
 
 // ── 配置开关处理 ──────────────────────────────────────────────
 
-async function handleToggle(key: string, value: boolean): Promise<void> {
+async function handleToggle(key: unknown, value: unknown): Promise<void> {
+	if (typeof key !== 'string' || !CODEBASE_TOGGLE_KEYS.has(key) || typeof value !== 'boolean') {
+		logger.warn(`[IndexManager] Rejected unknown toggle: ${String(key)}`);
+		return;
+	}
 	await setCfg(key, value);
 
 	if (key === 'grepIndex') {
@@ -507,9 +512,7 @@ $('rebuildBtn').addEventListener('click', () => {
 	vscode.postMessage({ type: 'rebuild' });
 });
 $('deleteBtn').addEventListener('click', () => {
-	if (confirm(${jsJson(l10n.t('Delete the codebase index? You will need to rebuild it afterwards.'))})) {
-		vscode.postMessage({ type: 'delete' });
-	}
+	vscode.postMessage({ type: 'delete' });
 });
 $('editCursorignore').addEventListener('click', () => {
 	vscode.postMessage({ type: 'editCursorignore' });

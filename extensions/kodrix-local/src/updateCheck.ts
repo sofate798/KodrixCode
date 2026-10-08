@@ -52,6 +52,18 @@ export function compareVersions(left: string, right: string): -1 | 0 | 1 {
 	return 0;
 }
 
+/** 只接受 https 链接：载荷里的地址会交给 openExternal，不能是 file:/http:/自定义协议 */
+export function httpsUrlOrUndefined(raw: unknown): string | undefined {
+	if (typeof raw !== 'string') {
+		return undefined;
+	}
+	try {
+		return new URL(raw).protocol === 'https:' ? raw : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 /** 从 releases/latest 的 JSON 里挑出当前平台可用的安装包 */
 function pickAssetUrl(assets: unknown): string | undefined {
 	if (!Array.isArray(assets)) {
@@ -63,8 +75,8 @@ function pickAssetUrl(assets: unknown): string | undefined {
 			: /linux|\.deb$|\.rpm$|\.tar\.gz$/i;
 	for (const asset of assets) {
 		const name = (asset as { name?: string })?.name;
-		const url = (asset as { browser_download_url?: string })?.browser_download_url;
-		if (name && url && wanted.test(name)) {
+		const url = httpsUrlOrUndefined((asset as { browser_download_url?: unknown })?.browser_download_url);
+		if (typeof name === 'string' && url && wanted.test(name)) {
 			return url;
 		}
 	}
@@ -86,7 +98,7 @@ export function parseRelease(raw: unknown): ReleaseInfo | undefined {
 	return {
 		tag: item.tag_name.trim(),
 		version: normalizeVersion(item.tag_name),
-		htmlUrl: typeof item.html_url === 'string' ? item.html_url : '',
+		htmlUrl: httpsUrlOrUndefined(item.html_url) ?? '',
 		publishedAt: typeof item.published_at === 'string' ? item.published_at : undefined,
 		draft: item.draft === true,
 		prerelease: item.prerelease === true,
@@ -98,7 +110,7 @@ function readConfig() {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
 	return {
 		enabled: config.get<boolean>('enabled', true),
-		feedUrl: config.get<string>('feedUrl', DEFAULT_FEED_URL).trim() || DEFAULT_FEED_URL,
+		feedUrl: httpsUrlOrUndefined(config.get<string>('feedUrl', DEFAULT_FEED_URL).trim()) ?? DEFAULT_FEED_URL,
 		intervalHours: Math.max(1, config.get<number>('intervalHours', 24)),
 		includePrerelease: config.get<boolean>('includePrerelease', false),
 	};

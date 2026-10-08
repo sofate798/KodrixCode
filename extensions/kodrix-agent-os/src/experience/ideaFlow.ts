@@ -173,8 +173,73 @@ function loadState(): IdeaFlowState | undefined {
 	const p = getIdeaFlowPath();
 	if (!p || !fs.existsSync(p)) {return undefined;}
 	try {
-		return JSON.parse(fs.readFileSync(p, 'utf-8')) as IdeaFlowState;
+		return normalizeIdeaFlowState(JSON.parse(fs.readFileSync(p, 'utf-8')));
 	} catch { return undefined; }
+}
+
+const stringList = (v: unknown): string[] =>
+	Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()).map(x => x.trim()) : [];
+const oneOf = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
+	allowed.includes(v as T) ? v as T : fallback;
+
+const COMPLEXITIES = ['low', 'medium', 'high'] as const;
+const CREW_ROLES: readonly AgentRole[] = ['architect', 'coder', 'reviewer', 'tester', 'devops', 'custom'];
+const WORKFLOW_TYPES: readonly WorkflowType[] = ['sequential', 'parallel', 'review-gate'];
+const IDEA_PHASES: readonly IdeaPhase[] = ['idle', 'idea-capture', 'idea-analysis', 'auto-planning', 'crew-building',
+	'build-in-progress', 'preview-ready', 'product-intelligence', 'error'];
+
+/** 预览地址只允许本机 dev server（打开的是 Simple Browser / 外部浏览器，不能被状态文件指向任意站点或协议） */
+export function isLocalPreviewUrl(raw: unknown): raw is string {
+	if (typeof raw !== 'string') {
+		return false;
+	}
+	try {
+		const url = new URL(raw);
+		return (url.protocol === 'http:' || url.protocol === 'https:')
+			&& ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase());
+	} catch {
+		return false;
+	}
+}
+
+/** LLM 输出 / 状态文件里的分析结果逐字段校验：类型不符回退默认，避免画布与后续 .join() 崩溃 */
+export function normalizeIdeaAnalysis(raw: unknown, idea: string): IdeaAnalysis {
+	const p = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+	const techStack = stringList(p.techStack);
+	const features = stringList(p.features);
+	const roles = stringList(p.suggestedCrewRoles).filter((r): r is AgentRole => CREW_ROLES.includes(r as AgentRole));
+	const files = typeof p.estimatedFiles === 'number' && Number.isFinite(p.estimatedFiles) ? Math.round(p.estimatedFiles) : 10;
+	return {
+		appName: (typeof p.appName === 'string' && p.appName.trim())
+			|| idea.split(/\s+/).slice(0, 3).join('-').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'app',
+		description: typeof p.description === 'string' && p.description.trim() ? p.description : idea,
+		techStack: techStack.length ? techStack : ['React', 'Vite', 'Tailwind CSS'],
+		architecture: typeof p.architecture === 'string' && p.architecture.trim() ? p.architecture : 'Web Application',
+		features: features.length ? features.slice(0, IDEA_FLOW_FEATURES_MAX) : ['Core functionality'],
+		estimatedFiles: Math.min(1000, Math.max(1, files)),
+		complexity: oneOf(p.complexity, COMPLEXITIES, 'medium'),
+		suggestedCrewRoles: roles.length ? roles : ['architect', 'coder', 'tester'],
+		workflowType: oneOf(p.workflowType, WORKFLOW_TYPES, 'sequential'),
+	};
+}
+
+function normalizeIdeaFlowState(raw: unknown): IdeaFlowState | undefined {
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+		return undefined;
+	}
+	const s = raw as Record<string, unknown>;
+	const idea = typeof s.idea === 'string' ? s.idea : '';
+	const now = new Date().toISOString();
+	return {
+		...(s as unknown as IdeaFlowState),
+		phase: oneOf(s.phase, IDEA_PHASES, 'idle'),
+		idea,
+		analysis: s.analysis === undefined ? undefined : normalizeIdeaAnalysis(s.analysis, idea),
+		startedAt: typeof s.startedAt === 'string' ? s.startedAt : now,
+		updatedAt: typeof s.updatedAt === 'string' ? s.updatedAt : now,
+		buildLogs: stringList(s.buildLogs).slice(-IDEA_FLOW_MAX_LOGS),
+		previewUrl: isLocalPreviewUrl(s.previewUrl) ? s.previewUrl : undefined,
+	};
 }
 
 // ── Idea Canvas Webview ────────────────────────────────────────
@@ -210,7 +275,6 @@ body{font-family:var(--vscode-font-family,sans-serif);font-size:13px;background:
 <h2>Idea Canvas</h2>
 <p>${l10n.t('Failed to load the resource file. Compile the extension and try again.')}</p>
 </div>
-<script>var vscode=acquireVsCodeApi();vscode.postMessage({command:'ready'});</script>
 </body>
 </html>`;
 }
@@ -243,12 +307,15 @@ export async function openIdeaCanvas(context: vscode.ExtensionContext): Promise<
 	panel.webview.html = getCanvasHtml(panel.webview, context.extensionPath);
 
 	panel.webview.onDidReceiveMessage(msg => {
-		void handleCanvasMessage(msg, context);
+		handleCanvasMessage(msg, context).catch(err => {
+			logger.warn('[IdeaFlow] 处理画布消息失败', err);
+			void vscode.window.showErrorMessage(l10n.t('Idea Flow error: {0}', err instanceof Error ? err.message : String(err)));
+		});
 	});
 
+	// 关闭画布只丢面板引用：构建轮询 / 超时 / 预览计时器属于管线本身，继续在后台推进
 	panel.onDidDispose(() => {
 		activeCanvas = undefined;
-		cleanupTimers();
 	});
 
 	// Restore state if exists
@@ -422,18 +489,7 @@ async function performIdeaAnalysis(idea: string): Promise<void> {
 		}
 
 		const jsonStr = extractBalancedJson(fullText);
-		const parsed = JSON.parse(jsonStr) as Partial<IdeaAnalysis>;
-		const analysis: IdeaAnalysis = {
-			appName: parsed.appName || idea.split(/\s+/).slice(0, 3).join('-').toLowerCase().replace(/[^a-z0-9-]/g, ''),
-			description: idea,
-			techStack: parsed.techStack || ['React', 'Vite', 'Tailwind CSS'],
-			architecture: parsed.architecture || 'Web Application',
-			features: parsed.features || ['Core functionality'],
-			estimatedFiles: parsed.estimatedFiles || 10,
-			complexity: parsed.complexity || 'medium',
-			suggestedCrewRoles: parsed.suggestedCrewRoles || ['architect', 'coder', 'tester'],
-			workflowType: parsed.workflowType || 'sequential',
-		};
+		const analysis = normalizeIdeaAnalysis({ ...JSON.parse(jsonStr), description: idea }, idea);
 		requireCurrentState().analysis = analysis;
 		updateState({ analysis });
 		pushLog(l10n.t('Analysis complete! Project: {0} ({1} complexity, about {2} files)', analysis.appName, analysis.complexity, analysis.estimatedFiles));
@@ -753,6 +809,7 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 		const running = updatedCrew.tasks.filter(t => t.status === 'running');
 		const pending = updatedCrew.tasks.filter(t => t.status === 'pending');
 		const completed = updatedCrew.tasks.filter(t => t.status === 'completed');
+		const failed = updatedCrew.tasks.filter(t => t.status === 'failed');
 
 		if (running.length === 0 && pending.length > 0) {
 			const nextTask = pending[0];
@@ -765,17 +822,22 @@ async function launchCrewBuild(_context: vscode.ExtensionContext): Promise<void>
 			const nextAgent = updatedCrew.agents.find(a => a.role === nextTask.assignedRole);
 			const nextRolePrompt = nextAgent?.systemPrompt || `执行任务：${nextTask.title}`;
 
-			vscode.commands.executeCommand(COMMANDS.chatOpen, {
+			Promise.resolve(vscode.commands.executeCommand(COMMANDS.chatOpen, {
 				mode: 'agent',
 				query: `[Idea Flow - ${crew.name}]\n\n## 任务 (${completed.length + 1}/${crew.tasks.length}): ${nextTask.title}\n${nextTask.description ? `\n${nextTask.description}\n` : ''}\n## 角色指令\n${nextRolePrompt}\n\n## 项目背景\n${currentState?.idea}\n\n完成后请执行「Kodrix: 标记 Crew 任务完成」。`,
 				isPartialQuery: false,
-			});
+			})).catch(err => logger.warn('[IdeaFlow] 打开下一任务的 Agent 会话失败', err));
 			pushLog(l10n.t('Task {0}/{1}: "{2}" started', completed.length + 1, crew.tasks.length, nextTask.title));
+			return;
 		}
 
-		if (completed.length === updatedCrew.tasks.length && running.length === 0) {
+		// 失败任务也算终态：否则任一任务失败后轮询永远等不到「全部完成」，直到 30 分钟超时
+		if (completed.length + failed.length === updatedCrew.tasks.length && running.length === 0) {
 			clearInterval(_pollInterval!);
 			_pollInterval = undefined;
+			if (failed.length > 0) {
+				pushLog(l10n.t('{0} tasks failed; check Crew status for details', failed.length));
+			}
 			void handleBuildComplete();
 		}
 	}, IDEA_FLOW_POLL_INTERVAL_MS);
@@ -949,7 +1011,7 @@ async function captureProductIntelligence(): Promise<void> {
  */
 async function openIdeaPreview(): Promise<void> {
 	const url = currentState?.previewUrl;
-	if (!url) {
+	if (!isLocalPreviewUrl(url)) {
 		vscode.window.showWarningMessage(l10n.t('No preview available. Complete the build first.'));
 		return;
 	}

@@ -1009,7 +1009,7 @@
 				"kodrix.tabCompletion.fimEndpoint": {
 					"type": "string",
 					"default": "https://api.deepseek.com/beta/fim/completions",
-					"scope": "window",
+					"scope": "application",
 					"markdownDescription": "%config.tabCompletion.fimEndpoint.markdownDescription%"
 				},
 				"kodrix.tabCompletion.fimApiKey": {
@@ -1020,6 +1020,7 @@
 				"kodrix.tabCompletion.fimModel": {
 					"type": "string",
 					"default": "deepseek-chat",
+					"scope": "application",
 					"markdownDescription": "%config.tabCompletion.fimModel.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.enabled": {
@@ -1035,11 +1036,13 @@
 				"kodrix.semanticEmbedding.endpoint": {
 					"type": "string",
 					"default": "https://open.bigmodel.cn/api/paas/v4/embeddings",
+					"scope": "application",
 					"markdownDescription": "%config.semanticEmbedding.endpoint.markdownDescription%"
 				},
 				"kodrix.semanticEmbedding.model": {
 					"type": "string",
 					"default": "embedding-3",
+					"scope": "application",
 					"markdownDescription": "%config.semanticEmbedding.model.markdownDescription%"
 				},
 				"kodrix.agentLoop.checkpoint": {

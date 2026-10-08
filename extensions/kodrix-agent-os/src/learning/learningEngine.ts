@@ -110,10 +110,10 @@ function appendLearningLog(entry: LearningEntry): void {
 	ensureDir(getMemoryDir());
 	fs.appendFileSync(logPath, `${JSON.stringify(entry)}\n`, 'utf-8');
 
-	// 文件超限时使用原子写入压缩（保留最新 200 条）
+	// 文件超限时使用原子写入压缩（保留最新 200 行原文：损坏行也原样保留，与编辑/删除的承诺一致）
 	if (fs.statSync(logPath).size > MAX_LEARNING_LOG_BYTES) {
-		const kept = readLearningLog().slice(-200);
-		atomicWriteFileSync(logPath, kept.map(e => JSON.stringify(e)).join('\n') + '\n');
+		const kept = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean).slice(-200);
+		atomicWriteFileSync(logPath, kept.join('\n') + '\n');
 	}
 }
 
@@ -289,7 +289,7 @@ export async function showLearningDashboard(context?: vscode.ExtensionContext): 
 			handleEditEntry(String(msg.id), String(msg.content));
 		}
 		if (msg.command === 'delete' && isRecord(msg) && isString(msg.id)) {
-			handleDeleteEntry(String(msg.id));
+			void confirmDeleteEntry(String(msg.id)).catch(err => logger.warn('[LearningEngine] 删除条目失败', err));
 		}
 	});
 
@@ -352,6 +352,10 @@ function pushLearningDashboard(): void {
 }
 
 
+function rebuildIndexInBackground(): void {
+	rebuildIndex().catch(err => logger.warn('[LearningEngine] 语义索引重建失败', err));
+}
+
 /** 编辑学习条目：更新 learning.jsonl 中对应条目并重建索引 */
 function handleEditEntry(id: string, content: string): void {
 	const logPath = getLearningLogPath();
@@ -377,11 +381,24 @@ function handleEditEntry(id: string, content: string): void {
 	if (found) {
 		atomicWriteFileSync(logPath, updated.join('\n') + '\n');
 		invalidateEntryCache();
-		void rebuildIndex();
+		rebuildIndexInBackground();
 		scheduleSyncInstructions();
 		notifyContextChanged();
 		pushLearningDashboard();
 		logger.info(`[LearningEngine] 条目已编辑: ${id}`);
+	}
+}
+
+async function confirmDeleteEntry(id: string): Promise<void> {
+	const entry = readLearningLog().find(e => e.id === id);
+	if (!entry) {
+		return;
+	}
+	const preview = entry.content.length > 120 ? `${entry.content.slice(0, 120)}…` : entry.content;
+	const deleteLabel = l10n.t('Delete');
+	const choice = await vscode.window.showWarningMessage(l10n.t('Delete this entry?'), { modal: true, detail: preview }, deleteLabel);
+	if (choice === deleteLabel) {
+		handleDeleteEntry(id);
 	}
 }
 
@@ -408,7 +425,7 @@ function handleDeleteEntry(id: string): void {
 	if (removed) {
 		atomicWriteFileSync(logPath, kept.join('\n') + '\n');
 		invalidateEntryCache();
-		void rebuildIndex();
+		rebuildIndexInBackground();
 		scheduleSyncInstructions();
 		notifyContextChanged();
 		pushLearningDashboard();
@@ -430,7 +447,7 @@ export function registerLearningEngine(context: vscode.ExtensionContext): void {
 	const rebuildTimer = setTimeout(() => {
 		try {
 			if (readLearningLog().length > 0 && getSemanticStats().totalVectors === 0) {
-				void rebuildIndex();
+				rebuildIndexInBackground();
 			}
 		} catch (err) {
 			logger.warn('[LearningEngine] 启动时重建语义索引失败', err);

@@ -60,6 +60,20 @@ suite('发布版本检查 — 版本比较与载荷解析', () => {
 		assert.strictEqual(release.draft, false);
 	});
 
+	test('parseRelease 丢弃非 https 的发行说明与安装包链接', () => {
+		const exe = process.platform === 'win32' ? 'Kodrix-Setup.exe' : process.platform === 'darwin' ? 'Kodrix-darwin.zip' : 'Kodrix-linux.tar.gz';
+		const release = updateCheck.parseRelease({
+			tag_name: 'v9.0.0',
+			html_url: 'file:///C:/Windows/System32/calc.exe',
+			assets: [{ name: exe, browser_download_url: 'http://evil.example/x' }],
+		});
+
+		assert.strictEqual(release.htmlUrl, '');
+		assert.strictEqual(release.assetUrl, undefined);
+		assert.strictEqual(updateCheck.httpsUrlOrUndefined('https://github.com/a'), 'https://github.com/a');
+		assert.strictEqual(updateCheck.httpsUrlOrUndefined('javascript:alert(1)'), undefined);
+	});
+
 	test('parseRelease 标记预发布，由调用方决定是否提示', () => {
 		const release = updateCheck.parseRelease({ tag_name: 'v2.0.0-rc1', prerelease: true });
 

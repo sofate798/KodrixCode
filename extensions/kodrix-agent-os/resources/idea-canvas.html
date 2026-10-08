@@ -570,7 +570,7 @@
 		</div>
 	</div>
 
-	<div class="footer">Idea Flow — {{l10n:Bring software development back to the idea itself}} · <a href="#" onclick="post('openStatus',{});return false;">{{l10n:View Status}}</a></div>
+	<div class="footer">Idea Flow — {{l10n:Bring software development back to the idea itself}} · <a href="#" id="openStatusLink">{{l10n:View Status}}</a></div>
 </div>
 
 <script nonce="{{nonce}}">
@@ -582,6 +582,12 @@
 
 	const ideaInput = document.getElementById('ideaInput');
 	const ideaPreview = document.getElementById('ideaPreview');
+
+	// nonce CSP 下内联 onclick 不会执行：全部用 addEventListener / 事件委托
+	document.getElementById('openStatusLink').addEventListener('click', e => { e.preventDefault(); post('openStatus', {}); });
+	document.getElementById('previewContent').addEventListener('click', e => {
+		if (e.target.closest('[data-action="openPreview"]')) { e.preventDefault(); post('openPreview', {}); }
+	});
 
 	// ── Voice Input ──
 	const voiceBtn = document.getElementById('voiceBtn');
@@ -714,15 +720,15 @@
 				{ label: '{{l10n:Application name}}', value: escapeHtml(a.appName) },
 				{ label: '{{l10n:Complexity}}', value: a.complexity === 'high' ? '<i class="codicon codicon-circle-filled ki-warn" aria-hidden="true"></i> {{l10n:High}}' : a.complexity === 'medium' ? '<i class="codicon codicon-circle-filled ki-mid" aria-hidden="true"></i> {{l10n:Medium}}' : '<i class="codicon codicon-circle-filled ki-ok" aria-hidden="true"></i> {{l10n:Low}}' },
 				{ label: '{{l10n:Architecture}}', value: escapeHtml(a.architecture) },
-				{ label: '{{l10n:Estimated files}}', value: fmt('{{l10n:{0} items}}', a.estimatedFiles) },
+				{ label: '{{l10n:Estimated files}}', value: fmt('{{l10n:{0} items}}', escapeHtml(a.estimatedFiles)) },
 			].map(item => '<div class="analysis-item"><div class="ai-label">' + item.label + '</div><div class="ai-value">' + item.value + '</div></div>').join('');
 
 			// Tech badges
 			const badges = document.getElementById('techBadges');
-			badges.innerHTML = a.techStack.map(t => '<span class="tech-badge">' + escapeHtml(t) + '</span>').join('');
+			badges.innerHTML = (Array.isArray(a.techStack) ? a.techStack : []).map(t => '<span class="tech-badge">' + escapeHtml(t) + '</span>').join('');
 
 			// Features
-			if (a.features && a.features.length) {
+			if (Array.isArray(a.features) && a.features.length) {
 				document.getElementById('featuresPanel').style.display = 'block';
 				const fl = document.getElementById('featureList');
 				fl.innerHTML = a.features.map((f, i) =>
@@ -753,7 +759,7 @@
 		if (s.previewUrl) {
 			document.getElementById('previewPanel').style.display = 'block';
 			document.getElementById('previewContent').innerHTML =
-				'<div class="preview-content"><span class="preview-url" onclick="post(\'openPreview\',{});return false;"><i class="codicon codicon-link" aria-hidden="true"></i> ' + escapeHtml(s.previewUrl) + '</span><button class="preview-open-btn" onclick="post(\'openPreview\',{});">{{l10n:Open Preview}}</button></div>';
+				'<div class="preview-content"><span class="preview-url" data-action="openPreview"><i class="codicon codicon-link" aria-hidden="true"></i> ' + escapeHtml(s.previewUrl) + '</span><button class="preview-open-btn" data-action="openPreview">{{l10n:Open Preview}}</button></div>';
 		} else if (s.phase === 'build-in-progress' || s.phase === 'preview-ready' || s.phase === 'product-intelligence') {
 			document.getElementById('previewPanel').style.display = 'block';
 		}

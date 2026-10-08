@@ -183,8 +183,7 @@ function matchBlockCompletion(prefix: string, suffix: string): string | null {
 // ── 补全提供者 ────────────────────────────────────────────────
 
 class ProjectAwareCompletionProvider implements vscode.InlineCompletionItemProvider {
-	private _lastCallTime = 0;
-	private readonly _minCallInterval = 200; // ms between calls
+	private readonly _debounceMs = 200;
 
 	async provideInlineCompletionItems(
 		document: vscode.TextDocument,
@@ -192,10 +191,8 @@ class ProjectAwareCompletionProvider implements vscode.InlineCompletionItemProvi
 		_context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken,
 	): Promise<vscode.InlineCompletionItem[]> {
-		// 节流：避免每次击键都触发完整搜索
-		const now = Date.now();
-		if (now - this._lastCallTime < this._minCallInterval) {return [];}
-		this._lastCallTime = now;
+		// 防抖而非节流：新击键会取消上一次请求，停顿后最后一次击键必定得到补全（节流会丢掉它）
+		await new Promise(resolve => setTimeout(resolve, this._debounceMs));
 
 		const items: vscode.InlineCompletionItem[] = [];
 		if (token.isCancellationRequested) {return items;}

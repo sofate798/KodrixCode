@@ -149,8 +149,20 @@ const mockVscode = {
 		constructor(public start: { line: number; character: number }, public end: { line: number; character: number }) { /* no-op */ }
 	},
 	CancellationTokenSource: class {
-		token = { isCancellationRequested: false };
-		cancel() { this.token.isCancellationRequested = true; }
+		private _listeners: Array<() => void> = [];
+		token = {
+			isCancellationRequested: false,
+			onCancellationRequested: (fn: () => void) => {
+				this._listeners.push(fn);
+				return { dispose: () => { this._listeners = this._listeners.filter(l => l !== fn); } };
+			},
+		};
+		cancel() {
+			if (!this.token.isCancellationRequested) {
+				this.token.isCancellationRequested = true;
+				for (const fn of this._listeners) { fn(); }
+			}
+		}
 		dispose() { /* no-op */ }
 	},
 	LanguageModelTextPart: class {

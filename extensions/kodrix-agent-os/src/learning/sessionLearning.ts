@@ -82,12 +82,24 @@ function parseInsightsFromModel(text: string): SessionInsight[] {
 		return [];
 	}
 	try {
-		const arr = JSON.parse(jsonMatch[0]) as SessionInsight[];
-		return arr.filter(i => i.content?.trim() && i.confidence !== 'low').slice(0, 3);
+		const arr: unknown = JSON.parse(jsonMatch[0]);
+		if (!Array.isArray(arr)) {
+			return [];
+		}
+		return arr
+			.filter((i): i is SessionInsight => isRecord(i) && isString(i.content) && !!i.content.trim() && i.confidence !== 'low')
+			.map(i => ({
+				content: i.content.trim(),
+				category: LEARNING_CATEGORIES.has(i.category) ? i.category : 'other',
+				confidence: i.confidence,
+			}))
+			.slice(0, 3);
 	} catch {
 		return [];
 	}
 }
+
+const LEARNING_CATEGORIES: ReadonlySet<string> = new Set<LearningCategory>(['architecture', 'convention', 'pattern', 'pitfall', 'preference', 'other']);
 
 async function distillInsights(transcriptText: string): Promise<SessionInsight[]> {
 	const models = await vscode.lm.selectChatModels({});
